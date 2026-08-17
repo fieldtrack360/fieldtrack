@@ -1,4 +1,4 @@
-# TrackIt — User Guide
+# FieldTrack — User Guide
 
 Everything a host app needs to integrate the SDK, in the order you will need it.
 
@@ -23,7 +23,7 @@ not the intended surface. Where a capability is planned but not shipped, it says
 
 ## 1. Install
 
-Group `com.devstree.trackit`, version `0.1.0`. `minSdk 26`, `compileSdk 37`, JDK 17.
+Group `com.github.fieldtrack360.fieldtrack`, version `0.1.1-alpha01`. `minSdk 26`, `compileSdk 37`, JDK 17.
 
 Nothing has been published to a remote repository yet. Until a release is cut, build the
 artifacts locally:
@@ -46,14 +46,14 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.devstree.trackit:trackit-core:0.1.0")   // required
-    implementation("com.devstree.trackit:trackit-geo:0.1.0")    // pulled in transitively; declare if you use the types directly
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-core:0.1.1-alpha01")   // required
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-geo:0.1.1-alpha01")    // pulled in transitively; declare if you use the types directly
 
     // Optional, add only what you use:
-    implementation("com.devstree.trackit:trackit-maps:0.1.0")   // Google Maps rendering
-    implementation("com.devstree.trackit:trackit-sync:0.1.0")   // HTTP upload queue
-    implementation("com.devstree.trackit:trackit-snap:0.1.0")   // OSRM map-matching
-    implementation("com.devstree.trackit:trackit-bridge:0.1.0") // Java + JSON facades
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-maps:0.1.1-alpha01")   // Google Maps rendering
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-sync:0.1.1-alpha01")   // HTTP upload queue
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-snap:0.1.1-alpha01")   // OSRM map-matching
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-bridge:0.1.1-alpha01") // Java + JSON facades
 
     // trackit-sync and trackit-snap declare OkHttp as compileOnly — supply your own:
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
@@ -1070,7 +1070,7 @@ than Kotlin types.
 
 ## 13. React Native
 
-npm package `@devstree/react-native-trackit`, version-locked to the Maven artifacts.
+npm package `@fieldtrack360/react-native-fieldtrack`, version-locked to the Maven artifacts.
 
 ```ts
 import * as TrackIt from '@devstree/react-native-trackit';

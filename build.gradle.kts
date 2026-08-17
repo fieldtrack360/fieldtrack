@@ -11,7 +11,12 @@ plugins {
 }
 
 val catalog = extensions.getByType(VersionCatalogsExtension::class.java).named("libs")
+group = "com.github.fieldtrack360.fieldtrack"
 version = catalog.findVersion("trackit").get().requiredVersion
+
+subprojects {
+    group = "com.github.fieldtrack360.fieldtrack"
+}
 
 tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
     group = "verification"

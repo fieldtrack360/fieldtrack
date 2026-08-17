@@ -40,8 +40,8 @@ truth = "1.4.5"
 
 [libraries]
 # --- Kotlin / coroutines ---
-trackit-all = { module = "com.github.devstree-prog.TrackIt:trackit-all", version.ref = "trackitAll" }
-trackit-sdk = { group = "com.devstree.trackit", name = "trackit-all", version.ref = "trackit" }
+#trackit-all = { module = "com.github.fieldtrack360.fieldtrack:trackit-all", version.ref = "trackitAll" }
+trackit-sdk = { group = "com.github.fieldtrack360.fieldtrack", name = "trackit-all", version.ref = "trackit" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }

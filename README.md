@@ -1,4 +1,4 @@
-# TrackIt
+# FieldTrack
 
 Background location tracking and track plotting SDK for Android.
 
@@ -12,7 +12,7 @@ Background location tracking and track plotting SDK for Android.
 
 **Android only, Kotlin only.** No iOS and no Flutter, permanently. The engine runs on Android and nowhere else. `trackit-geo` keeps a pure-Kotlin source boundary for local testing; its published form is an AAR, not a multiplatform artifact.
 
-Namespace and Maven group `com.devstree.trackit`. `minSdk 26`, `compileSdk 37`, JDK 17.
+Namespace com.devstree.trackit and Maven group com.github.fieldtrack360.fieldtrack. minSdk 26, compileSdk 37, JDK 17.
 
 ## Status
 
@@ -27,7 +27,7 @@ Namespace and Maven group `com.devstree.trackit`. `minSdk 26`, `compileSdk 37`, 
 
 Known gaps, stated rather than discovered:
 
-- **Nothing has been published to a remote yet.** The plumbing exists — six artifacts under `com.devstree.trackit`, with obfuscated AARs and javadoc jars but no source jars, and `./gradlew publishToMavenLocal` works with no configuration — but no repository URL is configured and no release has been cut. See [BUILD.md](docs/BUILD.md) §5.5.
+- **Nothing has been published to a remote yet.** The plumbing exists — six artifacts under `com.github.fieldtrack360.fieldtrack`, with obfuscated AARs and javadoc jars but no source jars, and `./gradlew publishToMavenLocal` works with no configuration — but no repository URL is configured and no release has been cut. See [BUILD.md](docs/BUILD.md) §5.5.
 - **Release mappings are archived locally, not published.** `./gradlew archiveReleaseMappings` copies the R8 outputs into `build/release-mappings/<version>/<module>/` for the release storage handoff described in [PROGUARD-SETUP.md](docs/PROGUARD-SETUP.md).
 - **`trackit-maps` has no tests.** It is thin by design — it consumes `Arrows.place()` and draws — but "thin" is not "verified", and nothing currently fails if it stops rendering.
 - **No fixture corpus.** The replay *harness* is done and used in tests (`FixtureReplay`), but no recorded field fixtures are committed. Constant tuning against real drives is phase 7.
@@ -82,7 +82,7 @@ There is deliberately no default `baseUrl` — see [API.md](docs/API.md) §3.
 ./gradlew :sample-android:installDebug
 ./gradlew verifyReleaseObfuscation                # inspect release AAR bytecode
 ./gradlew archiveReleaseMappings                  # collect R8 mappings for release storage
-./gradlew publishToMavenLocal                     # six artifacts, com.devstree.trackit
+./gradlew publishToMavenLocal                     # six artifacts, com.github.fieldtrack360.fieldtrack
 ./gradlew :sample-android:assembleRelease          # runs R8 over the SDK's consumer rules
 ```
 

@@ -1,6 +1,6 @@
-# TrackIt Developer Guide
+# FieldTrack Developer Guide
 
-Source-verified integration and API reference for TrackIt.
+Source-verified integration and API reference for FieldTrack.
 
 Version values used in this guide:
 
@@ -37,7 +37,7 @@ JSON contract, see [POLYLINE-JSON.md](POLYLINE-JSON.md).
 - `minSdk 26`
 - `compileSdk 37`
 - JDK 17
-- Maven group: `com.devstree.trackit`
+- Maven group: `com.github.fieldtrack360.fieldtrack`
 - Current version: `TRACKIT_VERSION`
 
 
@@ -56,7 +56,7 @@ dependencyResolutionManagement {
 
 Install the required artifact :
 ```kotlin
-implementation 'com.github.devstree-prog.TrackIt:trackit-all:TAG'
+implementation 'com.github.fieldtrack360.fieldtrack:trackit-all:TAG'
 implementation("com.squareup.okhttp3:okhttp:5.4.0")
 ```
 

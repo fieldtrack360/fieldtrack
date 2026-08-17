@@ -53,7 +53,7 @@ Then, depend on the umbrella artifact in `build.gradle.kts` (or using the Versio
 
 ```kotlin
 dependencies {
-    implementation("com.devstree.trackit:trackit-all:0.1.0")
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-all:0.1.1-alpha01")
 }
 ```
 
@@ -68,7 +68,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 2.  Locate the `trackit` variable in the `[versions]` section:
     ```toml
     [versions]
-    trackit = "0.1.0"
+    trackit = "0.1.1-alpha01"
     ```
 3.  Change the version string to your new version.
 4.  Run `./gradlew publishToMavenLocal` (or `publish`) to build artifacts with the new version.
@@ -103,15 +103,15 @@ dependencyResolutionManagement {
 }
 ```
 
-Then, add the dependency using the GitHub coordinates. JitPack maps the repository to the `com.github.devstree-prog` group:
+Then, add the dependency using the GitHub coordinates. JitPack maps the repository to the `com.github.fieldtrack360.fieldtrack` group:
 
 ```kotlin
 dependencies {
     // Umbrella artifact (includes all modules)
-    implementation("com.github.devstree-prog:trackit-all:v0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-all:v0.1.1-alpha01")
     
     // Or individual modules
-    implementation("com.github.devstree-prog:trackit-core:v0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:trackit-core:v0.1.1-alpha01")
 }
 ```
 
@@ -121,7 +121,7 @@ To push artifacts to a remote Maven repository, provide the destination URL and 
 
 ```bash
 ./gradlew publish \
-  -PtrackitMavenUrl=https://maven.pkg.github.com/devstree-prog/trackit \
+  -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
   -PtrackitMavenUser=YOUR_USER \
   -PtrackitMavenToken=YOUR_TOKEN
 ```

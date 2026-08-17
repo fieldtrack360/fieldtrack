@@ -1,8 +1,8 @@
-# TrackIt — API & Implementation Reference
+# FieldTrack — API & Implementation Reference
 
 Concrete code for every public surface and every load-bearing internal. This is the contract Kotlin and Java host apps consume.
 
-Namespace `com.devstree.trackit`. Toolchain matched to the reference app: AGP 9.3.1, Kotlin 2.4.10, Gradle 9.7.0, `compileSdk 37`, `minSdk 26`, JVM target 17.
+Namespace `com.devstree.trackit` (Maven group `com.github.fieldtrack360.fieldtrack`). Toolchain matched to the reference app: AGP 9.3.1, Kotlin 2.4.10, Gradle 9.7.0, `compileSdk 37`, `minSdk 26`, JVM target 17.
 
 ---
 
@@ -213,7 +213,7 @@ interface RoadSnapProvider {
 
 ```kotlin
 // build.gradle.kts — trackit-snap treats OkHttp as compileOnly, exactly like trackit-sync
-implementation("com.devstree.trackit:trackit-snap:<version>")
+implementation("com.github.fieldtrack360.fieldtrack:trackit-snap:<version>")
 implementation("com.squareup.okhttp3:okhttp:<version>")
 
 // There is deliberately NO default baseUrl. The OSRM demo server has no availability

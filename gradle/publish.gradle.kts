@@ -43,7 +43,7 @@ import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
  *
  * ```bash
  * ./gradlew publish \
- *   -PtrackitMavenUrl=https://maven.pkg.github.com/devstree-prog/trackit \
+ *   -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
  *   -PtrackitMavenUser=… -PtrackitMavenToken=…
  * ```
  *
@@ -64,7 +64,7 @@ val catalog = extensions
     .named("libs")
 
 // Respect properties passed by JitPack or CLI, with defaults from the catalog.
-group = (findProperty("group") as? String)?.takeIf { it != "unspecified" } ?: "com.devstree.trackit"
+group = "com.github.fieldtrack360.fieldtrack"
 version = (findProperty("version") as? String)?.takeIf { it != "unspecified" } ?: catalog.findVersion("trackit").get().requiredVersion
 
 /** Property first, environment second. CI sets the environment; a developer sets neither. */
@@ -96,7 +96,7 @@ afterEvaluate {
                 pom {
                     name.set(project.name)
                     description.set(pomDescription(project.name))
-                    url.set("https://github.com/devstree-prog/TrackIt")
+                    url.set("https://github.com/fieldtrack360/fieldtrack")
 
                     licenses {
                         license {
@@ -106,12 +106,12 @@ afterEvaluate {
                     }
                     developers {
                         developer {
-                            name.set("Devstree")
+                            name.set("FieldTrack360")
                         }
                     }
                     scm {
-                        url.set("https://github.com/devstree-prog/TrackIt")
-                        connection.set("scm:git:https://github.com/devstree-prog/TrackIt.git")
+                        url.set("https://github.com/fieldtrack360/fieldtrack")
+                        connection.set("scm:git:https://github.com/fieldtrack360/fieldtrack.git")
                     }
                 }
             }

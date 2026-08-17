@@ -280,7 +280,7 @@ Reports land in `<module>/build/reports/`. Lint's readable output is at
 ## 5.5 Publishing
 
 Six modules publish: `trackit-geo`, `trackit-core`, `trackit-maps`, `trackit-sync`,
-`trackit-snap`, and `trackit-all`. Coordinates are `com.devstree.trackit:<module>:<version>`.
+`trackit-snap`, and `trackit-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
 
 `sample-android` does **not** publish.
 
@@ -290,7 +290,7 @@ One number, in `gradle/libs.versions.toml`:
 
 ```toml
 [versions]
-trackit = "0.1.0"
+trackit = "0.1.1-alpha01"
 ```
 
 Every Maven artifact carries this version. Bump it once in the catalog before publishing.
@@ -311,7 +311,7 @@ A remote repository is added **only if** its URL is configured, so a developer w
 credentials gets a working local publish rather than a configuration error.
 
 ```bash
-./gradlew publish   -PtrackitMavenUrl=https://maven.pkg.github.com/devstree/trackit   -PtrackitMavenUser=… -PtrackitMavenToken=…
+./gradlew publish   -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack   -PtrackitMavenUser=… -PtrackitMavenToken=…
 ```
 
 or, for CI, the same three as `TRACKIT_MAVEN_URL`, `TRACKIT_MAVEN_USER`,

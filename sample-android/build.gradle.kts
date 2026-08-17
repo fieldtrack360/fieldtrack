@@ -60,7 +60,7 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "0.1.1-alpha01"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         manifestPlaceholders["TRACKIT_LICENSE"] = trackItLicense
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
@@ -112,11 +112,11 @@ kotlin {
 dependencies {
     // Linked as a project dependency for local development and JitPack builds.
     // Transitive dependencies are resolved via the sub-project's definitions.
-    implementation(project(":trackit-all"))
+//    implementation(project(":trackit-all"))
 //    implementation(libs.trackit.all)
 
     //local maven
-//    implementation(libs.trackit.sdk)
+    implementation(libs.trackit.sdk)
 
 
     // OkHttp is compileOnly inside trackit-snap, so the host that wants the shipped
