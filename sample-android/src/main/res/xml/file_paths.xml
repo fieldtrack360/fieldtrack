@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the app-scoped external files dir, which is where CaptureLog writes. Nothing
+  else is exposed: a FileProvider with a wider root hands every reader a door into
+  data it has no business seeing.
+-->
+<paths>
+    <external-files-path
+        name="capture"
+        path="." />
+</paths>

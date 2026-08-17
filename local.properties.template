@@ -1,0 +1,24 @@
+# Copy to `local.properties` and fill in. That file is gitignored — never commit it,
+# and never put a real value in this template.
+#
+# Everything here is optional. With none of it set the sample still builds and runs —
+# the map screens say a key is missing rather than showing a blank map.
+
+# Android SDK location. Android Studio writes this for you on first sync.
+#sdk.dir=/path/to/Android/sdk
+
+# Google Maps key for the Track and Debug screens.
+# Restrict it to this app's package + signing certificate in Google Cloud Console;
+# an unrestricted key is billable by anyone who finds it.
+#MAPS_API_KEY=
+
+# OSRM base URL for road snapping. Leave unset unless you run your own instance.
+#
+# Unset is a working configuration: no RoadSnapProvider is installed, buildTrack never
+# leaves the device, and the track renders from raw fixes. Setting it makes the polyline
+# follow the road network instead of the fixes.
+#
+# Point this at a deployment you control. The public demo server documents no availability
+# guarantee and no rate limit worth relying on, and sending a fleet's traces to it is both
+# unreliable and somebody else's bill.
+#OSRM_BASE_URL=https://osrm.internal.example.com

@@ -1,0 +1,345 @@
+package com.devstree.trackit.di
+
+import android.annotation.SuppressLint
+import android.content.Context
+import com.devstree.trackit.TrackIt
+import com.devstree.trackit.TrackItConfig
+import com.devstree.trackit.capture.FixIngestor
+import com.devstree.trackit.capture.LiveTrackFeed
+import com.devstree.trackit.capture.LocationStreamController
+import com.devstree.trackit.capture.OneShotProvider
+import com.devstree.trackit.data.db.ActivitySegmentDao
+import com.devstree.trackit.data.db.FilterStateDao
+import com.devstree.trackit.data.db.FixDecisionDao
+import com.devstree.trackit.data.db.RawFixDao
+import com.devstree.trackit.data.db.RawPointDao
+import com.devstree.trackit.data.db.TrackItDatabase
+import com.devstree.trackit.data.db.TrackPointDao
+import com.devstree.trackit.data.db.TrackSessionDao
+import com.devstree.trackit.data.location.AccuracyTuning
+import com.devstree.trackit.data.location.FixMapper
+import com.devstree.trackit.data.location.FusedLocationSource
+import com.devstree.trackit.data.location.LocationSource
+import com.devstree.trackit.data.location.PlatformLocationSource
+import com.devstree.trackit.data.location.RoutingLocationSource
+import com.devstree.trackit.data.platform.AndroidClock
+import com.devstree.trackit.data.platform.AndroidLogger
+import com.devstree.trackit.data.repository.ConfigRepositoryImpl
+import com.devstree.trackit.data.repository.ConfigStore
+import com.devstree.trackit.data.repository.DecisionRepositoryImpl
+import com.devstree.trackit.data.repository.PendingUploadStoreImpl
+import com.devstree.trackit.data.repository.RoomPointStore
+import com.devstree.trackit.data.repository.SessionRepositoryImpl
+import com.devstree.trackit.data.repository.TrackPointRepositoryImpl
+import com.devstree.trackit.domain.model.TrackItEvent
+import com.devstree.trackit.domain.repository.ConfigRepository
+import com.devstree.trackit.domain.repository.DecisionRepository
+import com.devstree.trackit.domain.repository.PendingUploadStore
+import com.devstree.trackit.domain.repository.SessionRepository
+import com.devstree.trackit.domain.repository.TrackPointRepository
+import com.devstree.trackit.domain.usecase.ResolveConfigUseCase
+import com.devstree.trackit.domain.usecase.StartTrackingUseCase
+import com.devstree.trackit.domain.usecase.StopTrackingUseCase
+import com.devstree.trackit.geo.filter.AcceptancePipeline
+import com.devstree.trackit.geo.filter.TrackItConstants
+import com.devstree.trackit.geo.motion.MotionStateMachine
+import com.devstree.trackit.geo.motion.TurnDetector
+import com.devstree.trackit.geo.port.Clock
+import com.devstree.trackit.geo.port.PointStore
+import com.devstree.trackit.geo.port.TrackLogger
+import com.devstree.trackit.motion.ActivityRecognizer
+import com.devstree.trackit.motion.CaptureStream
+import com.devstree.trackit.motion.GeofenceRegistrar
+import com.devstree.trackit.motion.MotionController
+import com.devstree.trackit.motion.MotionWakeSource
+import com.devstree.trackit.motion.SensorProbe
+import com.devstree.trackit.motion.SignificantMotionWake
+import com.devstree.trackit.motion.StationaryFence
+import com.devstree.trackit.motion.StepCorroborator
+import com.devstree.trackit.permission.PermissionManager
+import com.devstree.trackit.permission.ProviderStateMonitor
+import com.devstree.trackit.service.HealthLoop
+import com.devstree.trackit.work.Watchdog
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+
+/**
+ * The SDK's object graph, wired by hand.
+ *
+ * This replaces Hilt, and the reversal is deliberate. Hilt inside `trackit-core` forced
+ * every consuming app to apply the Hilt Gradle plugin and annotate its `Application`
+ * with `@HiltAndroidApp` — an integration tax on every host, and a hard blocker for any
+ * host whose `Application` class is not its own to annotate (a React Native template's
+ * `MainApplication`, a Unity or Flutter shell, a modular app whose `Application` lives in
+ * another team's module). An SDK should absorb its own wiring; see CROSS-PLATFORM.md B-1.
+ *
+ * What is lost is compile-time graph verification. What replaces it is that the whole
+ * graph is 60 readable lines in one file — a missing edge is a Kotlin compile error here
+ * rather than a KSP error somewhere else, and a cycle is a `StackOverflowError` on first
+ * touch rather than a build failure. Both are caught by simply constructing the graph,
+ * which [TrackItGraphTest] does.
+ *
+ * Every member is `by lazy`, so nothing is built until something asks for it: touching
+ * [permissions] does not open the database, and `TrackIt.getInstance()` does not do disk
+ * I/O on the caller's thread.
+ *
+ * Scoping matches the Hilt graph it replaces exactly: everything here was `@Singleton`,
+ * and the DAO providers were unscoped only because they delegate to a `@Singleton`
+ * database. One process, one graph, one [FixIngestor] — two would mean two filter states
+ * writing one table.
+ */
+internal class TrackItGraph private constructor(
+    @JvmField val context: Context,
+) {
+
+    // ── ports and primitives ────────────────────────────────────────────────
+
+    /**
+     * Replay 0, unlimited subscribers, and a buffer so a slow collector cannot stall the
+     * ingestor. Never a `var callback` — the second registrant would silently replace
+     * the first, and the host UI plus a background collector is the normal case (EC-112).
+     */
+    val events: MutableSharedFlow<TrackItEvent> by lazy {
+        MutableSharedFlow(
+            replay = 0,
+            extraBufferCapacity = EVENT_BUFFER,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+    }
+
+    /** The SDK's own application-scoped coroutine scope; outlives any Activity. */
+    val scope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
+
+    val clock: Clock by lazy { AndroidClock() }
+    val logger: TrackLogger by lazy { AndroidLogger() }
+
+    /**
+     * Every decision constant lives in this one object, which is what makes PLAN.md §3
+     * invariant 1 ("no algorithm above trackit-geo") mechanically checkable.
+     */
+    val constants: TrackItConstants by lazy { TrackItConstants.Default }
+    val pipeline: AcceptancePipeline by lazy { AcceptancePipeline(constants) }
+    val motionStateMachine: MotionStateMachine by lazy { MotionStateMachine() }
+    val turnDetector: TurnDetector by lazy { TurnDetector(constants) }
+
+    // ── storage ─────────────────────────────────────────────────────────────
+
+    val database: TrackItDatabase by lazy { TrackItDatabase.build(context) }
+
+    val pointDao: TrackPointDao by lazy { database.points() }
+    val sessionDao: TrackSessionDao by lazy { database.sessions() }
+    val decisionDao: FixDecisionDao by lazy { database.decisions() }
+    val filterStateDao: FilterStateDao by lazy { database.filterState() }
+    val activitySegmentDao: ActivitySegmentDao by lazy { database.activity() }
+    val rawFixDao: RawFixDao by lazy { database.rawFixes() }
+    val rawPointDao: RawPointDao by lazy { database.rawPoints() }
+
+    val configStore: ConfigStore by lazy { ConfigStore(context) }
+
+    val pointStore: PointStore by lazy { roomPointStore }
+    val roomPointStore: RoomPointStore by lazy {
+        RoomPointStore(pointDao, filterStateDao, decisionDao, rawFixDao, rawPointDao, events)
+    }
+
+    // ── repositories: domain declares the interface, data supplies the impl ──
+
+    val trackPoints: TrackPointRepository by lazy { TrackPointRepositoryImpl(pointDao) }
+    val sessions: SessionRepository by lazy { SessionRepositoryImpl(sessionDao, clock) }
+    val decisions: DecisionRepository by lazy { DecisionRepositoryImpl(decisionDao) }
+    val config: ConfigRepository by lazy { ConfigRepositoryImpl(configStore) }
+
+    /** The one public door trackit-sync uploads through. */
+    val pendingUploads: PendingUploadStore by lazy { PendingUploadStoreImpl(pointDao) }
+
+    // ── platform seams ──────────────────────────────────────────────────────
+
+    val fusedLocationSource: LocationSource by lazy { FusedLocationSource(context) }
+
+    /**
+     * What every capture path talks to. Routes to fused or to the platform
+     * `LocationManager` per `GeolocationConfig.providerType`.
+     */
+    val locationSource: RoutingLocationSource by lazy {
+        RoutingLocationSource(fusedLocationSource) { type -> PlatformLocationSource(context, type) }
+    }
+
+    val fixMapper: FixMapper by lazy { FixMapper(clock) }
+    val permissions: PermissionManager by lazy { PermissionManager(context) }
+    val sensorProbe: SensorProbe by lazy { SensorProbe(context, permissions) }
+
+    /**
+     * Deliberately the **fused** source, not the router. `ProviderState.fusedAvailable`
+     * answers "is Play Services here", which is a fact about the device that a host uses to
+     * decide whether to switch providers — routing it would make the field self-fulfilling
+     * and report `true` for a host that had already given up on fused.
+     */
+    val providerStateMonitor: ProviderStateMonitor by lazy {
+        ProviderStateMonitor(context, permissions, fusedLocationSource, events)
+    }
+
+    // ── motion seams — see MotionPorts.kt ───────────────────────────────────
+
+    val significantMotion: SignificantMotionWake by lazy { SignificantMotionWake(context) }
+    val motionWakeSource: MotionWakeSource by lazy { significantMotion }
+    val stationaryFence: StationaryFence by lazy { StationaryFence(context, events, logger) }
+    val geofenceRegistrar: GeofenceRegistrar by lazy { stationaryFence }
+    val stepCorroborator: StepCorroborator by lazy { StepCorroborator(context) }
+    val activityRecognizer: ActivityRecognizer by lazy {
+        ActivityRecognizer(context, permissions, events, logger, scope)
+    }
+
+    // ── capture ─────────────────────────────────────────────────────────────
+
+    val watchdog: Watchdog by lazy { Watchdog(clock, events) }
+    val liveTrackFeed: LiveTrackFeed by lazy { LiveTrackFeed(trackPoints) }
+
+    val ingestor: FixIngestor by lazy {
+        FixIngestor(
+            store = roomPointStore,
+            pipeline = pipeline,
+            turnDetector = turnDetector,
+            constants = constants,
+            clock = clock,
+            watchdog = watchdog,
+            events = events,
+            liveTrack = liveTrackFeed,
+        )
+    }
+
+    val streamController: LocationStreamController by lazy {
+        LocationStreamController(locationSource, fixMapper, ingestor, logger, scope)
+    }
+    val captureStream: CaptureStream by lazy { streamController }
+
+    val oneShotProvider: OneShotProvider by lazy {
+        OneShotProvider(locationSource, fixMapper, ingestor, events, logger, providerStateMonitor)
+    }
+
+    val motionController: MotionController by lazy {
+        MotionController(
+            machine = motionStateMachine,
+            streamController = captureStream,
+            significantMotion = motionWakeSource,
+            stationaryFence = geofenceRegistrar,
+            clock = clock,
+            events = events,
+            logger = logger,
+            scope = scope,
+        )
+    }
+
+    val healthLoop: HealthLoop by lazy {
+        HealthLoop(context, sessions, clock, events, watchdog, motionController, providerStateMonitor, logger)
+    }
+
+    // ── use cases ───────────────────────────────────────────────────────────
+
+    val startTracking: StartTrackingUseCase by lazy {
+        StartTrackingUseCase(
+            sessions = sessions,
+            ingestor = ingestor,
+            locationSource = locationSource,
+            streamController = streamController,
+            motionController = motionController,
+            oneShotProvider = oneShotProvider,
+            configStore = configStore,
+            permissions = permissions,
+            stepCorroborator = stepCorroborator,
+            activityRecognizer = activityRecognizer,
+            watchdog = watchdog,
+            context = context,
+            events = events,
+            scope = scope,
+            applyConfig = ::applyConfig,
+        )
+    }
+
+    /**
+     * The two config values that are wired rather than passed: the provider the router
+     * sends to, and the engine constants the accuracy meter moves.
+     *
+     * Applied per `start()` rather than at `ready()` because `ready()` only resolves the
+     * config — a host may call it, read the resolved value, and start with something else.
+     * Everything downstream is session-scoped anyway.
+     */
+    private fun applyConfig(config: TrackItConfig) {
+        locationSource.select(config.geolocation.providerType)
+        ingestor.retune(AccuracyTuning.apply(constants, config.geolocation))
+    }
+
+    val stopTracking: StopTrackingUseCase by lazy {
+        StopTrackingUseCase(
+            sessions = sessions,
+            ingestor = ingestor,
+            streamController = streamController,
+            motionController = motionController,
+            stepCorroborator = stepCorroborator,
+            activityRecognizer = activityRecognizer,
+            significantMotion = significantMotion,
+            watchdog = watchdog,
+            context = context,
+            events = events,
+        )
+    }
+
+    val resolveConfig: ResolveConfigUseCase by lazy {
+        ResolveConfigUseCase(config, sensorProbe, events)
+    }
+
+    // ── the public surface ──────────────────────────────────────────────────
+
+    val trackIt: TrackIt by lazy {
+        TrackIt(
+            startTracking = startTracking,
+            stopTracking = stopTracking,
+            resolveConfig = resolveConfig,
+            sessions = sessions,
+            points = trackPoints,
+            decisions = decisions,
+            rawFixes = rawFixDao,
+            rawPoints = rawPointDao,
+            ingestor = ingestor,
+            oneShotProvider = oneShotProvider,
+            liveTrackFeed = liveTrackFeed,
+            clock = clock,
+            providerStateMonitor = providerStateMonitor,
+            sensorProbe = sensorProbe,
+            stationaryFence = stationaryFence,
+            permissions = permissions,
+            context = context,
+            scope = scope,
+            eventSink = events,
+        )
+    }
+
+    internal companion object {
+        private const val EVENT_BUFFER = 64
+
+        @SuppressLint("StaticFieldLeak") // get() stores only context.applicationContext.
+        @Volatile
+        private var instance: TrackItGraph? = null
+
+        /**
+         * The one graph for this process.
+         *
+         * Double-checked rather than `by lazy` on the object because it takes a
+         * [Context]: the first caller supplies it, everyone after gets the same graph
+         * whatever they pass. Always stored against the **application** context — a
+         * graph holding an Activity would leak it for the process lifetime.
+         */
+        fun get(context: Context): TrackItGraph {
+            instance?.let { return it }
+            return synchronized(this) {
+                instance ?: TrackItGraph(context.applicationContext).also { instance = it }
+            }
+        }
+
+        /** Test seam only. Drops the graph so the next [get] rebuilds it. */
+        fun resetForTest() {
+            synchronized(this) { instance = null }
+        }
+    }
+}

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Note what is NOT here: no location permissions, no service, no receivers.
+      They all merge in from the trackit-core AAR (PERMISSIONS.md §8 item 6).
+    -->
+
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <application
+        android:name=".SampleApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@drawable/ic_launcher_trackit"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/ic_launcher_trackit"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TrackItSample">
+
+        <!-- Empty when no key is configured; the Track/Debug screens detect that and
+             explain rather than showing a blank map. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
+
+        <!-- Optional release license token for the SDK. Blank is fine in debug builds. -->
+        <meta-data
+            android:name="TrackItLicense"
+            android:value="${TRACKIT_LICENSE}" />
+
+        <!-- Lets the capture log be shared to Drive/mail/adb-less laptops. Read-only,
+             not exported, and scoped to the external files dir only. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+    </application>
+
+</manifest>

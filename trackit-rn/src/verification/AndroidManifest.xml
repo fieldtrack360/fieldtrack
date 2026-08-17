@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Empty on purpose.
+
+  The npm package declares no manifest of its own: everything the SDK needs — the
+  foreground service, the boot receiver, the permissions — is merged from `trackit-core`'s
+  AAR, so a host app adds nothing. This file exists only because this verification module
+  points its source sets at a directory that has no manifest, and AGP wants one.
+-->
+<manifest />

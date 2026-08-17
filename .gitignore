@@ -1,0 +1,58 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+local.properties
+
+# Heap dumps. gradle.properties runs the daemon with -Xmx4g and
+# -XX:+HeapDumpOnOutOfMemoryError, so an OOM drops a multi-GB .hprof next to the build.
+*.hprof
+
+# Android
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+captures/
+.cxx/
+.externalNativeBuild/
+release/
+out/
+
+# What must STAY tracked, in case a future rule gets careless:
+#   trackit-*/consumer-rules.pro   — shipped with the AAR
+#   trackit-core/schemas/          — Room schemas; migrations are real (EC-83)
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.kotlin/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs
+*.log
+
+# Secrets — never commit signing keys, map keys or routing API keys.
+# MAPS_API_KEY lives in local.properties (ignored above) and reaches the build as a
+# manifest placeholder and BuildConfig field; see local.properties.template and
+# docs/BUILD.md §1. There is no committed fallback — a default that "just works" is worth
+# very little next to a credential readable by anyone with repo access, in every clone.
+*.jks
+*.keystore
+*.p12
+*.pem
+keystore.properties
+secrets.properties
+/.artifacts
