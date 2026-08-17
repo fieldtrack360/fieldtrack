@@ -5,11 +5,11 @@ plugins {
 }
 
 // Umbrella module: no code of its own. It exists so a host app can depend on
-// `com.devstree.trackit:trackit-all` and get the whole SDK transitively instead of
+// `com.github.fieldtrack360.fieldtrack:fieldtrack` and get the whole SDK transitively instead of
 // listing every module. Every dependency below is `api` on purpose — the entire point
 // is to re-export them to the consumer's compile classpath.
 android {
-    namespace = "com.devstree.trackit.all"
+    namespace = "com.devstree.fieldtrack"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 

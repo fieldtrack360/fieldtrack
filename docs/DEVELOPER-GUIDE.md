@@ -56,7 +56,7 @@ dependencyResolutionManagement {
 
 Install the required artifact :
 ```kotlin
-implementation 'com.github.fieldtrack360.fieldtrack:trackit-all:TAG'
+implementation 'com.github.fieldtrack360.fieldtrack:fieldtrack:TAG'
 implementation("com.squareup.okhttp3:okhttp:5.4.0")
 ```
 

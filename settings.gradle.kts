@@ -34,7 +34,7 @@ include(":trackit-core")
 include(":trackit-maps")
 include(":trackit-sync")
 include(":trackit-snap")
-include(":trackit-all")
+include(":fieldtrack")
 
 // Exclude sample app from JitPack builds to avoid dependency resolution issues
 // and speed up artifact publishing.

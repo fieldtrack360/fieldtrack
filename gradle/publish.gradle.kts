@@ -155,7 +155,7 @@ fun pomDescription(module: String): String = when (module) {
     "trackit-maps" -> "TrackIt — Google Maps rendering for tracks built by trackit-core."
     "trackit-sync" -> "TrackIt — optional HTTP upload with a retry queue."
     "trackit-snap" -> "TrackIt — optional road snapping against an OSRM server."
-    "trackit-all" ->
+    "fieldtrack" ->
         "TrackIt — umbrella artifact. Depending on this pulls in every TrackIt module " +
             "(core, geo, maps, sync, snap) transitively; no code of its own."
     else -> "TrackIt — $module"

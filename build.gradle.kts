@@ -29,13 +29,13 @@ tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
         ":trackit-maps:assembleRelease",
         ":trackit-snap:assembleRelease",
         ":trackit-sync:assembleRelease",
-        ":trackit-all:assembleRelease",
+        ":fieldtrack:assembleRelease",
         ":trackit-geo:javaDocReleaseJar",
         ":trackit-core:javaDocReleaseJar",
         ":trackit-maps:javaDocReleaseJar",
         ":trackit-snap:javaDocReleaseJar",
         ":trackit-sync:javaDocReleaseJar",
-        ":trackit-all:javaDocReleaseJar",
+        ":fieldtrack:javaDocReleaseJar",
     )
 }
 

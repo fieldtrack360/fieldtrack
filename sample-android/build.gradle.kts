@@ -112,8 +112,8 @@ kotlin {
 dependencies {
     // Linked as a project dependency for local development and JitPack builds.
     // Transitive dependencies are resolved via the sub-project's definitions.
-//    implementation(project(":trackit-all"))
-//    implementation(libs.trackit.all)
+//    implementation(project(":fieldtrack"))
+//    implementation(libs.fieldtrack)
 
     //local maven
     implementation(libs.trackit.sdk)

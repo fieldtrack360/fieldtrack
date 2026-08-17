@@ -27,7 +27,7 @@ Run this command from the repository root to publish all modules to `~/.m2/repos
 Maven publishing depends on `verifyReleaseObfuscation`, so it cannot bypass the audit. It generates:
 
 - R8-obfuscated AARs for `geo`, `core`, `maps`, `snap`, and `sync`.
-- An empty umbrella AAR for `all`, with the other modules as transitive dependencies.
+- An empty umbrella AAR for `fieldtrack`, with the other modules as transitive dependencies.
 - POM files containing transitive dependency metadata.
 - Javadoc JARs containing rendered public API documentation, with no source entries.
 - No source JARs.
@@ -53,7 +53,7 @@ Then, depend on the umbrella artifact in `build.gradle.kts` (or using the Versio
 
 ```kotlin
 dependencies {
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-all:0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:0.1.1-alpha01")
 }
 ```
 
@@ -108,7 +108,7 @@ Then, add the dependency using the GitHub coordinates. JitPack maps the reposito
 ```kotlin
 dependencies {
     // Umbrella artifact (includes all modules)
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-all:v0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:v0.1.1-alpha01")
     
     // Or individual modules
     implementation("com.github.fieldtrack360.fieldtrack:trackit-core:v0.1.1-alpha01")
