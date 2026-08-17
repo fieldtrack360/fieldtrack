@@ -47,6 +47,15 @@ public class TrackItArtifacts private constructor(private val graph: TrackItGrap
         graph.syncScheduler.register(trigger)
     }
 
+    /**
+     * [TrackItConfig.baseUrl] as `ready()` resolved it, or `null`.
+     *
+     * Core stores it and never reads it — this is the one door it leaves for the module that
+     * does. Returns `null` before `ready()` has run, which is why `trackit-sync` treats it as
+     * a fallback and reports a missing endpoint rather than waiting for one.
+     */
+    public val baseUrl: String? get() = graph.configStore.cached?.baseUrl
+
     public companion object {
         /** Same process-wide graph [TrackIt.getInstance] returns from. */
         @JvmStatic

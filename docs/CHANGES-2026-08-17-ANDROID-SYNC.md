@@ -351,7 +351,92 @@ leaked or double-unregistered.
 
 ---
 
-## 8. Still open
+## 8. `SyncConfig.Builder`, and the endpoint contract written down
+
+**A builder, with `baseUrl` + `path`.** Most hosts already keep a base URL for their own API
+and want the SDK pointed at a path under it — handing it a second full URL is a value that
+drifts out of step the moment the environment changes.
+
+```kotlin
+SyncConfig.builder()
+    .baseUrl(BuildConfig.API_BASE_URL)
+    .path("v1/location/batch")
+    .header("Authorization", "Bearer $token")
+    .build()
+```
+
+The two halves join with exactly one `/` regardless of which side carries it, because a
+double slash is a 404 on some servers and a redirect on others. `.url(...)` still sets the
+whole thing and wins over both. `build()` validates and throws, `buildUnchecked()` does not —
+mirroring `TrackItConfig.Builder` exactly, including the reasoning for the throw.
+
+**And on `TrackItConfig.Builder` too**, by request, for an app that already keeps one base URL
+for its whole API:
+
+```kotlin
+trackIt.ready(TrackItConfig.builder().baseUrl("https://api.example.com").build())
+sync.configure(SyncConfig.builder().path("v1/location/batch").build())
+```
+
+The reservation stands and is worth recording: `trackit-core` now carries a field it can never
+read, because it opens no socket and has no endpoint of its own. What makes it defensible is
+that the field is inert there — `TrackItArtifacts.baseUrl` is the only door out, and it is the
+same seam `PendingUploadStore` and `SyncTrigger` already use. Core gained no network concept,
+only a string it stores.
+
+Resolution runs in `TrackItSync.configure()` and is a **fallback, never an override**:
+
+| `SyncConfig` carries | `TrackItConfig.baseUrl` | Endpoint |
+|---|---|---|
+| an absolute `url` | anything | the absolute `url` |
+| `baseUrl` + `path` | anything | the sync-level pair |
+| `path` only | set | base + path, one `/` |
+| `path` only | unset | `configure()` throws, naming both places a base can come from |
+
+Two consequences worth stating. A **path-only `SyncConfig` passes `build()` while still
+invalid** — the builder cannot see the core config, so that one check is deferred to
+`configure()`, which resolves first and then validates. And `ready()` must run before
+`configure()`, since that is what loads the base URL; a `configure()` before it gets the same
+"not a valid absolute URL" error as a host that set no base at all.
+
+`ConfigStore` gained a `cached` snapshot for this: `configure()` runs on the host's thread and
+cannot suspend to read DataStore, and a blocking disk read there to answer "nothing yet" would
+be worse than the honest `null`.
+
+`TrackItConfig.baseUrl` is validated in core's own `validate()`, so a typo fails while the host
+is assembling config rather than one `configure()` call later in a different module, reported
+against a path the host did not write. It is persisted like every other field — **not**
+`@Transient` like `license`, so do not put a credential in it.
+
+**The contract is now documented** in `USER-GUIDE.md` §11, restructured into six subsections:
+setup, the API surface (every member with what it returns and when it no-ops), who triggers an
+upload, the request, the response, and custom transports.
+
+The request section documents every field of the uploaded JSON — type, meaning and the traps:
+`time` is epoch **milliseconds**, `time_zone` is per point because a session can cross zones,
+`activity_status` is `"<provider>@<movementStatus>"` lowercase, `battery_percentage` is a
+**string**, `movementSpeed` is `0.0` when the provider reported none so `hasSpeed` has to be
+read first, and **nullable fields are omitted rather than sent as `null`** — which matters to
+any backend that distinguishes absent from null, and was previously undocumented.
+
+That last point is now pinned by `SyncPayloadWireTest`, which asserts the serialised body
+literally. The wire format is a published contract with a backend written against it, so a
+field rename should fail a test here rather than someone's ingest later.
+
+The response section states what each status does to the queue: 2xx marks synced, 401 clears
+it, 403 keeps it, everything else retries, and 404 is deliberately not terminal — plus
+`Retry-After` in both forms and the 4 KB error-body capture.
+
+**Tests:** `SyncConfigBuilderTest` (16), `SyncPayloadWireTest` (4) and `TrackItConfigBaseUrlTest` (7). Slash-joining in every
+combination including doubled slashes, whitespace, base-only URLs, an explicit `url` winning,
+header accumulation and replacement, every knob reaching the config, `build()` throwing with
+every problem named, the four resolution outcomes in the table above, and — core side — the
+builder round trip, a relative `baseUrl` failing validation, and `baseUrl` surviving
+persistence while `license` does not.
+
+---
+
+## 9. Still open
 
 Out of scope for this pass, and none of it is on the doc's list of seven:
 

@@ -697,7 +697,24 @@ trackIt.offerFix(
 
 ## 13. HTTP synchronization
 
-Add `trackit-sync` and either OkHttp or a custom `SyncTransport`.
+Add `trackit-sync` and either OkHttp or a custom `SyncTransport`. The full endpoint contract —
+request body field by field, response status semantics, and every API in its own subsection —
+is in [USER-GUIDE.md §11](USER-GUIDE.md#11-optional-modules).
+
+A base URL can be set in either builder. `SyncConfig.builder()` keeps it next to the upload
+config; `TrackItConfig.builder().baseUrl(...)` sets it once for an app that already has one,
+and `trackit-sync` resolves a bare `path` against it at `configure()` time. An absolute URL on
+the `SyncConfig` always wins — the core value is a fallback, never an override.
+
+```kotlin
+sync.configure(
+    SyncConfig.builder()
+        .baseUrl(BuildConfig.API_BASE_URL)     // "https://api.example.com"
+        .path("v1/location/batch")             // joined with exactly one "/"
+        .header("Authorization", "Bearer $token")
+        .build(),
+)
+```
 
 ```kotlin
 val sync = TrackItSync.getInstance(applicationContext)

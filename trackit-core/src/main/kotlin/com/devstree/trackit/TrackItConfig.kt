@@ -1,6 +1,7 @@
 package com.devstree.trackit
 
 import com.devstree.trackit.geo.model.MockPolicy
+import java.net.URI
 import com.devstree.trackit.domain.model.TrackItGeofence
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -23,6 +24,25 @@ public data class TrackItConfig(
     val sensors: SensorConfig = SensorConfig(),
     @Transient
     val license: String? = null,
+    /**
+     * Scheme and host your backend lives at — e.g. `https://api.example.com`.
+     *
+     * **Core never reads it.** It opens no socket and has no endpoint of its own; this is
+     * carried here so a host with one base URL for its whole app can set it once, in the
+     * config it is already building, and have `trackit-sync` resolve a path against it:
+     *
+     * ```kotlin
+     * trackIt.ready(TrackItConfig.builder().baseUrl("https://api.example.com").build())
+     * sync.configure(SyncConfig.builder().path("v1/location/batch").build())
+     * ```
+     *
+     * A `SyncConfig` that already carries an absolute URL wins — this is a fallback, never
+     * an override, so a host that sets both gets the one it wrote closest to the upload.
+     *
+     * Persisted with the rest of the config, so it survives a process death like every other
+     * field. Do not put a credential in it: it is stored in plain text.
+     */
+    val baseUrl: String? = null,
     val reset: Boolean = true,
 ) {
     /** Fails `ready()` fast and by name, rather than deep inside a provider. */
@@ -50,6 +70,15 @@ public data class TrackItConfig(
         }
         if (motion.stationaryGeofenceOnExitEvent.isBlank()) {
             add("motion.stationaryGeofenceOnExitEvent must not be blank")
+        }
+        // Checked here rather than where it is consumed, because a typo'd base URL should
+        // fail while the host is assembling config — not one `configure()` call later in a
+        // different module, reported against a path the host did not write.
+        baseUrl?.let { url ->
+            val uri = runCatching { URI(url) }.getOrNull()
+            if (url.isBlank() || uri?.scheme == null || uri.host.isNullOrBlank()) {
+                add("baseUrl must be an absolute URL with a scheme and host, e.g. https://api.example.com")
+            }
         }
         // EC-45: the tiers must actually be ordered, or the "faster" one is slower than
         // what it replaces and the burst quietly makes turn geometry worse.
@@ -156,6 +185,7 @@ public data class TrackItConfig(
         private var persistence: PersistenceConfig = PersistenceConfig()
         private var sensors: SensorConfig = SensorConfig()
         private var license: String? = null
+        private var baseUrl: String? = null
         private var reset: Boolean = true
 
         // ── whole blocks, for a host that already has one ────────────────────
@@ -167,6 +197,15 @@ public data class TrackItConfig(
         public fun sensors(value: SensorConfig): Builder = apply { sensors = value }
         /** Optional release-build license token. Ignored by persistence. */
         public fun license(value: String?): Builder = apply { license = value }
+
+        /**
+         * Base URL for the upload endpoint — see [TrackItConfig.baseUrl].
+         *
+         * Read only by `trackit-sync`, and only when a `SyncConfig` does not carry an
+         * absolute URL of its own. Setting it with that module absent is harmless and does
+         * nothing.
+         */
+        public fun baseUrl(value: String?): Builder = apply { baseUrl = value }
 
         /** See [TrackItConfig.reset] — leave `true` during development. */
         public fun reset(value: Boolean): Builder = apply { reset = value }
@@ -417,6 +456,7 @@ public data class TrackItConfig(
             persistence = persistence,
             sensors = sensors,
             license = license,
+            baseUrl = baseUrl,
             reset = reset,
         )
     }

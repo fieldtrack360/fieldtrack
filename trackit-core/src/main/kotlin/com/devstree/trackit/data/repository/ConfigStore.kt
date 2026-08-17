@@ -27,18 +27,33 @@ internal class ConfigStore(
         encodeDefaults = true
     }
 
+    /**
+     * The config as last loaded or saved, without touching disk.
+     *
+     * Exists for the one caller that cannot suspend: `TrackItSync.configure()` runs on the
+     * host's own thread and needs [TrackItConfig.baseUrl] to resolve a path against. `null`
+     * until `ready()` has run, which is the honest answer at that point — the alternative is
+     * a blocking disk read on a host thread to say "nothing yet".
+     */
+    @Volatile
+    var cached: TrackItConfig? = null
+        private set
+
     suspend fun load(): TrackItConfig? {
         val raw = context.trackItDataStore.data.first()[KEY_CONFIG] ?: return null
         return runCatching { json.decodeFromString<TrackItConfig>(raw) }.getOrNull()
+            ?.also { cached = it }
     }
 
     suspend fun save(config: TrackItConfig) {
         val encoded = json.encodeToString(config)
         context.trackItDataStore.edit { it[KEY_CONFIG] = encoded }
+        cached = config
     }
 
     suspend fun clear() {
         context.trackItDataStore.edit { it.remove(KEY_CONFIG) }
+        cached = null
     }
 
     fun encode(config: TrackItConfig): String = json.encodeToString(config)

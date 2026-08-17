@@ -13,6 +13,8 @@
 -keep public class com.devstree.trackit.sync.TrackItSync { public protected *; }
 -keep public class com.devstree.trackit.sync.TrackItSync$* { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncConfig { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncConfig$Builder { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncConfig$Companion { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncTransport { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncRequest { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncResponse { public protected *; }

@@ -61,13 +61,26 @@ public data class SyncConfig(
      * naming the real cause. Loopback is exempt because the platform's own default network
      * security config exempts it, so a local dev server needs no flag at all.
      */
-    public fun validate(): List<String> = buildList {
+    public fun validate(): List<String> = validate(requireAbsoluteUrl = true)
+
+    /**
+     * @param requireAbsoluteUrl `false` while a builder holds only a path and the base is
+     *   still expected from `TrackItConfig.baseUrl`. [TrackItSync.configure] resolves first
+     *   and then validates with `true`, so a config that never gets a base is still rejected
+     *   — just at the point where the answer is finally known.
+     */
+    internal fun validate(requireAbsoluteUrl: Boolean): List<String> = buildList {
         if (url.isBlank()) add("url must not be blank")
 
         val uri = runCatching { URI(url) }.getOrNull()
         val scheme = uri?.scheme?.lowercase()
         when {
-            uri == null || scheme == null -> add("url is not a valid absolute URL: $url")
+            !requireAbsoluteUrl && scheme == null -> Unit
+            uri == null || scheme == null -> add(
+                "url is not a valid absolute URL: $url. Set a full url, or a baseUrl on " +
+                    "either SyncConfig.builder() or TrackItConfig.builder() for the path to " +
+                    "resolve against.",
+            )
             scheme == "https" -> Unit
             scheme == "http" && (allowCleartext || uri.isLoopback()) -> Unit
             scheme == "http" -> add(
@@ -88,11 +101,159 @@ public data class SyncConfig(
 
     private fun URI.isLoopback(): Boolean = host in LOOPBACK_HOSTS
 
-    private companion object {
-        const val MAX_BATCH_SIZE = 1_000
+    /**
+     * This config, with [url] completed from `TrackItConfig.baseUrl` if it needs completing.
+     *
+     * A **fallback, never an override**: an absolute `url` here is returned untouched, so a
+     * host that sets both gets the one it wrote closest to the upload. Only a relative value
+     * — what `SyncConfig.builder().path("v1/points")` produces on its own — is joined to the
+     * base, with the same single-slash rule the builder uses.
+     *
+     * A relative url with no base URL anywhere is left alone, so [validate] reports "not a
+     * valid absolute URL" naming what the host actually wrote, rather than this silently
+     * producing something that fails later.
+     */
+    internal fun resolvedAgainst(baseUrl: String?): SyncConfig {
+        if (baseUrl.isNullOrBlank()) return this
+        if (url.isBlank()) return this
+        // An absolute url wins. `URI.scheme` is the test, not a `startsWith("http")` —
+        // "https://x" and a host's own scheme both parse, "v1/points" does not.
+        if (runCatching { URI(url).scheme }.getOrNull() != null) return this
+
+        return copy(url = "${baseUrl.trim().trimEnd('/')}/${url.trim().trimStart('/')}")
+    }
+
+    /**
+     * Fluent, Java-callable construction — and the place to set a **base URL** once.
+     *
+     * Most hosts already keep a base URL for their own API and want the SDK pointed at a
+     * path under it, not handed a second full URL that drifts out of step when the
+     * environment changes:
+     *
+     * ```kotlin
+     * val config = SyncConfig.builder()
+     *     .baseUrl(BuildConfig.API_BASE_URL)    // "https://api.example.com"
+     *     .path("v1/location/batch")
+     *     .header("Authorization", "Bearer $token")
+     *     .batchSize(100)
+     *     .build()
+     * ```
+     *
+     * [baseUrl] and [path] are joined with exactly one `/` between them regardless of which
+     * side carries it, so `"https://api.example.com/"` + `"/v1/points"` is the same
+     * endpoint as `"https://api.example.com"` + `"v1/points"`. A double slash in a path is
+     * a 404 on some servers and a redirect on others, which is a bad thing to discover in
+     * the field.
+     *
+     * [url] sets the whole thing directly and wins over both, for a host that already has
+     * one composed.
+     *
+     * [build] runs [validate] and throws `IllegalArgumentException`, matching
+     * `TrackItConfig.Builder.build()` — same deliberate exception to the SDK's no-throw
+     * contract, same reason: this runs on your own thread while you assemble a value.
+     */
+    public class Builder {
+        private var url: String? = null
+        private var baseUrl: String? = null
+        private var path: String? = null
+        private var method: String = "POST"
+        private val headers = LinkedHashMap<String, String>()
+        private var autoSync: Boolean = true
+        private var batchSize: Int = 100
+        private var requiresUnmeteredNetwork: Boolean = false
+        private var gzipRequestBody: Boolean = false
+        private var allowCleartext: Boolean = false
+        private var timeouts: SyncTimeouts = SyncTimeouts()
+
+        /** The whole endpoint. Overrides [baseUrl] and [path] when both are set. */
+        public fun url(url: String): Builder = apply { this.url = url }
+
+        /** Scheme, host and any common prefix — e.g. `https://api.example.com`. */
+        public fun baseUrl(baseUrl: String): Builder = apply { this.baseUrl = baseUrl }
+
+        /** Appended to [baseUrl]. Leading and trailing slashes are normalised. */
+        public fun path(path: String): Builder = apply { this.path = path }
+
+        public fun method(method: String): Builder = apply { this.method = method }
+
+        /** Adds one header. Repeated names replace, matching the underlying map. */
+        public fun header(name: String, value: String): Builder = apply { headers[name] = value }
+
+        /** Adds all of them, keeping anything already set that these do not name. */
+        public fun headers(headers: Map<String, String>): Builder =
+            apply { this.headers.putAll(headers) }
+
+        public fun autoSync(enabled: Boolean): Builder = apply { autoSync = enabled }
+
+        public fun batchSize(rows: Int): Builder = apply { batchSize = rows }
+
+        public fun requiresUnmeteredNetwork(required: Boolean): Builder =
+            apply { requiresUnmeteredNetwork = required }
+
+        public fun gzipRequestBody(enabled: Boolean): Builder =
+            apply { gzipRequestBody = enabled }
+
+        /** Only for a local development server. See [SyncConfig.validate]. */
+        public fun allowCleartext(allowed: Boolean): Builder = apply { allowCleartext = allowed }
+
+        public fun timeouts(timeouts: SyncTimeouts): Builder = apply { this.timeouts = timeouts }
+
+        public fun timeouts(connectMs: Long, readMs: Long, writeMs: Long): Builder =
+            apply { timeouts = SyncTimeouts(connectMs, readMs, writeMs) }
+
+        /**
+         * @throws IllegalArgumentException if [SyncConfig.validate] reports anything.
+         *
+         * A **path with no base URL is allowed here**, and only here: it means the base is
+         * expected from `TrackItConfig.baseUrl`, which this builder cannot see.
+         * [TrackItSync.configure] resolves the two and throws if neither supplied one, so
+         * the config is still rejected — at the point where the answer is actually known,
+         * with a message naming both places a base can come from.
+         */
+        public fun build(): SyncConfig {
+            val config = buildUnchecked()
+            val deferred = url == null && baseUrl.isNullOrBlank() && !path.isNullOrBlank()
+            val errors = config.validate(requireAbsoluteUrl = !deferred)
+            require(errors.isEmpty()) { "Invalid SyncConfig: ${errors.joinToString("; ")}" }
+            return config
+        }
+
+        /**
+         * The same value, unvalidated. For a host assembling config from untrusted input
+         * that would rather read [SyncConfig.validate] itself than catch.
+         */
+        public fun buildUnchecked(): SyncConfig = SyncConfig(
+            url = url ?: join(baseUrl, path),
+            method = method,
+            headers = headers.toMap(),
+            autoSync = autoSync,
+            batchSize = batchSize,
+            requiresUnmeteredNetwork = requiresUnmeteredNetwork,
+            gzipRequestBody = gzipRequestBody,
+            allowCleartext = allowCleartext,
+            timeouts = timeouts,
+        )
+
+        private fun join(base: String?, path: String?): String {
+            val head = base?.trim().orEmpty().trimEnd('/')
+            val tail = path?.trim().orEmpty().trim('/')
+            return when {
+                head.isEmpty() -> tail          // validate() reports this as not absolute
+                tail.isEmpty() -> head
+                else -> "$head/$tail"
+            }
+        }
+    }
+
+    public companion object {
+        /** Fluent construction; also the way to set a base URL and a path separately. */
+        @JvmStatic
+        public fun builder(): Builder = Builder()
+
+        private const val MAX_BATCH_SIZE = 1_000
 
         /** `10.0.2.2` is the emulator's route to the developer's own machine. */
-        val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1", "[::1]", "10.0.2.2")
+        private val LOOPBACK_HOSTS = setOf("localhost", "127.0.0.1", "::1", "[::1]", "10.0.2.2")
     }
 }
 
@@ -161,12 +322,16 @@ public class TrackItSync internal constructor(
      *   validation exists to end.
      */
     public fun configure(config: SyncConfig, transport: SyncTransport? = null) {
-        val errors = config.validate()
+        val resolved = config.resolvedAgainst(artifacts.baseUrl)
+        val errors = resolved.validate()
         require(errors.isEmpty()) { "Invalid SyncConfig: ${errors.joinToString("; ")}" }
 
-        this.config = config
+        this.config = resolved
         this.transport = transport ?: defaultTransport()
         this.haltedReason = null
+        if (resolved.url != config.url) {
+            sdkLog { logger.d(TAG, "Resolved upload endpoint against TrackItConfig.baseUrl") }
+        }
 
         // What makes autoSync mean anything. Core drives the trigger — on an accepted
         // point, and from its supervision loops when rows are queued or the last upload

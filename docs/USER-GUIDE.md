@@ -15,7 +15,7 @@ not the intended surface. Where a capability is planned but not shipped, it says
 | Draw a live, animated position on a map | [8](#8-live-tracking) |
 | React to errors, revocations, motion changes | [9](#9-events--state) |
 | Work out why a point is missing or wrong | [10](#10-diagnostics) |
-| Upload points to my backend | [11](#11-optional-modules) |
+| Upload points to my backend | [11](#11-optional-modules) — API [11.2](#112-the-api-surface), request/response [11.4](#114-the-request)·[11.5](#115-the-response) |
 | Use it from Java or React Native | [12](#12-java) · [13](#13-react-native) |
 | Fix a problem I am seeing right now | [14](#14-troubleshooting) |
 
@@ -296,7 +296,7 @@ permission toggle. You get `TrackItEvent.Error(BACKGROUND_PERMISSION_MISSING)` a
 ## 5. Configuration
 
 `TrackItConfig` has five blocks: `geolocation`, `motion`, `service`, `persistence`,
-`sensors` — plus `reset`.
+`sensors` — plus `license`, `baseUrl` and `reset`.
 
 ### 5.1 The builder
 
@@ -309,6 +309,7 @@ val config = TrackItConfig.builder()
     .useStepCorroboration(true)
     .notification("Recording your route", "Tap to open")
     .maxDaysToPersist(7)
+    .baseUrl("https://api.example.com")   // for trackit-sync; core never reads it
     .build()
 
 trackIt.ready(config)
@@ -1007,48 +1008,299 @@ Judged by exactly the same gates as a live fix — you cannot inject an unvalida
 `trackit-core` never opens a socket. This artifact does; an app that does not depend on it
 gets an offline-first SDK with no network code linked at all.
 
+**Store-then-sync, never sync-then-store.** A point is durable in Room before anything is
+attempted, so a failed upload costs nothing and a dead network costs nothing. Rows are marked
+synced only on a confirmed 2xx — the default state is "still queued", which is the safe
+direction.
+
+#### 11.1 Setting it up
+
+`SyncConfig.builder()` is the way in, and the place to set a **base URL** once rather than
+carrying a second full URL that drifts when the environment changes:
+
 ```kotlin
 val sync = TrackItSync.getInstance(context)
 
 sync.configure(
+    SyncConfig.builder()
+        .baseUrl(BuildConfig.API_BASE_URL)          // "https://api.example.com"
+        .path("v1/location/batch")                  // joined with exactly one "/"
+        .header("Authorization", "Bearer $token")
+        .batchSize(100)
+        .build(),
+)
+```
+
+If your app already sets a base URL for its own API, put it on `TrackItConfig` instead and
+give the sync module only a path:
+
+```kotlin
+trackIt.ready(
+    TrackItConfig.builder()
+        .baseUrl(BuildConfig.API_BASE_URL)          // core stores it; core never reads it
+        .build(),
+)
+
+sync.configure(SyncConfig.builder().path("v1/location/batch").build())
+```
+
+**Resolution is a fallback, never an override**, and it runs at `configure()`:
+
+| `SyncConfig` carries | `TrackItConfig.baseUrl` | Endpoint |
+|---|---|---|
+| an absolute `url` | anything | the absolute `url` — what you wrote closest to the upload wins |
+| `baseUrl` + `path` | anything | the sync-level pair |
+| `path` only | set | base + path, joined with one `/` |
+| `path` only | unset | **`configure()` throws**, naming both places a base can come from |
+
+A path-only `SyncConfig` is the one config that `build()` accepts while still invalid — the
+builder cannot see the core config, so it defers that single check to `configure()`. Order
+does not matter beyond this: `ready()` must have run before `configure()`, since that is what
+loads the base URL.
+
+The data-class constructor is unchanged and still idiomatic from Kotlin:
+
+```kotlin
+sync.configure(
     SyncConfig(
-        url = "https://api.example.com/v1/points",   // https, or configure() throws
+        url = "https://api.example.com/v1/location/batch",
         method = "POST",
         headers = mapOf("Authorization" to "Bearer $token"),
         autoSync = true,
         batchSize = 100,
         requiresUnmeteredNetwork = false,
-        gzipRequestBody = false,                     // opt-in; most servers reject it
-        timeouts = SyncTimeouts(readMs = 30_000),    // no OkHttpClient needed
+        gzipRequestBody = false,                    // opt-in; most servers reject it
+        allowCleartext = false,                     // local dev servers only
+        timeouts = SyncTimeouts(readMs = 30_000),   // no OkHttpClient needed
     ),
     // Omit to use the OkHttp default. Supply your own to reuse an authenticated
     // client — then OkHttp is never linked by this module.
     transport = null,
 )
-
-sync.requestSync()                       // network-constrained one-shot; safe to call often
-val result = sync.syncNow()              // drains inline, returns what happened
-val pending = sync.pendingCount()
-
-sync.endpoint                            // where uploads go, or null
-sync.isConfigured                        // derived from endpoint; do not cache it
-sync.events                              // one HttpResponse(statusCode, count) per exchange
 ```
 
-Two terminal statuses, with deliberately different consequences. On **401** the queue tears
-down: tracking stops, the queue is cleared, the config is forgotten — the credential this
-data was recorded under is gone and the next login may be a different user. On **403** only
-the retry loop stops: tracking continues and **every queued row is kept**, because a revoked
-or under-scoped key is still the same user's data. Re-`configure()` with a working credential
-to resume.
+| Field | Default | Meaning |
+|---|---|---|
+| `url` | — | The full endpoint. From the builder, `baseUrl` + `path`, or a `path` resolved against `TrackItConfig.baseUrl`. |
+| `method` | `POST` | Any method that carries a body. |
+| `headers` | empty | Sent on every request. `Content-Type` is set for you unless you set it. |
+| `autoSync` | `true` | The SDK drives its own uploads — see [11.3](#113-who-triggers-an-upload). |
+| `batchSize` | `100` | Rows per request. Bigger means fewer requests but a bigger retry unit. |
+| `requiresUnmeteredNetwork` | `false` | Wi-Fi only, for the background worker. |
+| `gzipRequestBody` | `false` | See [11.4](#114-the-request). |
+| `allowCleartext` | `false` | Permit `http://`. Loopback is already exempt. |
+| `timeouts` | 5 s / 30 s / 20 s | connect / read / write, without building an `OkHttpClient`. |
 
-A `Retry-After` header is honoured: the background worker re-enqueues at the server's time
-instead of its own backoff. Implement `SyncTransport` yourself for a non-HTTP backend.
+**`configure()` throws `IllegalArgumentException`** on an invalid config — a non-`https` URL,
+a blank method, a `batchSize` outside 1..1000. Cleartext is blocked at runtime by Android's
+own network security policy from API 28, so accepting an `http://` URL here would mean a
+generic network error retried forever with nothing naming the cause. `localhost`,
+`127.0.0.1`, `::1` and `10.0.2.2` are exempt without a flag; anything else needs
+`allowCleartext = true` deliberately. Call `config.validate()` yourself first if the URL comes
+from untrusted input — it returns every problem as a list instead of throwing.
 
-With `autoSync = true` the SDK drives its own uploads — on stored points (throttled to one
-request a minute), from the health loop every two minutes, and from the backstop worker every
-fifteen, which is the one that survives a dead service. Set it to `false` to own the schedule
-with `requestSync()` / `syncNow()` yourself.
+#### 11.2 The API surface
+
+| Member | Returns | What it does |
+|---|---|---|
+| `TrackItSync.getInstance(context)` | `TrackItSync` | Process-wide instance, sharing TrackIt's database. Idempotent. Does not configure anything. |
+| `configure(config, transport = null)` | `Unit` | Sets the endpoint and optional custom transport. Throws on an invalid config. Clears a previous 403 halt. |
+| `syncNow()` | `SyncQueue.Result` | Drains inline and tells you what happened. `suspend`. |
+| `requestSync()` | `Unit` | Enqueues network-constrained WorkManager work. Safe to call often. No-op before `configure()` and after a 403. |
+| `pendingCount()` | `Int` | Rows still queued. `suspend`. Cheap enough for a badge. |
+| `endpoint` | `String?` | Where uploads go, or `null` if unconfigured — including after a 401 tore the config down. |
+| `isConfigured` | `Boolean` | Derived from `endpoint`, so the two cannot disagree. **Do not cache it.** |
+| `events` | `SharedFlow<SyncEvent>` | One `HttpResponse(statusCode, count)` per exchange, background ones included. |
+
+Headers are deliberately **not** exposed: they carry your credential, and a property that
+hands a bearer token back is a property that ends up in a log.
+
+##### `syncNow()`
+
+Drains inline, in **your** coroutine scope — an upload started from a `viewModelScope` is
+cancelled with it. Prefer `requestSync()` for anything not user-initiated.
+
+```kotlin
+when (val result = sync.syncNow()) {
+    is SyncQueue.Result.Uploaded -> toast("Uploaded ${result.count}")
+    SyncQueue.Result.Empty -> toast("Nothing to upload")
+    is SyncQueue.Result.Retry -> toast("Will retry: ${result.reason}")   // result.retryAfterMs
+    SyncQueue.Result.AuthExpired -> forceLogout()
+    SyncQueue.Result.Forbidden -> promptForNewCredential()
+}
+```
+
+One drain runs at a time. A second concurrent call returns `Retry("already draining")` rather
+than uploading the same rows twice. A single drain is bounded at 20 batches, so a huge backlog
+is spread across calls instead of holding the lock.
+
+##### `requestSync()`
+
+Hands the work to WorkManager: persisted, survives process death and reboot, gated on network
+availability. Repeated calls coalesce — a burst of accepted points cannot reset the backoff
+and hammer a struggling server.
+
+##### `events`
+
+```kotlin
+lifecycleScope.launch {
+    sync.events.collect { event ->
+        when (event) {
+            is SyncEvent.HttpResponse -> when (event.statusCode) {
+                null -> show("No connection — ${event.count} points still queued")
+                else -> show("HTTP ${event.statusCode} for ${event.count} points")
+            }
+        }
+    }
+}
+```
+
+`statusCode` is `null` when **no HTTP exchange completed at all** — dead network, DNS failure,
+timeout. A device problem and a server problem should not be reported the same way. `count` is
+what was *attempted*; on a failure those rows are still queued. The response body is not
+carried: it can be megabytes, and a host that needs it implements `SyncTransport`.
+
+The flow replays the last event, so a screen opened after a background upload shows what
+happened rather than a blank panel.
+
+#### 11.3 Who triggers an upload
+
+With `autoSync = true` (the default) the SDK drives itself. Three triggers, covering different
+failures:
+
+| Trigger | Cadence | Covers |
+|---|---|---|
+| A point was stored | throttled to one request a minute | Ordinary operation |
+| Health loop | every 2 min while the service runs | Rows queued, or last confirmed upload ≥ 16 min old |
+| Backstop worker | every 15 min | The same check with a **dead service** — a backlog left by a drain that failed while the process was gone |
+
+The supervision triggers ask the queue first: nothing pending, no worker woken. Set
+`autoSync = false` to own the schedule entirely with `requestSync()` / `syncNow()`.
+
+**A parked user uploads nothing, because the filter stores nothing.** That is by design, not a
+dead uploader.
+
+#### 11.4 The request
+
+`POST` (or your `method`), `Content-Type: application/json; charset=utf-8`, plus your headers
+verbatim. One request per batch — up to `batchSize` points in a single array, never one
+request per point.
+
+```json
+{
+  "location": [
+    {
+      "uuid": "0f5c8f0e-1c2a-4f0b-9a3c-7d1e2b3a4c5d",
+      "time": 1700000000000,
+      "local_date": "2026-08-17",
+      "latitude": 23.0225,
+      "longitude": 72.5714,
+      "accuracy": 8.0,
+      "movementSpeed": 4.5,
+      "provider": "fused",
+      "hasSpeed": true,
+      "hasBearing": true,
+      "time_zone": "Asia/Kolkata",
+      "activity_status": "fused@moving",
+      "detected_activity_type": "WALKING",
+      "detected_activity_start_time": 1699999000000,
+      "battery_percentage": "82",
+      "is_mock": false
+    }
+  ]
+}
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `uuid` | string | Stable identity. **Dedupe on this** — a retry re-sends the whole batch. |
+| `time` | number | Epoch **milliseconds**, wall clock. |
+| `local_date` | string | `yyyy-MM-dd` in the point's own zone, for day bucketing. |
+| `latitude` / `longitude` | number | WGS-84 degrees. The fix's own coordinates, not a filtered estimate. |
+| `accuracy` | number | Reported error radius, metres. |
+| `movementSpeed` | number | Metres per second. `0.0` when the provider reported none — check `hasSpeed` before trusting it. |
+| `provider` | string | `fused`, `gps`, `network`, `passive`, `unknown`. |
+| `hasSpeed` / `hasBearing` | boolean | Whether the provider actually supplied them. `0.0` is a legal speed. |
+| `time_zone` | string | IANA id, **per point** — a session can cross zones on a flight. |
+| `activity_status` | string | `"<provider>@<movementStatus>"`, lowercase — e.g. `fused@moving`, `gps@steady`. |
+| `detected_activity_type` | string? | `WALKING`, `IN_VEHICLE`, `ON_BICYCLE`, `RUNNING`, `STILL`, `ON_FOOT`, `TILTING`, `UNKNOWN`. Enrichment only. |
+| `detected_activity_start_time` | number | Epoch ms, `0` when unknown. |
+| `battery_percentage` | string? | 0..100 **as a string**, e.g. `"82"`. |
+| `is_mock` | boolean | True when the fix was flagged as mock. |
+
+**Nullable fields are omitted, not sent as `null`.** If `detected_activity_type` or
+`battery_percentage` is unknown, the key is absent from the object. A backend that
+distinguishes absent from null needs to know this; it is pinned by a test
+(`SyncPayloadWireTest`) so a change cannot reach a server silently.
+
+`gzipRequestBody = true` adds `Content-Encoding: gzip` and compresses bodies over 1 KB. It is
+**off by default and should stay off unless your server expects it** — there is no negotiation
+mechanism for request-body encoding, so a server that does not expect it answers 400 or stores
+the compressed bytes as the payload.
+
+If your backend's shape differs, remap it in your own `SyncTransport` ([11.6](#116-a-custom-transport))
+rather than asking for the payload to be configurable.
+
+#### 11.5 The response
+
+**The body is ignored on success.** Return whatever you like; only the status code decides.
+
+| Status | SDK behaviour | Rows |
+|---|---|---|
+| **2xx** | Batch accepted. Marked synced, next batch drains immediately. | Removed from the queue |
+| **401** | **Terminal.** Tracking stops, the queue is cleared, the config is forgotten. `syncNow()` returns `AuthExpired`. | **Deleted** |
+| **403** | **Terminal for retrying only.** The loop stops and the config is forgotten; tracking continues. Returns `Forbidden`. | **Kept** |
+| **429 / 5xx / anything else** | Retried with backoff. Returns `Retry`. | Kept |
+| No response at all | Retried. `Retry`, and the event carries `statusCode = null`. | Kept |
+
+**Why 401 and 403 differ.** A 401 means the credential this data was recorded under is gone
+and the next login may be a different user — keeping the queue would leak one user's positions
+into another's session. A 403 means *this* credential may not write *this* resource: a scope,
+a rotated key, a server-side permission bug. Same user, same valid data, so it stays on disk.
+Re-`configure()` with a working credential to resume.
+
+**404 is not terminal** — as often a mid-deploy blip as a typo, and retrying it is cheap.
+
+**`Retry-After` is honoured** on any failure response, in both RFC 9110 forms —
+delta-seconds (`Retry-After: 120`) or an HTTP-date (`Retry-After: Wed, 21 Oct 2026 07:28:00
+GMT`). Clamped to 1 s–6 h so one bad header cannot park the queue. The background worker
+re-enqueues at your time instead of its own 30-second backoff; a `Retry-After` seen by a
+host's own `syncNow()` is reported on `Result.Retry.retryAfterMs`, not acted on, because that
+call is inline and the host owns the schedule.
+
+On a non-2xx the SDK keeps up to **4 KB** of your response body on
+`SyncResponse.Failure.body`, so `500` can be told apart from `500 {"error":"bad geometry"}`.
+It is never logged — an error body can echo a request header.
+
+#### 11.6 A custom transport
+
+For a non-HTTP backend, gRPC, certificate pinning, or an existing authenticated client:
+
+```kotlin
+class AppTransport(private val api: MyApi) : SyncTransport {
+    override suspend fun upload(request: SyncRequest): SyncResponse = try {
+        val response = api.upload(request.url, request.headers, request.jsonBody)
+        when (response.code) {
+            401 -> SyncResponse.Unauthorized
+            403 -> SyncResponse.Forbidden
+            in 200..299 -> SyncResponse.Success(response.code)
+            else -> SyncResponse.Failure(
+                code = response.code,
+                message = response.message,
+                body = response.errorBody?.take(SyncResponse.Failure.MAX_BODY_CHARS),
+                retryAfterMs = response.retryAfterSeconds?.times(1_000),
+            )
+        }
+    } catch (error: IOException) {
+        SyncResponse.Failure(null, error.message ?: "network failure")
+    }
+}
+```
+
+**Implementations must not throw.** The queue needs one of the outcomes above, and a thrown
+exception cannot distinguish a dead credential from a dropped tunnel. `SyncRequest` also
+carries `gzip` and `timeouts` so a custom transport can honour the host's config — ignoring
+them is correct behaviour, not a bug.
 
 ### `trackit-snap` — OSRM map-matching
 
