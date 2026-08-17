@@ -707,6 +707,8 @@ sync.configure(
         autoSync = true,
         batchSize = 100,
         requiresUnmeteredNetwork = false,
+        gzipRequestBody = false,          // opt-in; see below
+        timeouts = SyncTimeouts(),        // connect 5 s, read 30 s, write 20 s
     )
 )
 
@@ -718,27 +720,116 @@ when (val result = sync.syncNow()) { // inline, suspend
     SyncQueue.Result.Empty -> Unit
     is SyncQueue.Result.Retry -> Log.w("TrackIt", result.reason)
     SyncQueue.Result.AuthExpired -> forceLogout()
+    SyncQueue.Result.Forbidden -> promptForNewCredential()
 }
 ```
 
-In `TRACKIT_VERSION`, call `requestSync()` after accepted points or at an application-owned
-checkpoint even when `SyncConfig.autoSync` is `true`. The configuration field exists, but
-accepted-point events are not yet wired to enqueue the worker automatically.
+### `autoSync` drives itself
+
+With `autoSync = true` (the default) the SDK requests its own drains and a host need call
+nothing. Three triggers, deliberately covering different failures:
+
+| Trigger | When | Why it exists |
+|---|---|---|
+| Accepted point | a point was stored | What `autoSync` means. Throttled to one request a minute — in navigation mode points arrive every second, and a 100-row batch is nowhere near full in 60 s |
+| Health loop | every 2 min while the service runs | Rows queued, or the last confirmed upload ≥ 16 min old |
+| Backstop worker | every 15 min | The same check, but it survives a dead service — the only thing that notices a backlog left by a drain that failed while the process was gone |
+
+The supervision triggers ask the queue first: with nothing pending, no worker is woken.
+
+Set `autoSync = false` to own the schedule yourself; nothing is registered and `requestSync()`
+/ `syncNow()` are then the only paths. A 401 or 403 also unregisters the trigger, so a dead
+credential cannot keep the loop alive.
+
+A parked user uploads nothing, because the filter stores nothing. That is by design and is
+not evidence of a dead tracker.
 
 ### TrackItSync methods
 
 | Method | Use |
 |---|---|
 | `getInstance(context)` | Get the process-wide sync instance linked to TrackIt's database. |
-| `configure(config, transport = null)` | Set endpoint behavior and optional custom transport. |
+| `configure(config, transport = null)` | Set endpoint behavior and optional custom transport. **Throws `IllegalArgumentException`** if the config fails `SyncConfig.validate()`. |
 | `pendingCount()` | Count queued rows. |
-| `requestSync()` | Enqueue unique network-constrained WorkManager work. No-op before configuration. |
-| `syncNow()` | Drain inline and return `Uploaded`, `Empty`, `Retry`, or `AuthExpired`. |
+| `requestSync()` | Enqueue unique network-constrained WorkManager work. No-op before configuration, and after a 403. |
+| `syncNow()` | Drain inline and return `Uploaded`, `Empty`, `Retry`, `AuthExpired`, or `Forbidden`. |
+| `events` | `SharedFlow<SyncEvent>` — one `HttpResponse(statusCode, count)` per exchange, including background ones. |
+| `endpoint` | The configured URL, or `null`. |
+| `isConfigured` | Derived from `endpoint`. Do not cache it — a 401 clears the config with no host involvement. |
 
-A 401 maps to `AuthExpired`: TrackIt stops capture, clears the upload queue, and forgets
-sync configuration to prevent one user's locations leaking into a later login.
+The headers are deliberately not exposed: they carry your credential, and a property that
+hands a bearer token back is a property that ends up in a log.
 
-Custom transports implement one method and must return a response instead of throwing:
+### Watching what the server said
+
+`syncNow()` returns the outcome of a drain you asked for. `events` covers the ones you did
+not — `requestSync()` hands the work to WorkManager, which may run it minutes later in a
+process nobody is watching.
+
+```kotlin
+lifecycleScope.launch {
+    sync.events.collect { event ->
+        when (event) {
+            is SyncEvent.HttpResponse -> when (event.statusCode) {
+                null -> show("No connection — ${event.count} points still queued")
+                else -> show("HTTP ${event.statusCode} for ${event.count} points")
+            }
+        }
+    }
+}
+```
+
+`statusCode` is `null` when no HTTP exchange completed at all — a dead network, DNS failure
+or timeout. A device problem and a server problem should not be reported the same way. The
+response body is not carried: it can be megabytes, and a host that needs it implements
+`SyncTransport` and sees the whole exchange.
+
+### 401 and 403 are both terminal, and they are not the same
+
+| | 401 → `AuthExpired` | 403 → `Forbidden` |
+|---|---|---|
+| Stops tracking | yes | no |
+| Clears the upload queue | yes | **no** |
+| Forgets the sync config | yes | yes |
+| Recovery | log in again, then `configure()` | `configure()` with a working credential |
+
+A 401 means the credential this data was recorded under is gone, and the next login may be a
+different user — so keeping the queue would leak one user's positions into another's session.
+A 403 means *this* credential may not write *this* resource: a scope, a rotated key, a
+server-side permission bug. That is the same user's data, so it stays on disk and uploads
+when you re-configure. Before this existed, a 403 retried forever — the exact silent battery
+burn the 401 handling exists to prevent.
+
+### Rate limiting
+
+A `Retry-After` header on any failure response is parsed (both delta-seconds and HTTP-date
+forms), clamped to 1 s–6 h, and returned as `SyncQueue.Result.Retry.retryAfterMs`. When the
+background worker sees one it re-enqueues at the server's time instead of the SDK's 30-second
+backoff. A `Retry-After` seen by your own `syncNow()` call is reported, not acted on — you
+own that schedule.
+
+### Timeouts and compression
+
+`SyncConfig.timeouts` overrides the built-in transport's connect/read/write values without
+your having to build an `OkHttpClient`. `SyncTimeouts` is a plain data class with no OkHttp
+types in it, so it also reaches a custom transport, on `SyncRequest.timeouts`.
+
+`gzipRequestBody` is **off by default and should stay off unless your server expects it**.
+There is no negotiation mechanism for request-body encoding — `Accept-Encoding` is a
+*response* preference. A client sending `Content-Encoding: gzip` on a POST is simply
+asserting it, and a server that does not expect it answers 400 or stores the compressed bytes
+as the payload. Bodies under 1 KB are sent uncompressed regardless.
+
+### Background behaviour
+
+`requestSync()` runs under WorkManager: the request is persisted, survives process death and
+reboot, and is gated on network availability. `syncNow()` runs in **your** coroutine scope —
+an upload started from a `viewModelScope` is cancelled with it. Prefer `requestSync()` for
+anything not user-initiated.
+
+### Custom transports
+
+Implement one method, and return a response instead of throwing:
 
 ```kotlin
 class AppTransport : SyncTransport {
@@ -746,8 +837,14 @@ class AppTransport : SyncTransport {
         val response = api.upload(request.url, request.headers, request.jsonBody)
         when (response.code) {
             401 -> SyncResponse.Unauthorized
+            403 -> SyncResponse.Forbidden
             in 200..299 -> SyncResponse.Success(response.code)
-            else -> SyncResponse.Failure(response.code, response.message)
+            else -> SyncResponse.Failure(
+                code = response.code,
+                message = response.message,
+                body = response.errorBody?.take(SyncResponse.Failure.MAX_BODY_CHARS),
+                retryAfterMs = response.retryAfterSeconds?.times(1_000),
+            )
         }
     } catch (error: IOException) {
         SyncResponse.Failure(null, error.message ?: "network failure")
@@ -756,7 +853,19 @@ class AppTransport : SyncTransport {
 ```
 
 `OkHttpSyncTransport.defaultClient()` creates the built-in client with 5-second connect,
-30-second read, and 20-second write timeouts.
+30-second read, and 20-second write timeouts; `SyncConfig.timeouts` overrides them per
+request without replacing the client.
+
+### The URL must be `https://`
+
+`configure()` rejects a cleartext URL rather than accepting it and failing at upload time.
+Android blocks cleartext by default from API 28, so an `http://` endpoint surfaces as a
+generic network error and retries forever with nothing naming the cause. Loopback hosts
+(`localhost`, `127.0.0.1`, `::1`, `10.0.2.2`) are exempt, matching the platform's own default
+network security config; anything else needs `allowCleartext = true` deliberately.
+
+Call `SyncConfig.validate()` yourself first if the URL comes from untrusted input — it
+returns every problem as a list rather than throwing.
 
 ## 14. Road snapping
 

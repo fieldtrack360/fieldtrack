@@ -81,7 +81,9 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 | `insertLocation` | ✅ | ✅ | Validated like a real fix (EC-86) |
 | HTTP `url`/`method`/`headers`/`params`/`autoSync`/`batchSync` | ✅ | 🔁 | Optional `trackit-sync` module — core never touches the network |
 | JWT / SAS authorization with auto-refresh | ✅ | ⛔ | Host's concern |
-| `onHttp` event | ✅ | 🔁 | In `trackit-sync` only |
+| `onHttp` event | ✅ | 🔁 | `TrackItSync.events` → `SyncEvent.HttpResponse(statusCode, count)`, one per exchange. In `trackit-sync` only. No response body — it can be megabytes; implement `SyncTransport` if you need it |
+| `Retry-After` honoured | ✅ | ✅ | Both delta-seconds and HTTP-date, clamped 1 s–6 h; the worker re-enqueues at the server's time |
+| Terminal auth failures | ✅ (401) | ⭐ (401 **and** 403) | 401 clears the queue, 403 keeps it — a revoked key is the same user, an expired session may not be |
 | **Session as a first-class entity** | ⛔ | ⭐ | Every point belongs to a session with a config snapshot |
 | **Persisted filter state** | ⛔ | ⭐ | Survives process death; closes the cold-start teleport hole |
 

@@ -32,7 +32,7 @@ Part C was added 2026-08-10 and produced the most consequential single finding i
 | [G-1](#g-1) | §10 · §21 | BROKEN CHAIN | Activity is never stamped on a point, so every label falls back to speed buckets |
 | [G-2](#g-2) | §11.1 | BROKEN CHAIN | Battery and charging state are never captured |
 | [G-3](#g-3) | §10 | MISSING | Activity segments: table, entity and DAO exist with no reader or writer |
-| [G-4](#g-4) | §3.4 · §12.2 | MISSING | Nothing ever triggers an upload |
+| [G-4](#g-4) | §3.4 · §12.2 | **FIXED** 17 Aug 2026 | Nothing ever triggers an upload |
 | [G-5](#g-5) | §10 | MISSING | The AR snapshot is cancelled by a watchdog but never requested |
 | [G-6](#g-6) | §10 | MISSING | Activity confidence is hardcoded to 0; both thresholds are unread |
 | [G-7](#g-7) | §12.2 | MISSING | No wake lock anywhere — the OEM soft-wake does not exist |
@@ -126,7 +126,17 @@ So §24's end-node dual window ("render the drive window `travelStart → arriva
 
 ### G-4 — Nothing ever triggers an upload {#g-4}
 
-**Verdict: MISSING.** Two separate places in the spec require the SDK to drive its own sync:
+**Verdict: FIXED, 17 Aug 2026.** See `CHANGES-2026-08-17-ANDROID-SYNC.md` §6. Core now owns a
+`SyncScheduler` (`trackit-core/.../work/SyncScheduler.kt`) driven from three places — the
+accepted-point callback, the health loop, and the periodic backstop — and calls out through a
+new `SyncTrigger` seam that `trackit-sync` registers when `SyncConfig.autoSync` is on. Core
+still opens no socket and links no network code.
+
+The original finding follows, unchanged.
+
+---
+
+Two separate places in the spec require the SDK to drive its own sync:
 
 - §3.4, health loop step 3 — "Is the newest stored row unsynced (`syncTime == 0`) or last sync ≥ 16 min old? → run the sync queue."
 - §12.2, watchdog check 3 — "Newest stored row unsynced → run the sync queue."
@@ -516,7 +526,7 @@ Ranked by ratio of consequence to effort, not by severity.
 1. **[G-1](#g-1) + [G-3](#g-3)** — activity stamping and segments. Restores §10, §19's STILL override, §21's detected-label path and §25's breakdown in one change. The largest behavioural return in the list.
 2. **[G-27](#g-27)** — a fixture corpus and the replay tests. Everything else is a guess until the acceptance criteria run.
 3. **[G-26](#g-26)** — `trackit-bridge`. Two documented deliverables (Java client, RN package) are blocked on one absent module.
-4. **[G-4](#g-4)** — the sync trigger. Small, and the difference between a sync module that works and one that appears to.
+4. ~~**[G-4](#g-4)** — the sync trigger.~~ **Done, 17 Aug 2026.** It was small, and it was the difference between a sync module that works and one that appears to.
 5. **[G-19](#g-19)–[G-22](#g-22)** — either wire the dead config or delete it. A field that reads as supported and does nothing costs more than an honest absence.
 6. **[G-2](#g-2), [G-9](#g-9), [G-11](#g-11), [G-12](#g-12), [G-13](#g-13)** — cheap, additive, each closes a named spec clause.
 7. **[G-7](#g-7), [G-28](#g-28), [G-15](#g-15)–[G-18](#g-18)** — survival and render polish.

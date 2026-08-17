@@ -51,6 +51,11 @@ internal class BackstopWorker(
         val session = deps.sessions.current() ?: return Result.success()
         val config = deps.config.load() ?: TrackItConfig()
 
+        // Runs whether or not a fix arrives. This is the only supervision that survives a
+        // dead service, so it is the one thing that can notice a backlog left behind by a
+        // drain that failed while the process was gone (spec §12.2 check 3).
+        deps.syncScheduler.onSupervisionTick()
+
         // Through OneShotProvider, not the raw source: it carries the timeout, the
         // retry cap and the mutex that stops a coincident activity-transition capture
         // from firing a second concurrent request (EC-17, EC-20).

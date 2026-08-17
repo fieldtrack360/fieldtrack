@@ -22,11 +22,38 @@ public interface SyncTransport {
     public suspend fun upload(request: SyncRequest): SyncResponse
 }
 
+/**
+ * Request timeouts, as plain numbers.
+ *
+ * Deliberately not an OkHttp type. The whole point of the [SyncTransport] seam is that a
+ * host supplying its own client never links OkHttp, so the one place timeouts are
+ * *configured* must not be typed against it — otherwise overriding a read timeout drags
+ * the dependency back in through the front door.
+ */
+public data class SyncTimeouts(
+    val connectMs: Long = DEFAULT_CONNECT_MS,
+    val readMs: Long = DEFAULT_READ_MS,
+    val writeMs: Long = DEFAULT_WRITE_MS,
+) {
+    public companion object {
+        public const val DEFAULT_CONNECT_MS: Long = 5_000
+        public const val DEFAULT_READ_MS: Long = 30_000
+        public const val DEFAULT_WRITE_MS: Long = 20_000
+    }
+}
+
+/**
+ * @property gzip the host asked for a compressed body. A transport that cannot compress is
+ *   free to ignore it and send the JSON as-is — the server sees a valid request either way,
+ *   which is not true in reverse.
+ */
 public data class SyncRequest(
     val url: String,
     val method: String,
     val headers: Map<String, String>,
     val jsonBody: String,
+    val gzip: Boolean = false,
+    val timeouts: SyncTimeouts = SyncTimeouts(),
 )
 
 /**
@@ -34,12 +61,35 @@ public data class SyncRequest(
  * @property Unauthorized a 401. Distinct from [Failure] because it is **terminal**:
  *   retrying cannot help, and the SDK responds by tearing the session down rather than
  *   looping (spec §3.3, §11.2).
+ * @property Forbidden a 403. Also terminal, but for a different reason and with different
+ *   consequences — see [SyncQueue.Result.Forbidden]. Before this existed a revoked key
+ *   retried forever, which is the exact silent battery burn 401 handling exists to prevent.
  * @property Failure anything else — the rows stay queued and are retried with backoff.
  */
 public sealed interface SyncResponse {
     public data class Success(val code: Int) : SyncResponse
     public data object Unauthorized : SyncResponse
-    public data class Failure(val code: Int?, val message: String) : SyncResponse
+    public data object Forbidden : SyncResponse
+
+    /**
+     * @property body at most [MAX_BODY_CHARS] characters of the error body, or `null` if the
+     *   server sent none. Bounded because an error page can be megabytes, and present at all
+     *   because "500" alone cannot tell a host whether it sent bad JSON or hit a dead
+     *   database. Never logged by the SDK — an error body can echo a request header.
+     * @property retryAfterMs the server's own retry delay, parsed from `Retry-After`. When
+     *   set it wins over the SDK's schedule: a 429 means the server has already said when it
+     *   wants to be asked again.
+     */
+    public data class Failure(
+        val code: Int?,
+        val message: String,
+        val body: String? = null,
+        val retryAfterMs: Long? = null,
+    ) : SyncResponse {
+        public companion object {
+            public const val MAX_BODY_CHARS: Int = 4_096
+        }
+    }
 }
 
 /**

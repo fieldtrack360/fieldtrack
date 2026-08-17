@@ -993,12 +993,14 @@ val sync = TrackItSync.getInstance(context)
 
 sync.configure(
     SyncConfig(
-        url = "https://api.example.com/v1/points",
+        url = "https://api.example.com/v1/points",   // https, or configure() throws
         method = "POST",
         headers = mapOf("Authorization" to "Bearer $token"),
         autoSync = true,
         batchSize = 100,
         requiresUnmeteredNetwork = false,
+        gzipRequestBody = false,                     // opt-in; most servers reject it
+        timeouts = SyncTimeouts(readMs = 30_000),    // no OkHttpClient needed
     ),
     // Omit to use the OkHttp default. Supply your own to reuse an authenticated
     // client — then OkHttp is never linked by this module.
@@ -1008,10 +1010,26 @@ sync.configure(
 sync.requestSync()                       // network-constrained one-shot; safe to call often
 val result = sync.syncNow()              // drains inline, returns what happened
 val pending = sync.pendingCount()
+
+sync.endpoint                            // where uploads go, or null
+sync.isConfigured                        // derived from endpoint; do not cache it
+sync.events                              // one HttpResponse(statusCode, count) per exchange
 ```
 
-On HTTP 401 the queue tears down: tracking stops, the queue is cleared, the config is
-forgotten. Implement `SyncTransport` yourself for a non-HTTP backend.
+Two terminal statuses, with deliberately different consequences. On **401** the queue tears
+down: tracking stops, the queue is cleared, the config is forgotten — the credential this
+data was recorded under is gone and the next login may be a different user. On **403** only
+the retry loop stops: tracking continues and **every queued row is kept**, because a revoked
+or under-scoped key is still the same user's data. Re-`configure()` with a working credential
+to resume.
+
+A `Retry-After` header is honoured: the background worker re-enqueues at the server's time
+instead of its own backoff. Implement `SyncTransport` yourself for a non-HTTP backend.
+
+With `autoSync = true` the SDK drives its own uploads — on stored points (throttled to one
+request a minute), from the health loop every two minutes, and from the backstop worker every
+fifteen, which is the one that survives a dead service. Set it to `false` to own the schedule
+with `requestSync()` / `syncNow()` yourself.
 
 ### `trackit-snap` — OSRM map-matching
 

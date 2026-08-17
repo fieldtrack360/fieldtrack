@@ -95,6 +95,16 @@ internal interface TrackPointDao {
     @Query("SELECT COUNT(*) FROM track_point WHERE syncState = 0")
     suspend fun pendingUploadCount(): Int
 
+    /**
+     * When the last confirmed upload happened, or null if none ever has.
+     *
+     * `syncTimeMs` is 0 on an unsynced row and on a row cleared by a 401 teardown, so the
+     * MAX is over confirmed uploads only — which is what "last sync ≥ 16 minutes old"
+     * (spec §3.4) has to be measured against.
+     */
+    @Query("SELECT MAX(syncTimeMs) FROM track_point WHERE syncTimeMs > 0")
+    suspend fun lastSyncTimeMs(): Long?
+
     @Query("UPDATE track_point SET syncState = 1, syncTimeMs = :syncedAtMs WHERE uuid IN (:uuids)")
     suspend fun markSynced(uuids: List<String>, syncedAtMs: Long): Int
 

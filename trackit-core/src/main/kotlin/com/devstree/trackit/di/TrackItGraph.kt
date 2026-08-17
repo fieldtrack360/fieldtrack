@@ -59,6 +59,8 @@ import com.devstree.trackit.motion.StepCorroborator
 import com.devstree.trackit.permission.PermissionManager
 import com.devstree.trackit.permission.ProviderStateMonitor
 import com.devstree.trackit.service.HealthLoop
+import com.devstree.trackit.work.DaoUploadQueueStats
+import com.devstree.trackit.work.SyncScheduler
 import com.devstree.trackit.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -154,6 +156,11 @@ internal class TrackItGraph private constructor(
     /** The one public door trackit-sync uploads through. */
     val pendingUploads: PendingUploadStore by lazy { PendingUploadStoreImpl(pointDao) }
 
+    /** The door in the other direction: core asking for a drain (G-4). */
+    val syncScheduler: SyncScheduler by lazy {
+        SyncScheduler(DaoUploadQueueStats(pointDao), clock, logger)
+    }
+
     // ── platform seams ──────────────────────────────────────────────────────
 
     val fusedLocationSource: LocationSource by lazy { FusedLocationSource(context) }
@@ -232,7 +239,10 @@ internal class TrackItGraph private constructor(
     }
 
     val healthLoop: HealthLoop by lazy {
-        HealthLoop(context, sessions, clock, events, watchdog, motionController, providerStateMonitor, logger)
+        HealthLoop(
+            context, sessions, clock, events, watchdog, motionController, providerStateMonitor,
+            syncScheduler, logger,
+        )
     }
 
     // ── use cases ───────────────────────────────────────────────────────────
@@ -250,6 +260,7 @@ internal class TrackItGraph private constructor(
             stepCorroborator = stepCorroborator,
             activityRecognizer = activityRecognizer,
             watchdog = watchdog,
+            syncScheduler = syncScheduler,
             context = context,
             events = events,
             scope = scope,

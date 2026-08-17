@@ -14,6 +14,7 @@ import com.devstree.trackit.motion.MotionController
 import com.devstree.trackit.permission.ProviderStateMonitor
 import com.devstree.trackit.work.BackstopWorker
 import com.devstree.trackit.work.RestoreWorker
+import com.devstree.trackit.work.SyncScheduler
 import com.devstree.trackit.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -43,6 +44,7 @@ HealthLoop(
     private val watchdog: Watchdog,
     private val motionController: MotionController,
     private val providerState: ProviderStateMonitor,
+    private val syncScheduler: SyncScheduler,
     private val logger: TrackLogger,
 ) {
 
@@ -86,6 +88,10 @@ HealthLoop(
         if (action == Watchdog.Action.RestoreService) {
             RestoreWorker.enqueueExpedited(context)
         }
+
+        // Spec §3.4 step 3 and §12.2 check 3: rows queued, or the last sync gone stale,
+        // means run the queue. A no-op unless the host configured sync with autoSync on.
+        syncScheduler.onSupervisionTick()
 
         // Health is judged first; the heartbeat then records that the loop is alive.
         events.tryEmit(TrackItEvent.Heartbeat(clock.wallTimeMs()))

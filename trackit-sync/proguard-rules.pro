@@ -25,6 +25,10 @@
 -keep public class com.devstree.trackit.sync.OkHttpSyncTransport$Companion { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncQueue { public protected *; }
 -keep public class com.devstree.trackit.sync.SyncQueue$* { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncTimeouts { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncTimeouts$Companion { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncEvent { public protected *; }
+-keep public class com.devstree.trackit.sync.SyncEvent$* { public protected *; }
 
 # WorkManager instantiates SyncWorker reflectively; the dependency's own consumer rule
 # does not run in this library-mode pass.

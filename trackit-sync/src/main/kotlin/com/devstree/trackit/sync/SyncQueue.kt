@@ -25,6 +25,12 @@ public class SyncQueue internal constructor(
     private val store: PendingUploadStore,
     private val clock: Clock,
     private val logger: TrackLogger,
+    /**
+     * Where per-exchange events go. A plain lambda rather than a flow because the queue
+     * should not own the buffering policy — [TrackItSync] does, and it is the thing hosts
+     * collect from.
+     */
+    private val onEvent: (SyncEvent) -> Unit = {},
 ) {
 
     private val mutex = Mutex()
@@ -33,10 +39,29 @@ public class SyncQueue internal constructor(
     public sealed interface Result {
         public data class Uploaded(val count: Int) : Result
         public data object Empty : Result
-        public data class Retry(val reason: String) : Result
+
+        /**
+         * @property retryAfterMs the server's own `Retry-After`, when it sent one. Null means
+         *   it had no opinion and the SDK's backoff applies.
+         */
+        public data class Retry(val reason: String, val retryAfterMs: Long? = null) : Result
 
         /** Terminal — the caller must tear the session down, not retry (spec §3.3). */
         public data object AuthExpired : Result
+
+        /**
+         * Terminal, and **not** [AuthExpired].
+         *
+         * A 401 says the credential is gone, so the queued rows belong to a user who can no
+         * longer own them and clearing them is right. A 403 says this credential may not
+         * write this resource — a scope, a rotated key, a server-side permission bug. Those
+         * rows are still the host's data and are still valid; throwing them away to fix a
+         * permissions mistake would be the more expensive of the two errors.
+         *
+         * So this stops the retry loop — which is the battery burn worth stopping — and
+         * leaves every row queued for a re-`configure()` with a working credential.
+         */
+        public data object Forbidden : Result
     }
 
     public suspend fun drain(config: SyncConfig, transport: SyncTransport): Result {
@@ -59,8 +84,15 @@ public class SyncQueue internal constructor(
                         method = config.method,
                         headers = config.headers,
                         jsonBody = json.encodeToString(SyncPayload(batch.map(::toSyncPoint))),
+                        gzip = config.gzipRequestBody,
+                        timeouts = config.timeouts,
                     ),
                 )
+
+                // Emitted before the branch, so every exchange reports exactly once — the
+                // terminal paths return, and an event written after the return is an event
+                // the host never sees for precisely the failures it most needs to see.
+                onEvent(SyncEvent.HttpResponse(response.statusCode(), batch.size))
 
                 when (response) {
                     is SyncResponse.Success -> {
@@ -71,10 +103,15 @@ public class SyncQueue internal constructor(
                         sdkLog { logger.w(TAG, "401 on upload; auth expired") }
                         return Result.AuthExpired
                     }
+                    SyncResponse.Forbidden -> {
+                        sdkLog { logger.w(TAG, "403 on upload; credential rejected — rows stay queued") }
+                        return Result.Forbidden
+                    }
                     is SyncResponse.Failure -> {
-                        // Rows stay queued deliberately. Retried by SyncWorker's backoff.
+                        // Rows stay queued deliberately. Retried by SyncWorker's backoff, or
+                        // by the server's own schedule when it sent one.
                         sdkLog { logger.w(TAG, "Upload failed (${response.code}): ${response.message}") }
-                        return Result.Retry(response.message)
+                        return Result.Retry(response.message, response.retryAfterMs)
                     }
                 }
             }
@@ -118,8 +155,22 @@ public class SyncQueue internal constructor(
 
     private fun MovementStatus.wireName() = name.lowercase()
 
+    /**
+     * `null` means no HTTP exchange completed — a dead network, a DNS failure, a timeout.
+     * A device problem and a server problem are different things and a diagnostics screen
+     * should not draw them the same way.
+     */
+    private fun SyncResponse.statusCode(): Int? = when (this) {
+        is SyncResponse.Success -> code
+        SyncResponse.Unauthorized -> HTTP_UNAUTHORIZED
+        SyncResponse.Forbidden -> HTTP_FORBIDDEN
+        is SyncResponse.Failure -> code
+    }
+
     private companion object {
         const val TAG = "SyncQueue"
         const val MAX_BATCHES_PER_DRAIN = 20
+        const val HTTP_UNAUTHORIZED = 401
+        const val HTTP_FORBIDDEN = 403
     }
 }

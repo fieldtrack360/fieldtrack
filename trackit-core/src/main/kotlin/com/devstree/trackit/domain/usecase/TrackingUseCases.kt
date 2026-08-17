@@ -27,6 +27,7 @@ import com.devstree.trackit.motion.StepCorroborator
 import com.devstree.trackit.permission.PermissionManager
 import com.devstree.trackit.service.TrackingService
 import com.devstree.trackit.work.BackstopWorker
+import com.devstree.trackit.work.SyncScheduler
 import com.devstree.trackit.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -54,6 +55,7 @@ public class StartTrackingUseCase internal constructor(
     private val stepCorroborator: StepCorroborator,
     private val activityRecognizer: ActivityRecognizer,
     private val watchdog: Watchdog,
+    private val syncScheduler: SyncScheduler,
     private val context: Context,
     private val events: MutableSharedFlow<TrackItEvent>,
     private val scope: CoroutineScope,
@@ -151,7 +153,13 @@ public class StartTrackingUseCase internal constructor(
         }
 
         // Motion transitions drive cadence and the wake paths, but never gate capture.
-        ingestor.onAcceptedPoint = motionController::onAcceptedPoint
+        // The upload nudge rides along here because this is the one place that knows a
+        // point was both accepted and stored — which is exactly what `autoSync` means.
+        // Throttled inside the scheduler, and a no-op when no host registered a trigger.
+        ingestor.onAcceptedPoint = { point ->
+            motionController.onAcceptedPoint(point)
+            syncScheduler.onAcceptedPoint()
+        }
         // The third cadence tier: raw fixes feed turn detection, turn detection feeds the
         // sampling rate. A callback rather than an injected dependency because the stream
         // controller already depends on the ingestor (EC-45).

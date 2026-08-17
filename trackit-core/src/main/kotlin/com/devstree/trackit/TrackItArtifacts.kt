@@ -3,6 +3,7 @@ package com.devstree.trackit
 import android.content.Context
 import com.devstree.trackit.di.TrackItGraph
 import com.devstree.trackit.domain.repository.PendingUploadStore
+import com.devstree.trackit.domain.repository.SyncTrigger
 import com.devstree.trackit.geo.port.Clock
 import com.devstree.trackit.geo.port.TrackLogger
 
@@ -30,6 +31,21 @@ public class TrackItArtifacts private constructor(private val graph: TrackItGrap
 
     /** The one door `trackit-sync` uploads through. */
     public val pendingUploads: PendingUploadStore get() = graph.pendingUploads
+
+    /**
+     * The door in the other direction.
+     *
+     * Core knows when a point was stored and when a queue has gone stale; it has no idea
+     * what uploading one would mean. `trackit-sync` registers a [SyncTrigger] here when
+     * `SyncConfig.autoSync` is on and clears it when the configuration goes away, which is
+     * what finally makes that flag mean something (GAPS.md G-4).
+     *
+     * Null clears it. Registering twice replaces — there is one uploader per process, and
+     * a second registrant would otherwise double every request.
+     */
+    public fun registerSyncTrigger(trigger: SyncTrigger?) {
+        graph.syncScheduler.register(trigger)
+    }
 
     public companion object {
         /** Same process-wide graph [TrackIt.getInstance] returns from. */
