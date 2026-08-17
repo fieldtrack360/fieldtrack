@@ -30,7 +30,7 @@ Part C was added 2026-08-10 and produced the most consequential single finding i
 | # | Area | Verdict | One line |
 |---|---|---|---|
 | [G-1](#g-1) | §10 · §21 | BROKEN CHAIN | Activity is never stamped on a point, so every label falls back to speed buckets |
-| [G-2](#g-2) | §11.1 | BROKEN CHAIN | Battery and charging state are never captured |
+| [G-2](#g-2) | §11.1 | **FIXED** 17 Aug 2026 | Battery and charging state are never captured |
 | [G-3](#g-3) | §10 | MISSING | Activity segments: table, entity and DAO exist with no reader or writer |
 | [G-4](#g-4) | §3.4 · §12.2 | **FIXED** 17 Aug 2026 | Nothing ever triggers an upload |
 | [G-5](#g-5) | §10 | MISSING | The AR snapshot is cancelled by a watchdog but never requested |
@@ -96,7 +96,16 @@ The system is not wrong, it is *blind*: it produces plausible labels from speed 
 
 ### G-2 — Battery and charging state are never captured {#g-2}
 
-**Verdict: BROKEN CHAIN.** §11.1 lists `batteryPercentage` as a per-point diagnostic. Same root cause as G-1: `contextFor()` omits `batteryPct` and `isCharging`.
+**Verdict: FIXED, 17 Aug 2026.** See `CHANGES-2026-08-17-ANDROID-SYNC.md` §7. `AndroidBatteryProbe`
+(`trackit-core/.../data/platform/BatteryProbe.kt`) now produces both values behind a
+one-minute cache, and `FixIngestor.contextFor()` stamps them on every fix. `FixtureReplay`
+still leaves them null, deliberately — a replay must stay byte-deterministic.
+
+The original finding follows, unchanged.
+
+---
+
+**Verdict was: BROKEN CHAIN.** §11.1 lists `batteryPercentage` as a per-point diagnostic. Same root cause as G-1: `contextFor()` omits `batteryPct` and `isCharging`.
 
 `TrackPoint.batteryPct` is therefore always `null`, and `trackit-sync` ships `"battery_percentage": null` on every uploaded point (`SyncTransport.kt`, `SyncPoint.battery_percentage`).
 

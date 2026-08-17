@@ -1,5 +1,6 @@
 package com.devstree.trackit.capture
 
+import com.devstree.trackit.data.platform.BatteryReader
 import com.devstree.trackit.data.repository.RoomPointStore
 import com.devstree.trackit.domain.model.TrackItEvent
 import com.devstree.trackit.domain.model.TrackSession
@@ -48,6 +49,7 @@ internal class FixIngestor(
     private val watchdog: Watchdog,
     private val events: MutableSharedFlow<TrackItEvent>,
     private val liveTrack: LiveTrackFeed,
+    private val battery: BatteryReader,
 ) {
 
     /**
@@ -293,6 +295,10 @@ internal class FixIngestor(
 
     private fun contextFor(session: TrackSession, cadenceTierMs: Long?): IngestContext {
         val zone = ZoneId.systemDefault()
+        // Cached behind a one-minute TTL, so this is a field read on all but one fix a
+        // minute. Read for every verdict, not only accepted ones: a rejected fix's raw-point
+        // row is exactly where "the phone was at 4 %" belongs (§11.1, G-2).
+        val power = battery.read()
         return IngestContext(
             sessionId = session.id,
             // Resolved per fix: a session can cross time zones on a flight (EC-89).
@@ -303,6 +309,8 @@ internal class FixIngestor(
             stepsSinceLastPoint = stepsSinceLastPoint?.invoke(),
             bearingChangeCaptureDeg = bearingChangeCaptureDeg,
             cadenceTierMs = cadenceTierMs,
+            batteryPct = power.percent,
+            isCharging = power.isCharging,
         )
     }
 

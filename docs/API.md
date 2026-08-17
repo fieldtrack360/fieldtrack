@@ -770,6 +770,8 @@ object TrackIt {
     // ── permissions & provider ─────────────────────────────────
     suspend fun requestPermission(activity: Activity, level: PermissionLevel): PermissionResult
     fun providerState(): StateFlow<ProviderState>
+    fun batteryInfo(): BatteryInfo
+    fun batteryState(): StateFlow<BatteryInfo>
     fun isIgnoringBatteryOptimizations(): Boolean
     fun requestIgnoreBatteryOptimizations(activity: Activity)
 

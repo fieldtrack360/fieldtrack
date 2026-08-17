@@ -4,6 +4,8 @@ import android.content.Context
 import com.devstree.trackit.capture.FixIngestor
 import com.devstree.trackit.capture.LiveTrackFeed
 import com.devstree.trackit.capture.OneShotProvider
+import com.devstree.trackit.data.platform.BatteryMonitor
+import com.devstree.trackit.domain.model.BatteryInfo
 import com.devstree.trackit.domain.model.ErrorCode
 import com.devstree.trackit.domain.model.PermissionTier
 import com.devstree.trackit.domain.model.PointQuery
@@ -101,6 +103,7 @@ public class TrackIt internal constructor(
     private val liveTrackFeed: LiveTrackFeed,
     private val clock: Clock,
     private val providerStateMonitor: ProviderStateMonitor,
+    private val batteryMonitor: BatteryMonitor,
     private val sensorProbe: SensorProbe,
     private val stationaryFence: StationaryFence,
     private val permissions: PermissionManager,
@@ -242,6 +245,9 @@ public class TrackIt internal constructor(
         }
 
         providerStateMonitor.start()
+        // Four broadcasts a day, and it makes batteryState() live from ready() onward
+        // rather than only while a session is open.
+        batteryMonitor.start()
 
         // TTL enforcement is independent of a session; enqueue once and let it run daily.
         PruneWorker.enqueue(context)
@@ -266,6 +272,31 @@ public class TrackIt internal constructor(
      * never polled (EC-06, EC-16, EC-21).
      */
     public fun providerState(): StateFlow<ProviderState> = providerStateMonitor.state
+
+    /**
+     * Charge level and power source, read from the platform now.
+     *
+     * Needs no session, no permission and no [ready] call — safe from anywhere, including
+     * before tracking has ever started. It is a binder call, so it belongs in a refresh, not
+     * in a per-frame render; collect [batteryState] for a live display instead.
+     *
+     * Returns [BatteryInfo.Unknown] rather than throwing or guessing when the platform will
+     * not answer. A null percentage is "we do not know", never 0 %.
+     *
+     * This is the same reading stamped on every stored point, so a host's display and its
+     * uploaded rows cannot disagree.
+     */
+    public fun batteryInfo(): BatteryInfo = batteryMonitor.refresh()
+
+    /**
+     * Live battery state, updated on plug, unplug, low and okay — and, while a session is
+     * running, on the capture path's own refresh.
+     *
+     * Starts at [BatteryInfo.Unknown] until something reads; call [batteryInfo] once if you
+     * need a value immediately. [TrackItEvent.BatteryChange] carries the same transitions
+     * for hosts collecting the event flow.
+     */
+    public fun batteryState(): StateFlow<BatteryInfo> = batteryMonitor.state
 
     /** What motion hardware exists, and the [MotionQuality] the SDK derived from it. */
     public fun getSensors(): DeviceSensors = sensorProbe.probe()

@@ -892,6 +892,25 @@ trackIt.events.collect { event ->
 `SessionInterrupted` fires from `ready()` when a session was found still open at launch —
 a crash or force-stop. The SDK does not decide what to do with it; you do (EC-66).
 
+### Battery
+
+```kotlin
+val battery = trackIt.batteryInfo()   // now; no session, no permission, no ready() needed
+battery.percent       // 0..100, or null when the platform will not say
+battery.isCharging    // true / false / null
+battery.powerSource   // NONE, AC, USB, WIRELESS, DOCK, UNKNOWN
+battery.isLow         // percent != null && percent <= 15
+
+trackIt.batteryState().collect { battery -> render(battery) }
+```
+
+`TrackItEvent.BatteryChange` carries the same transitions on the event flow. Events fire on
+plug, unplug, low and okay — plus whatever drift the capture path notices while a session
+runs — never on a timer, and never when the reading has not changed.
+
+A null percentage means "the platform would not say", never 0 %. The same reading is stamped
+on every stored and uploaded point, so a display and its rows cannot disagree.
+
 ### Provider state
 
 ```kotlin

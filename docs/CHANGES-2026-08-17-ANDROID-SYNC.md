@@ -1,12 +1,18 @@
-# Android — `trackit-sync` HTTP layer, 17 August 2026
+# Android — the upload path, 17 August 2026
 
 Closes the seven gaps listed in `Https request-Development.md` §5 and adds the two upload
-observability APIs from §1. All of them applied to Android unchanged: the transport here was
-a thinner version of the same design, and repo-wide greps for `gzip`, `Retry-After`, `403`
-and any scheme check returned nothing.
+observability APIs from §1 (§§1–5). All of them applied to Android unchanged: the transport
+here was a thinner version of the same design, and repo-wide greps for `gzip`, `Retry-After`,
+`403` and any scheme check returned nothing.
 
-Everything is in `trackit-sync`. `trackit-core` is untouched — it never opens a socket, and
-an HTTP status code has no business on its event bus.
+Then two `GAPS.md` findings that the above made unavoidable: **G-4** — nothing ever started a
+drain, which made the rest of it moot (§6) — and **G-2** — every uploaded point carried
+`"battery_percentage": null` (§7).
+
+§§1–5 are entirely in `trackit-sync`. §§6–7 touch `trackit-core`, and neither puts a socket or
+an HTTP concept in it: G-4 goes through a new `SyncTrigger` port that core calls out through
+without knowing what an upload is, and G-2 is a battery reading with no network involvement at
+all.
 
 ---
 
@@ -247,7 +253,105 @@ on plain JUnit with no Room and no Robolectric.
 
 ---
 
-## 7. Still open
+## 7. G-2 — battery and charging state are now captured
+
+`"battery_percentage": null` shipped on **every** uploaded point, always. The column, the
+migration, the mappers, the public `RawPoint` surface and the wire field all existed and
+carried the null faithfully; `FixIngestor.contextFor()` simply never set it, so
+`IngestContext.batteryPct` and `.isCharging` took their declared defaults on every fix
+(GAPS.md G-2, spec §11.1).
+
+This is diagnostic, not functional — nothing in the pipeline gates on it. It is also the
+field that answers the first question asked of every field report: did the tracker die
+because the OEM killed it, or because the phone was at 3 %.
+
+**`AndroidBatteryProbe`** (`trackit-core/.../data/platform/BatteryProbe.kt`) reads
+`BATTERY_PROPERTY_CAPACITY` first — a direct query, no broadcast — and falls through to the
+sticky `ACTION_BATTERY_CHANGED` when that answers outside 1..100, which some OEMs do
+(`Int.MIN_VALUE`, `-1`, a flat `0` on a phone that plainly is not). The fallback registers a
+null receiver, which registers nothing: it returns the broadcast the system already holds.
+No permission is required for either.
+
+`EXTRA_SCALE` is honoured rather than assumed to be 100 — a device counting in 255ths at half
+charge is 50 %, and dividing by an assumed 100 puts it at 128 %.
+
+**Cached for a minute** (`CachedBatteryReader`), on the elapsed-realtime clock so a wall-clock
+jump cannot freeze or thrash it. Navigation mode ingests a fix a second, and while the sticky
+read is cheap it is still a binder call on the consumer thread — the same path where the
+pedometer query is bounded at 1.5 s, and for the same reason. A probe that throws yields
+`BatteryStatus.Unknown`: the point is the record, the battery is a note in the margin.
+
+Stamped for **every verdict**, not only accepted fixes — a rejected fix's raw-point row is
+exactly where "the phone was at 4 %" belongs.
+
+`FixtureReplay.defaultContext()` still leaves both null, deliberately: a replay has to stay
+byte-deterministic, and a live battery reading would make it a function of the device it ran
+on.
+
+**Tests:** `trackit-core/src/test/.../data/platform/BatteryProbeTest.kt`, 8 cases — scale
+honoured, range ends, an absent extra reading as unknown rather than 0 %, the charging
+tri-state (`UNKNOWN` stays null instead of becoming "not charging"), 60 fixes costing one
+binder call, refresh after the window, a throwing probe, and a first read on a zero elapsed
+clock still missing the cache.
+
+**Not verified:** no device run. Whether a given OEM's `BATTERY_PROPERTY_CAPACITY` is honest
+is exactly what the fallback exists for, and only hardware can confirm which path a given
+phone takes.
+
+### The host-facing half
+
+Storing it on a point answers the question after the fact. A host also wants to ask now, and
+to be told when it changes:
+
+```kotlin
+val info: BatteryInfo = trackIt.batteryInfo()        // reads the platform now
+trackIt.batteryState()                               // StateFlow<BatteryInfo>
+// and on TrackIt.events:
+is TrackItEvent.BatteryChange -> show(event.battery)
+```
+
+`BatteryInfo` carries `percent` (0..100 or null), `isCharging` (tri-state), `powerSource`
+(`NONE`/`AC`/`USB`/`WIRELESS`/`DOCK`/`UNKNOWN`) and a derived `isLow` at ≤ 15 %. Every field
+is nullable-or-`UNKNOWN` rather than defaulted, for the reason above: a phone that will not
+say what its charge is has not said it is at 0 %.
+
+`batteryInfo()` needs no session, no permission and no `ready()` — it is safe from anywhere,
+including before tracking has ever started. It is a binder call, so it belongs in a refresh
+rather than a per-frame render; `batteryState()` is there for a live display.
+
+`batteryState()` and the stored points read the same monitor, so a host's display and its
+uploaded rows cannot disagree.
+
+**Events are transitions, not a heartbeat.** `BatteryMonitor` registers for
+`ACTION_POWER_CONNECTED`, `ACTION_POWER_DISCONNECTED`, `ACTION_BATTERY_LOW` and
+`ACTION_BATTERY_OKAY` — four broadcasts on a normal day. Deliberately **not**
+`ACTION_BATTERY_CHANGED`, which fires on every percentage point and temperature wobble;
+registering for it continuously is the thing Android's own documentation warns against, and
+it would make this SDK a background wake source for a diagnostic field. The percentage drift
+between those transitions is picked up by the capture path's one-minute refresh, and an
+unchanged reading emits nothing.
+
+Started from `ready()` alongside `ProviderStateMonitor`, so `batteryState()` is live from
+then on rather than only during a session. Like that monitor, it is not stopped — the
+receiver lives for the process, which for four broadcasts a day is the right trade, and it is
+the same open question as G-25.
+
+**Compatibility:** `TrackItEvent.BatteryChange` is a **new sealed subtype**, so an exhaustive
+`when (event)` without an `else` stops compiling — the same break class as
+`SyncQueue.Result.Forbidden` in §7 above, and accepted for the same reason. **`sample-android`
+will hit this**: it builds against the published maven artifact (`libs.trackit.sdk`), not the
+project, so it cannot be updated in the same commit — its `CaptureLog.event()` needs a
+`BatteryChange` branch once this version is published. Everything else here is additive.
+
+**Tests:** 8 more cases in the same file — plug-type mapping, `isLow` needing a reading,
+`refresh()` ignoring the cache because a host asking now means now, a change reaching both the
+state flow and the event flow, an unchanged reading emitting nothing, state starting `Unknown`
+rather than claiming a flat battery, and `start`/`stop` being idempotent so no receiver is
+leaked or double-unregistered.
+
+---
+
+## 8. Still open
 
 Out of scope for this pass, and none of it is on the doc's list of seven:
 

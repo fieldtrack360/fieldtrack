@@ -335,6 +335,8 @@ observable properties on `TrackIt` in this version.
 | `permissions()` | `PermissionManager` | Get arrays/actions for the host-owned permission flow. |
 | `permissionTier()` | `PermissionTier` | Read the current location-permission tier once. |
 | `providerState()` | `StateFlow<ProviderState>` | Observe GPS/network availability, permissions, accuracy, fused availability, and power save. |
+| `batteryInfo()` | `BatteryInfo` | Read charge level, charging state and power source now. No session or permission needed. |
+| `batteryState()` | `StateFlow<BatteryInfo>` | Observe the same, updated on plug/unplug/low/okay. |
 | `getSensors()` | `DeviceSensors` | Probe sensor availability and derived `MotionQuality`. |
 
 ### Stored data

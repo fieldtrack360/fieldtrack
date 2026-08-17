@@ -110,6 +110,15 @@ public sealed interface TrackItEvent {
     public data class ProviderChange(val state: ProviderState) : TrackItEvent
     public data class Heartbeat(val atMs: Long) : TrackItEvent
     public data class PowerSaveChange(val enabled: Boolean) : TrackItEvent
+
+    /**
+     * Charge level or power source changed.
+     *
+     * Emitted on transitions, not on a timer: plug, unplug, low, okay, and whatever drift
+     * the capture path notices between them. With no session running there is nothing
+     * polling, so only the four broadcasts fire.
+     */
+    public data class BatteryChange(val battery: BatteryInfo) : TrackItEvent
     public data class GeofenceAdded(val geofence: TrackItGeofence) : TrackItEvent
     public data class GeofenceRemoved(val geofenceId: String) : TrackItEvent
     public data class GeofenceEntered(val geofence: TrackItGeofence) : TrackItEvent

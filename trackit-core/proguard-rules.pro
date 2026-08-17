@@ -77,6 +77,9 @@
 -keep public class com.devstree.trackit.domain.model.TrackItGeofence$Companion { public protected *; }
 -keep public class com.devstree.trackit.domain.model.TrackItGeofenceEvent { public protected *; }
 -keep public class com.devstree.trackit.domain.model.ProviderState { public protected *; }
+-keep public class com.devstree.trackit.domain.model.BatteryInfo { public protected *; }
+-keep public class com.devstree.trackit.domain.model.BatteryInfo$Companion { public protected *; }
+-keep public class com.devstree.trackit.domain.model.PowerSource { public protected *; }
 -keep public class com.devstree.trackit.domain.model.TrackItEvent { public protected *; }
 -keep public class com.devstree.trackit.domain.model.TrackItEvent$* { public protected *; }
 -keep public class com.devstree.trackit.domain.model.TrackItResult { public protected *; }

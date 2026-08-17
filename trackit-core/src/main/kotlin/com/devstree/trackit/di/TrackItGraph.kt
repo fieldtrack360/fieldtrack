@@ -22,7 +22,9 @@ import com.devstree.trackit.data.location.FusedLocationSource
 import com.devstree.trackit.data.location.LocationSource
 import com.devstree.trackit.data.location.PlatformLocationSource
 import com.devstree.trackit.data.location.RoutingLocationSource
+import com.devstree.trackit.data.platform.AndroidBatteryProbe
 import com.devstree.trackit.data.platform.AndroidClock
+import com.devstree.trackit.data.platform.BatteryMonitor
 import com.devstree.trackit.data.platform.AndroidLogger
 import com.devstree.trackit.data.repository.ConfigRepositoryImpl
 import com.devstree.trackit.data.repository.ConfigStore
@@ -116,6 +118,15 @@ internal class TrackItGraph private constructor(
     val scope: CoroutineScope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
 
     val clock: Clock by lazy { AndroidClock() }
+
+    /**
+     * Battery state: cached for the ingest path, broadcast-driven for the transitions.
+     * Also what [TrackIt.batteryInfo] and [TrackIt.batteryState] read from, so a host and a
+     * stored point can never disagree about what the charge was.
+     */
+    val batteryMonitor: BatteryMonitor by lazy {
+        BatteryMonitor(context, AndroidBatteryProbe(context), clock, events)
+    }
     val logger: TrackLogger by lazy { AndroidLogger() }
 
     /**
@@ -213,6 +224,7 @@ internal class TrackItGraph private constructor(
             watchdog = watchdog,
             events = events,
             liveTrack = liveTrackFeed,
+            battery = batteryMonitor,
         )
     }
 
@@ -317,6 +329,7 @@ internal class TrackItGraph private constructor(
             liveTrackFeed = liveTrackFeed,
             clock = clock,
             providerStateMonitor = providerStateMonitor,
+            batteryMonitor = batteryMonitor,
             sensorProbe = sensorProbe,
             stationaryFence = stationaryFence,
             permissions = permissions,
