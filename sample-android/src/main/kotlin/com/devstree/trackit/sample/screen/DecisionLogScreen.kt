@@ -21,8 +21,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.geo.model.FixDecision
-import com.devstree.trackit.geo.model.Verdict
+import com.devstree.traker.geo.model.FixDecision
+import com.devstree.traker.geo.model.Verdict
 import com.devstree.trackit.sample.TrackItViewModel
 
 /**

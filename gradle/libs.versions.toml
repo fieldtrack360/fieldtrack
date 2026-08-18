@@ -3,7 +3,7 @@
 traker = "0.1.1-alpha01"
 
 # Toolchain — see docs/API.md §"Toolchain". Verified against Google Maven / Maven Central 2026-07-31.
-agp = "9.3.0-alpha10"
+agp = "9.3.0"
 kotlin = "2.4.10"
 ksp = "2.3.10"
 javaTarget = "17"

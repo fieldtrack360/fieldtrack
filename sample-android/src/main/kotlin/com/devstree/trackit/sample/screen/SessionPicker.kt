@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.domain.model.TrackSession
+import com.devstree.traker.domain.model.TrackSession
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

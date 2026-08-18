@@ -2,10 +2,6 @@
 
 Source-verified integration and API reference for FieldTrack.
 
-Version values used in this guide:
-
-- `TRAKER_VERSION`: the SDK version to publish, install, and reference throughout the doc.
-
 This guide documents the SDK that is implemented in the current repository. It is aimed
 at Android application developers who need to install, configure, operate, query, render,
 debug, or extend Traker. For algorithm details, see [API.md](API.md). For the exported
@@ -38,10 +34,15 @@ JSON contract, see [POLYLINE-JSON.md](POLYLINE-JSON.md).
 - `compileSdk 37`
 - JDK 17
 - Maven group: `com.github.fieldtrack360.fieldtrack`
-- Current version: `TRAKER_VERSION`
 
 
 ## 2. Installation
+
+Publish the SDK artifacts to Maven Local from the repository root:
+
+```bash
+./gradlew publishToMavenLocal
+```
 
 ```kotlin
 // settings.gradle.kts
@@ -54,10 +55,13 @@ dependencyResolutionManagement {
 }
 ```
 
-Install the required artifact :
+Add the SDK dependency:
 ```kotlin
-implementation 'com.github.fieldtrack360.fieldtrack:fieldtrack:TAG'
-implementation("com.squareup.okhttp3:okhttp:5.4.0")
+dependencies {
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:<latest-version>")
+    implementation("com.squareup.okhttp3:okhttp:5.4.0")
+
+}
 ```
 
 No Hilt plugin, DI framework, annotation processor, or Traker Gradle plugin is required.
@@ -84,8 +88,8 @@ Request permissions in this order:
 4. Activity recognition optionally. Denial reduces motion quality but is not fatal.
 
 ```kotlin
-val trackIt = Traker.getInstance(applicationContext)
-val permissions = trackIt.permissions()
+val traker = Traker.getInstance(applicationContext)
+val permissions = traker.permissions()
 
 notificationLauncher.launch(permissions.notificationPermissions())
 foregroundLocationLauncher.launch(permissions.foregroundPermissions())
@@ -132,13 +136,13 @@ Create the process singleton and prepare it once from `Application.onCreate`:
 
 ```kotlin
 class App : Application() {
-    val trackIt by lazy { Traker.getInstance(this) }
+    val traker by lazy { Traker.getInstance(this) }
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         appScope.launch {
-            when (val result = trackIt.ready(TrakerConfig())) {
+            when (val result = traker.ready(TrakerConfig())) {
                 is TrakerResult.Ok -> Unit
                 is TrakerResult.Error -> Log.e("Traker", "${result.code}: ${result.message}")
             }
@@ -150,15 +154,15 @@ class App : Application() {
 Start only after `ready()` succeeds and foreground location permission is granted:
 
 ```kotlin
-suspend fun startCommute(trackIt: Traker) {
-    when (val result = trackIt.start(tag = "commute")) {
+suspend fun startCommute(traker: Traker) {
+    when (val result = traker.start(tag = "commute")) {
         is TrakerResult.Ok -> Log.d("Traker", "Session ${result.value.id}")
         is TrakerResult.Error -> showTrackingError(result.code, result.message)
     }
 }
 
-suspend fun stopTracking(trackIt: Traker) {
-    when (val result = trackIt.stop()) {
+suspend fun stopTracking(traker: Traker) {
+    when (val result = traker.stop()) {
         is TrakerResult.Ok -> Log.d("Traker", "Stopped ${result.value?.id}")
         is TrakerResult.Error -> showTrackingError(result.code, result.message)
     }
@@ -176,9 +180,9 @@ snapshot and the event stream from a lifecycle-aware scope:
 
 ```kotlin
 appScope.launch {
-    when (val result = trackIt.ready(
+    when (val result = traker.ready(
         TrakerConfig.builder()
-            .license(BuildConfig.TRAKER_LICENSE.takeIf { it.isNotBlank() })
+            .license(BuildConfig.TRACKIT_LICENSE.takeIf { it.isNotBlank() })
             .build()
     )) {
         is TrakerResult.Ok -> Unit
@@ -188,12 +192,13 @@ appScope.launch {
 
 lifecycleScope.launch {
     repeatOnLifecycle(Lifecycle.State.STARTED) {
-        launch { trackIt.state.collect(::renderTrackingState) }
+        launch { traker.state.collect(::renderTrackingState) }
         launch {
-            trackIt.events.collect { event ->
+            traker.events.collect { event ->
                 when (event) {
                     is TrakerEvent.ProviderChange -> updateProviderUi(event.state)
                     is TrakerEvent.MotionChange -> updateMotionUi(event.state)
+                    is TrakerEvent.BatteryChange -> updateBatteryUi(event.battery)
                     is TrakerEvent.Heartbeat -> updateHeartbeatUi(event.atMs)
                     else -> Unit
                 }
@@ -326,7 +331,7 @@ observable properties on `Traker` in this version.
 | `stop()` | `TrakerResult<TrackSession?>` | Stop capture and close the active session. |
 | `getCurrentLocation()` | `TrakerResult<TrackFix>` | Request a fresh, non-persisted location snapshot using the ready configuration. |
 | `state` | `StateFlow<TrakerState>` | Observe ready/tracking/motion/provider/session state. |
-| `events` | `SharedFlow<TrakerEvent>` | Observe locations, decisions, provider changes, geofences, diagnostics, and errors. |
+| `events` | `SharedFlow<TrakerEvent>` | Observe locations, decisions, provider changes, battery changes, geofences, diagnostics, and errors. |
 
 ### Permissions and device status
 
@@ -395,7 +400,7 @@ and `exportFixture` are not public `Traker` methods in this version. Use
 Fallible entry points return a typed result:
 
 ```kotlin
-when (val result = trackIt.start()) {
+when (val result = traker.start()) {
     is TrakerResult.Ok -> useSession(result.value)
     is TrakerResult.Error -> handle(result.code, result.message)
 }
@@ -411,7 +416,7 @@ Call `ready()` first and complete the host-owned foreground location permission 
 `oneShotTimeoutMs` from the ready configuration:
 
 ```kotlin
-when (val result = trackIt.getCurrentLocation()) {
+when (val result = traker.getCurrentLocation()) {
     is TrakerResult.Ok -> {
         val fix = result.value
         Log.d("Traker", "${fix.latitude}, ${fix.longitude} +/- ${fix.accuracy} m")
@@ -446,7 +451,7 @@ Collect it with lifecycle awareness:
 ```kotlin
 lifecycleScope.launch {
     repeatOnLifecycle(Lifecycle.State.STARTED) {
-        trackIt.state.collect(::renderTrackingState)
+        traker.state.collect(::renderTrackingState)
     }
 }
 ```
@@ -465,6 +470,7 @@ lifecycleScope.launch {
 | `ProviderChange(state)` | Permissions/provider/power state changed. |
 | `Heartbeat(atMs)` | Control-plane heartbeat emitted after the watchdog check while a session is open. |
 | `PowerSaveChange(enabled)` | Battery saver changed. |
+| `BatteryChange(battery)` | Battery percentage, charging state, or power source changed. |
 | `GeofenceAdded(geofence)` | SDK geofence was armed. |
 | `GeofenceRemoved(geofenceId)` | SDK geofence was removed. |
 | `GeofenceEntered(geofence)` | Device entered the SDK geofence. |
@@ -472,6 +478,25 @@ lifecycleScope.launch {
 | `SessionInterrupted(session)` | `ready()` found an unclosed previous session. |
 | `Diagnostic(message)` | Non-fatal operational diagnostic. |
 | `Error(code, message)` | Typed SDK error. |
+
+### Battery state
+
+`batteryInfo()` reads the platform now. `batteryState()` exposes the same monitor as a
+`StateFlow`, and `TrakerEvent.BatteryChange` carries transitions on the event stream.
+
+```kotlin
+val battery = traker.batteryInfo()
+val percent: Int? = battery.percent
+val charging: Boolean? = battery.isCharging
+val source: PowerSource = battery.powerSource
+
+lifecycleScope.launch {
+    traker.batteryState().collect(::renderBattery)
+}
+```
+
+`percent` and `isCharging` are nullable by design. `null` means the platform did not give
+that reading; it must not be treated as `0` or `false`.
 
 ### ErrorCode values
 
@@ -503,13 +528,13 @@ lifecycleScope.launch {
 Every accepted point belongs to a `TrackSession`. Use its ID for reads and plotting:
 
 ```kotlin
-val sessions = trackIt.getSessions()
+val sessions = traker.getSessions()
 val session = sessions.lastOrNull() ?: return
 
 var offset = 0
 val pageSize = 500
 do {
-    val page = trackIt.getPoints(
+    val page = traker.getPoints(
         PointQuery(sessionId = session.id, limit = pageSize, offset = offset)
     )
     consume(page)
@@ -537,9 +562,9 @@ val options = TrackOptions(
     snapToRoad = false,
 )
 
-val track = trackIt.buildTrack(query, options)
-val trackJson = trackIt.exportPolylineJson(query, options)
-val geoJson = trackIt.exportGeoJson(query, options)
+val track = traker.buildTrack(query, options)
+val trackJson = traker.exportPolylineJson(query, options)
+val geoJson = traker.exportGeoJson(query, options)
 ```
 
 `Track` includes bounds, statistics, encoded geometry, indexed source points, travel/stop
@@ -574,7 +599,7 @@ renderer.render(track, fitCamera = true)
 googleMap.setOnCameraIdleListener {
     if (renderer.needsArrowRefresh()) {
         lifecycleScope.launch {
-            val rebuilt = trackIt.buildTrack(query, options.copy(zoom = googleMap.cameraPosition.zoom))
+            val rebuilt = traker.buildTrack(query, options.copy(zoom = googleMap.cameraPosition.zoom))
             renderer.render(rebuilt, fitCamera = false)
         }
     }
@@ -602,7 +627,7 @@ val renderer = LiveTrackRenderer(
 
 lifecycleScope.launch {
     repeatOnLifecycle(Lifecycle.State.STARTED) {
-        trackIt.liveTrack().collect(renderer::render)
+        traker.liveTrack().collect(renderer::render)
     }
 }
 ```
@@ -615,12 +640,12 @@ and cancels animation. The mutable `cameraFollow` property may be changed at run
 When navigating a known route:
 
 ```kotlin
-trackIt.setActiveRoute(route.map { GeoPoint(it.latitude, it.longitude) })
+traker.setActiveRoute(route.map { GeoPoint(it.latitude, it.longitude) })
 
-if (trackIt.isOffRoute()) requestReroute()
+if (traker.isOffRoute()) requestReroute()
 
 // End navigation route projection:
-trackIt.setActiveRoute(emptyList())
+traker.setActiveRoute(emptyList())
 ```
 
 This only projects the live puck. It never changes stored evidence or historical tracks.
@@ -641,17 +666,17 @@ val fence = TrakerGeofence(
     onExitEvent = "warehouse_exit",
 )
 
-when (val result = trackIt.addGeofence(fence)) {
+when (val result = traker.addGeofence(fence)) {
     is TrakerResult.Ok -> Unit
     is TrakerResult.Error -> Log.e("Traker", result.message)
 }
 
-val armed = trackIt.getGeofence("warehouse")
-val removed = trackIt.removeGeofence("warehouse")
+val armed = traker.getGeofence("warehouse")
+val removed = traker.removeGeofence("warehouse")
 ```
 
 Listen for `GeofenceAdded`, `GeofenceRemoved`, `GeofenceEntered`, and `GeofenceExited` on
-`trackIt.events`. Crossings remain queryable after fence removal through
+`traker.events`. Crossings remain queryable after fence removal through
 `getGeofenceEvents()` and can be removed with `deleteGeofenceEvents()`.
 
 ## 12. Diagnostics and custom fixes
@@ -680,7 +705,7 @@ without rewriting them.
 For tests, fixture replay, or a custom provider:
 
 ```kotlin
-trackIt.offerFix(
+traker.offerFix(
     TrackFix(
         timeMs = clock.currentTimeMillis(),
         elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos(),
@@ -892,7 +917,7 @@ Historical snapping is disabled until a provider is installed. The shipped imple
 uses OSRM `/match` and intentionally has no default server URL.
 
 ```kotlin
-trackIt.setRoadSnapProvider(
+traker.setRoadSnapProvider(
     OsrmSnapProvider(
         baseUrl = "https://osrm.example.com",
         profile = "driving",
@@ -904,7 +929,7 @@ trackIt.setRoadSnapProvider(
     )
 )
 
-val snapped = trackIt.buildTrack(
+val snapped = traker.buildTrack(
     PointQuery(sessionId = sessionId),
     TrackOptions(snapToRoad = true, snapMaxOffRoadM = 80.0),
 )
