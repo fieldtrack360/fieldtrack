@@ -20,8 +20,8 @@ all.
 
 | API | What it answers |
 |---|---|
-| `TrakerSync.events: SharedFlow<SyncEvent>` | What the server said, once per exchange — including the background ones nobody was watching |
-| `TrakerSync.endpoint` / `.isConfigured` | Where uploads are going, and whether they are going anywhere |
+| `TrackerSync.events: SharedFlow<SyncEvent>` | What the server said, once per exchange — including the background ones nobody was watching |
+| `TrackerSync.endpoint` / `.isConfigured` | Where uploads are going, and whether they are going anywhere |
 | `SyncConfig.timeouts` | Connect/read/write, without building an `OkHttpClient` |
 | `SyncConfig.gzipRequestBody` | Compress the batch, opt-in |
 | `SyncConfig.allowCleartext` | Point at a local dev server on purpose |
@@ -29,7 +29,7 @@ all.
 | `SyncQueue.Result.Retry.retryAfterMs` | The server's own schedule, when it sent one |
 | `SyncQueue.Result.Forbidden` | A 403 — terminal, but not the same as a 401 |
 | `SyncConfig.autoSync` | Finally means something — see §6 |
-| `TrakerArtifacts.registerSyncTrigger` | Core's door to an uploader it knows nothing about |
+| `TrackerArtifacts.registerSyncTrigger` | Core's door to an uploader it knows nothing about |
 
 `SyncEvent.HttpResponse.statusCode` is `null` when no exchange completed at all. A dead
 network and a dead server are different problems and a diagnostics screen should not draw
@@ -110,7 +110,7 @@ platform's own default config, so a local dev server needs no ceremony. Anything
 `allowCleartext = true` deliberately.
 
 Throwing is the same deliberate exception to the no-throw contract that
-`TrakerConfig.Builder.build()` already makes, for the same reason: it runs on the host's own
+`TrackerConfig.Builder.build()` already makes, for the same reason: it runs on the host's own
 thread while it assembles a value, which is where fail-fast belongs. `validate()` is public
 for hosts assembling a config from untrusted input.
 
@@ -162,7 +162,7 @@ baseline does not bake in these breaks.
 **Behavioural break.** A host currently passing an `http://` URL now crashes at `configure()`
 where it previously failed silently at upload time. That is the intent.
 
-**Additive.** `SyncEvent`, `SyncTimeouts`, `TrakerSync.events`/`.endpoint`/`.isConfigured`,
+**Additive.** `SyncEvent`, `SyncTimeouts`, `TrackerSync.events`/`.endpoint`/`.isConfigured`,
 `SyncConfig.validate()`.
 
 ---
@@ -197,7 +197,7 @@ follow-up if the scheduling behaviour is ever in doubt.
 ## 6. G-4 — the SDK now triggers its own uploads
 
 Everything above was moot while nothing started a drain. `SyncConfig.autoSync` was documented
-as "upload as points arrive" and read nowhere; repo-wide, nothing outside `TrakerSync` called
+as "upload as points arrive" and read nowhere; repo-wide, nothing outside `TrackerSync` called
 `requestSync()` or `syncNow()`. A host that configured sync and never called it itself
 accumulated rows forever (GAPS.md G-4, spec §3.4 step 3 and §12.2 check 3).
 
@@ -209,7 +209,7 @@ other way:
 public fun interface SyncTrigger { public fun requestSync() }
 ```
 
-`TrakerArtifacts.registerSyncTrigger(trigger)` registers it; `fieldtrack-sync` calls that from
+`TrackerArtifacts.registerSyncTrigger(trigger)` registers it; `fieldtrack-sync` calls that from
 `configure()` when `autoSync` is on, and passes `null` when it is off or when a 401/403 tears
 the configuration down. Nothing registered means core does nothing and asks the database
 nothing — a host without the sync artifact pays for none of it. **No network type crosses into
@@ -306,8 +306,8 @@ to be told when it changes:
 ```kotlin
 val info: BatteryInfo = trackIt.batteryInfo()        // reads the platform now
 trackIt.batteryState()                               // StateFlow<BatteryInfo>
-// and on Traker.events:
-is TrakerEvent.BatteryChange -> show(event.battery)
+// and on Tracker.events:
+is TrackerEvent.BatteryChange -> show(event.battery)
 ```
 
 `BatteryInfo` carries `percent` (0..100 or null), `isCharging` (tri-state), `powerSource`
@@ -336,7 +336,7 @@ then on rather than only during a session. Like that monitor, it is not stopped 
 receiver lives for the process, which for four broadcasts a day is the right trade, and it is
 the same open question as G-25.
 
-**Compatibility:** `TrakerEvent.BatteryChange` is a **new sealed subtype**, so an exhaustive
+**Compatibility:** `TrackerEvent.BatteryChange` is a **new sealed subtype**, so an exhaustive
 `when (event)` without an `else` stops compiling — the same break class as
 `SyncQueue.Result.Forbidden` in §7 above, and accepted for the same reason. **`sample-android`
 will hit this**: it builds against the published maven artifact (`libs.fieldtrack.sdk`), not the
@@ -368,25 +368,25 @@ SyncConfig.builder()
 The two halves join with exactly one `/` regardless of which side carries it, because a
 double slash is a 404 on some servers and a redirect on others. `.url(...)` still sets the
 whole thing and wins over both. `build()` validates and throws, `buildUnchecked()` does not —
-mirroring `TrakerConfig.Builder` exactly, including the reasoning for the throw.
+mirroring `TrackerConfig.Builder` exactly, including the reasoning for the throw.
 
-**And on `TrakerConfig.Builder` too**, by request, for an app that already keeps one base URL
+**And on `TrackerConfig.Builder` too**, by request, for an app that already keeps one base URL
 for its whole API:
 
 ```kotlin
-trackIt.ready(TrakerConfig.builder().baseUrl("https://api.example.com").build())
+trackIt.ready(TrackerConfig.builder().baseUrl("https://api.example.com").build())
 sync.configure(SyncConfig.builder().path("v1/location/batch").build())
 ```
 
 The reservation stands and is worth recording: `fieldtrack-core` now carries a field it can never
 read, because it opens no socket and has no endpoint of its own. What makes it defensible is
-that the field is inert there — `TrakerArtifacts.baseUrl` is the only door out, and it is the
+that the field is inert there — `TrackerArtifacts.baseUrl` is the only door out, and it is the
 same seam `PendingUploadStore` and `SyncTrigger` already use. Core gained no network concept,
 only a string it stores.
 
-Resolution runs in `TrakerSync.configure()` and is a **fallback, never an override**:
+Resolution runs in `TrackerSync.configure()` and is a **fallback, never an override**:
 
-| `SyncConfig` carries | `TrakerConfig.baseUrl` | Endpoint |
+| `SyncConfig` carries | `TrackerConfig.baseUrl` | Endpoint |
 |---|---|---|
 | an absolute `url` | anything | the absolute `url` |
 | `baseUrl` + `path` | anything | the sync-level pair |
@@ -403,7 +403,7 @@ invalid** — the builder cannot see the core config, so that one check is defer
 cannot suspend to read DataStore, and a blocking disk read there to answer "nothing yet" would
 be worse than the honest `null`.
 
-`TrakerConfig.baseUrl` is validated in core's own `validate()`, so a typo fails while the host
+`TrackerConfig.baseUrl` is validated in core's own `validate()`, so a typo fails while the host
 is assembling config rather than one `configure()` call later in a different module, reported
 against a path the host did not write. It is persisted like every other field — **not**
 `@Transient` like `license`, so do not put a credential in it.
@@ -427,7 +427,7 @@ The response section states what each status does to the queue: 2xx marks synced
 it, 403 keeps it, everything else retries, and 404 is deliberately not terminal — plus
 `Retry-After` in both forms and the 4 KB error-body capture.
 
-**Tests:** `SyncConfigBuilderTest` (16), `SyncPayloadWireTest` (4) and `TrakerConfigBaseUrlTest` (7). Slash-joining in every
+**Tests:** `SyncConfigBuilderTest` (16), `SyncPayloadWireTest` (4) and `TrackerConfigBaseUrlTest` (7). Slash-joining in every
 combination including doubled slashes, whitespace, base-only URLs, an explicit `url` winning,
 header accumulation and replacement, every knob reaching the config, `build()` throwing with
 every problem named, the four resolution outcomes in the table above, and — core side — the

@@ -77,7 +77,7 @@ internal class ChunkCache(private val maxEntries: Int = DEFAULT_MAX_ENTRIES) {
     companion object {
         /**
          * 90 coordinates a chunk, so this holds roughly 5 400 matched coordinates — a
-         * long day's driving. Bounded because a `Traker` instance lives as long as the
+         * long day's driving. Bounded because a `Tracker` instance lives as long as the
          * process and an unbounded cache on a long-running service is a leak with a
          * politer name.
          */

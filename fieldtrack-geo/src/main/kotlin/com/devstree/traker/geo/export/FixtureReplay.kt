@@ -1,7 +1,7 @@
 package com.devstree.traker.geo.export
 
 import com.devstree.traker.geo.filter.AcceptancePipeline
-import com.devstree.traker.geo.filter.TrakerConstants
+import com.devstree.traker.geo.filter.TrackerConstants
 import com.devstree.traker.geo.model.FilterState
 import com.devstree.traker.geo.model.FixDecision
 import com.devstree.traker.geo.model.IngestContext
@@ -39,7 +39,7 @@ public object FixtureReplay {
 
     public fun replay(
         fixture: Fixture,
-        constants: TrakerConstants = TrakerConstants.Default,
+        constants: TrackerConstants = TrackerConstants.Default,
         context: IngestContext = defaultContext(),
         initialState: FilterState = FilterState(),
         initialPast: TrackPoint? = null,

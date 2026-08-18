@@ -64,15 +64,15 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
                     "com/devstree/traker/AccuracyProfile.class",
                     "com/devstree/traker/LocationProviderType.class",
                     "com/devstree/traker/RawFix.class",
-                    "com/devstree/traker/Traker.class",
-                    "com/devstree/traker/TrakerConfig.class",
+                    "com/devstree/traker/Tracker.class",
+                    "com/devstree/traker/TrackerConfig.class",
                     "com/devstree/traker/domain/model/ErrorCode.class",
                     "com/devstree/traker/domain/model/LocationAccuracy.class",
                     "com/devstree/traker/domain/model/PermissionTier.class",
                     "com/devstree/traker/domain/model/PointQuery.class",
                     "com/devstree/traker/domain/model/ProviderState.class",
-                    "com/devstree/traker/domain/model/TrakerEvent.class",
-                    "com/devstree/traker/domain/model/TrakerResult.class",
+                    "com/devstree/traker/domain/model/TrackerEvent.class",
+                    "com/devstree/traker/domain/model/TrackerResult.class",
                     "com/devstree/traker/domain/model/TrackSession.class",
                     "com/devstree/traker/motion/DeviceSensors.class",
                     "com/devstree/traker/permission/PermissionManager.class",
@@ -111,15 +111,15 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
                     "com/devstree/traker/sync/SyncRequest.class",
                     "com/devstree/traker/sync/SyncResponse.class",
                     "com/devstree/traker/sync/SyncTransport.class",
-                    "com/devstree/traker/sync/TrakerSync.class",
-                    "com/devstree/traker/sync/TrakerSync\$Companion.class",
+                    "com/devstree/traker/sync/TrackerSync.class",
+                    "com/devstree/traker/sync/TrackerSync\$Companion.class",
                 ),
                 "tr/dev/sync/",
             ),
         )
 
         val forbiddenLogs = listOf(
-            "Traker/",
+            "Tracker/",
             "Cadence ->",
             "Motion ->",
             "No open session; stopping service",
@@ -367,10 +367,10 @@ abstract class VerifyReleaseIntegrityTask : DefaultTask() {
         //    host app, applied to the SDK's own source.
         val securityDefaults = File(
             root,
-            "fieldtrack-core/src/main/kotlin/com/devstree/traker/TrakerConfig.kt",
+            "fieldtrack-core/src/main/kotlin/com/devstree/traker/TrackerConfig.kt",
         )
         if (!securityDefaults.isFile) {
-            failures += "TrakerConfig.kt is missing"
+            failures += "TrackerConfig.kt is missing"
         } else {
             val text = securityDefaults.readText()
             REQUIRED_SECURITY_DEFAULTS.forEach { required ->

@@ -1,9 +1,9 @@
 package com.devstree.traker.motion
 
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.sdkLog
-import com.devstree.traker.domain.model.TrakerEvent
-import com.devstree.traker.domain.model.TrakerGeofence
+import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.domain.model.TrackerGeofence
 import com.devstree.traker.geo.model.ActivityType
 import com.devstree.traker.geo.model.MotionState
 import com.devstree.traker.geo.model.MovementStatus
@@ -40,7 +40,7 @@ internal class MotionController(
     private val significantMotion: MotionWakeSource,
     private val stationaryFence: GeofenceRegistrar,
     private val clock: Clock,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val logger: TrackLogger,
     private val scope: CoroutineScope,
 ) {
@@ -52,12 +52,12 @@ internal class MotionController(
 
     private var consumerJob: Job? = null
     private var state = MotionStateMachine.State()
-    private var config: TrakerConfig? = null
+    private var config: TrackerConfig? = null
     private var lastPoint: TrackPoint? = null
 
     val motionState: MotionState get() = state.motion
 
-    fun start(config: TrakerConfig) {
+    fun start(config: TrackerConfig) {
         this.config = config
         state = MotionStateMachine.State()
         lastPoint = null
@@ -127,7 +127,7 @@ internal class MotionController(
         val changedTo = transition.changedTo ?: return
 
         sdkLog { logger.d(TAG, "Motion -> $changedTo") }
-        events.tryEmit(TrakerEvent.MotionChange(changedTo, lastPoint))
+        events.tryEmit(TrackerEvent.MotionChange(changedTo, lastPoint))
 
         when (changedTo) {
             MotionState.MOVING -> onEnterMoving(active)
@@ -136,7 +136,7 @@ internal class MotionController(
         }
     }
 
-    private fun onEnterMoving(config: TrakerConfig) {
+    private fun onEnterMoving(config: TrackerConfig) {
         // Wake paths that only make sense while parked come down; leaving a geofence and
         // a trigger sensor registered through a drive is pure battery cost (EC-138).
         significantMotion.disarm()
@@ -145,7 +145,7 @@ internal class MotionController(
         streamController.setVehicular(true)
     }
 
-    private fun onEnterStationary(config: TrakerConfig) {
+    private fun onEnterStationary(config: TrackerConfig) {
         streamController.onStationary()
 
         if (config.sensors.useSignificantMotion && significantMotion.isAvailable) {
@@ -156,7 +156,7 @@ internal class MotionController(
         // still works after an OEM battery manager kills us.
         lastPoint?.let { point ->
             stationaryFence.register(
-                TrakerGeofence(
+                TrackerGeofence(
                     id = config.motion.stationaryGeofenceId,
                     latitude = point.latitude,
                     longitude = point.longitude,

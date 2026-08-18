@@ -17,8 +17,8 @@ Namespace `com.devstree.traker` (Maven group `com.github.fieldtrack360.fieldtrac
                                        │ implements ports
                     ┌──────────────────▼────────────────────┐
                     │  fieldtrack-core  (Android library)      │
-                    │  platform plumbing + Traker API      │
-                    │  + TrakerJava (Java facade)          │
+                    │  platform plumbing + Tracker API      │
+                    │  + TrackerJava (Java facade)          │
                     └──────────────────┬────────────────────┘
                                        │
                           Kotlin / Java host app
@@ -194,11 +194,11 @@ interface Clock {
 interface TrackLogger { fun d(tag: String, msg: String); fun w(tag: String, msg: String) }
 
 /** Optional road snapping — the ONLY port core does not implement, because core must
- *  carry no HTTP client and no API key. Install one with Traker.setRoadSnapProvider().
+ *  carry no HTTP client and no API key. Install one with Tracker.setRoadSnapProvider().
  *
  *  Implementations must DEGRADE rather than fail: returning an empty list makes
  *  TrackBuilder fall back to raw geometry and emit a snap_unavailable warning rather
- *  than losing the track (EC-100). Traker wraps the call in a catch anyway — "must" is
+ *  than losing the track (EC-100). Tracker wraps the call in a catch anyway — "must" is
  *  not "will", and a third-party provider throwing into a host's coroutine is a crash
  *  the host cannot reasonably prevent (EC-75). */
 interface RoadSnapProvider {
@@ -300,7 +300,7 @@ Signature and stage order. The stage bodies port `LocationUtil.isKalmanFilteredL
 ```kotlin
 package com.devstree.traker.geo.filter
 
-class AcceptancePipeline(private val c: TrakerConstants = TrakerConstants.Default) {
+class AcceptancePipeline(private val c: TrackerConstants = TrackerConstants.Default) {
 
     fun accept(fix: TrackFix, past: TrackPoint?, state: FilterState): PipelineResult {
         // Stage 0 — validity (EC-23..EC-28)
@@ -346,10 +346,10 @@ class AcceptancePipeline(private val c: TrakerConstants = TrakerConstants.Defaul
 }
 ```
 
-**Constants** live in one `TrakerConstants` data class so the fixture harness can sweep them; `Default` holds the production values. Only live constants are ported — the Gen-1 leftovers at `LocationUtil.kt:51-61` are not ([A18](SOURCE-AUDIT.md)).
+**Constants** live in one `TrackerConstants` data class so the fixture harness can sweep them; `Default` holds the production values. Only live constants are ported — the Gen-1 leftovers at `LocationUtil.kt:51-61` are not ([A18](SOURCE-AUDIT.md)).
 
 ```kotlin
-data class TrakerConstants(
+data class TrackerConstants(
     val burstMs: Long = 500,
     val signalGapSec: Float = 110f,
     val recoveryTimeoutSec: Float = 900f,
@@ -397,7 +397,7 @@ data class TrakerConstants(
     val qAccelDefault: Float = 0.3f,
     val qAccelTurning: Float = 2.0f,              // lateral; CORRECTION only, never the gate (EC-45a)
     val qTurnMinDeltaDeg: Float = 25f,            // filter heading vs measured, not a rate
-) { companion object { val Default = TrakerConstants() } }
+) { companion object { val Default = TrackerConstants() } }
 ```
 
 ---
@@ -413,7 +413,7 @@ internal class FixIngestor(
     private val store: PointStore,
     private val pipeline: AcceptancePipeline,
     private val motion: MotionController,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val scope: CoroutineScope,
 ) {
     private val channel = Channel<TrackFix>(capacity = 256, onBufferOverflow = DROP_OLDEST)
@@ -440,7 +440,7 @@ internal class FixIngestor(
         if (fix.elapsedRealtimeNanos < lastElapsedNanos) {
             state = FilterState()
             past = store.lastPoint(sid)
-            events.emit(TrakerEvent.Diagnostic("Reboot Boundary"))
+            events.emit(TrackerEvent.Diagnostic("Reboot Boundary"))
         }
         lastElapsedNanos = fix.elapsedRealtimeNanos
 
@@ -449,8 +449,8 @@ internal class FixIngestor(
         state = result.state.copy(lastFixElapsedNanos = fix.elapsedRealtimeNanos)
         store.saveFilterState(state)
         store.recordDecision(result.decision)
-        events.emit(TrakerEvent.LocationRejected(result.decision).takeIf { result.point == null }
-            ?: TrakerEvent.Location(result.point!!))
+        events.emit(TrackerEvent.LocationRejected(result.decision).takeIf { result.point == null }
+            ?: TrackerEvent.Location(result.point!!))
         result.point?.let { past = it; store.insert(it) }
     }
 
@@ -568,7 +568,7 @@ class TrackingService : LifecycleService() {
         // Stop cleanly to honour the start-foreground contract and avoid the follow-up
         // "did not call startForeground" ANR. RestoreWorker re-promotes later. EC-62.
         logger.w(TAG, "startForeground(location) refused: ${e.message}")
-        events.tryEmit(TrakerEvent.Error(ErrorCode.FGS_START_REFUSED, e.message.orEmpty()))
+        events.tryEmit(TrackerEvent.Error(ErrorCode.FGS_START_REFUSED, e.message.orEmpty()))
         stopSelf(); false
     }
 }
@@ -597,8 +597,8 @@ internal object CaptureBus { val forceCapture = MutableSharedFlow<Unit>(extraBuf
     // (EC-45) · v3->v4 the constant-velocity state (EC-44a). All additive, all
     // hand-written; NONE has a MigrationTestHelper test yet — see BUILD.md §7.
 )
-@TypeConverters(TrakerConverters::class)
-internal abstract class TrakerDatabase : RoomDatabase() {
+@TypeConverters(TrackerConverters::class)
+internal abstract class TrackerDatabase : RoomDatabase() {
     abstract fun points(): TrackPointDao
     abstract fun sessions(): TrackSessionDao
     abstract fun decisions(): FixDecisionDao
@@ -696,28 +696,28 @@ data class FilterStateEntity(
 ```kotlin
 package com.devstree.traker
 
-object Traker {
+object Tracker {
     fun init(app: Application)
-    suspend fun ready(config: TrakerConfig): TrakerState
-    suspend fun setConfig(edit: TrakerConfig.Builder.() -> Unit): TrakerState
-    suspend fun reset(): TrakerState
-    val state: StateFlow<TrakerState>
+    suspend fun ready(config: TrackerConfig): TrackerState
+    suspend fun setConfig(edit: TrackerConfig.Builder.() -> Unit): TrackerState
+    suspend fun reset(): TrackerState
+    val state: StateFlow<TrackerState>
 
-    suspend fun start(tag: String? = null): TrakerResult<TrackSession>
-    suspend fun stop(): TrakerResult<TrackSession?>
+    suspend fun start(tag: String? = null): TrackerResult<TrackSession>
+    suspend fun stop(): TrackerResult<TrackSession?>
     suspend fun changePace(moving: Boolean)
     /** Fresh snapshot only; does not persist or feed the tracking pipeline. */
-    suspend fun getCurrentLocation(): TrakerResult<TrackFix>
+    suspend fun getCurrentLocation(): TrackerResult<TrackFix>
 
     fun observePoints(q: PointQuery): Flow<List<TrackPoint>>
     suspend fun getPoints(q: PointQuery): List<TrackPoint>
     suspend fun getCount(q: PointQuery): Int
-    suspend fun insertPoint(p: TrackPoint): TrakerResult<Long>
+    suspend fun insertPoint(p: TrackPoint): TrackerResult<Long>
     suspend fun deletePoints(q: PointQuery): Int
     suspend fun getOdometerMeters(): Double
     suspend fun resetOdometer()
 
-    data class TrakerGeofence(
+    data class TrackerGeofence(
         val id: String,
         val latitude: Double,
         val longitude: Double,
@@ -732,18 +732,18 @@ object Traker {
         }
     }
 
-    suspend fun addGeofence(geofence: TrakerGeofence): TrakerResult<TrakerGeofence>
-    fun getGeofences(): List<TrakerGeofence>
-    fun getGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerGeofence?
-    suspend fun removeGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerResult<Boolean>
-    suspend fun removeAllGeofences(): TrakerResult<Int>
+    suspend fun addGeofence(geofence: TrackerGeofence): TrackerResult<TrackerGeofence>
+    fun getGeofences(): List<TrackerGeofence>
+    fun getGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerGeofence?
+    suspend fun removeGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerResult<Boolean>
+    suspend fun removeAllGeofences(): TrackerResult<Int>
     fun getGeofenceEvents(
         geofenceId: String? = null,
         fromMs: Long? = null,
         toMs: Long? = null,
         limit: Int = 500,
         offset: Int = 0,
-    ): List<TrakerGeofenceEvent>
+    ): List<TrackerGeofenceEvent>
     fun deleteGeofenceEvents(
         geofenceId: String? = null,
         fromMs: Long? = null,
@@ -788,12 +788,12 @@ object Traker {
 
     /** replay 0, unlimited subscribers. Collect from any host scope; the service
      *  collects it too, so custom work still runs with no UI on screen. EC-112. */
-    val events: SharedFlow<TrakerEvent>
+    val events: SharedFlow<TrackerEvent>
 }
 
-sealed interface TrakerResult<out T> {
-    data class Ok<T>(val value: T) : TrakerResult<T>
-    data class Error(val code: ErrorCode, val message: String) : TrakerResult<Nothing>
+sealed interface TrackerResult<out T> {
+    data class Ok<T>(val value: T) : TrackerResult<T>
+    data class Error(val code: ErrorCode, val message: String) : TrackerResult<Nothing>
 }
 
 enum class ErrorCode {
@@ -813,22 +813,22 @@ data class DeviceSensors(
 )
 enum class MotionQuality { FULL, DEGRADED, POOR }
 
-sealed interface TrakerEvent {
-    data class Location(val point: TrackPoint) : TrakerEvent
-    data class LocationRejected(val decision: FixDecision) : TrakerEvent
-    data class MotionChange(val state: MotionState, val point: TrackPoint?) : TrakerEvent
-    data class ActivityChange(val activity: ActivityType, val confidence: Int) : TrakerEvent
-    data class EnabledChange(val enabled: Boolean) : TrakerEvent
-    data class ProviderChange(val state: ProviderState) : TrakerEvent
-    data class Heartbeat(val at: Long) : TrakerEvent
-    data class PowerSaveChange(val enabled: Boolean) : TrakerEvent
-    data class GeofenceAdded(val geofence: TrakerGeofence) : TrakerEvent
-    data class GeofenceRemoved(val geofenceId: String) : TrakerEvent
-    data class GeofenceEntered(val geofence: TrakerGeofence) : TrakerEvent
-    data class GeofenceExited(val geofence: TrakerGeofence) : TrakerEvent
-    data class SessionInterrupted(val session: TrackSession) : TrakerEvent   // EC-66
-    data class Diagnostic(val message: String) : TrakerEvent
-    data class Error(val code: ErrorCode, val message: String) : TrakerEvent
+sealed interface TrackerEvent {
+    data class Location(val point: TrackPoint) : TrackerEvent
+    data class LocationRejected(val decision: FixDecision) : TrackerEvent
+    data class MotionChange(val state: MotionState, val point: TrackPoint?) : TrackerEvent
+    data class ActivityChange(val activity: ActivityType, val confidence: Int) : TrackerEvent
+    data class EnabledChange(val enabled: Boolean) : TrackerEvent
+    data class ProviderChange(val state: ProviderState) : TrackerEvent
+    data class Heartbeat(val at: Long) : TrackerEvent
+    data class PowerSaveChange(val enabled: Boolean) : TrackerEvent
+    data class GeofenceAdded(val geofence: TrackerGeofence) : TrackerEvent
+    data class GeofenceRemoved(val geofenceId: String) : TrackerEvent
+    data class GeofenceEntered(val geofence: TrackerGeofence) : TrackerEvent
+    data class GeofenceExited(val geofence: TrackerGeofence) : TrackerEvent
+    data class SessionInterrupted(val session: TrackSession) : TrackerEvent   // EC-66
+    data class Diagnostic(val message: String) : TrackerEvent
+    data class Error(val code: ErrorCode, val message: String) : TrackerEvent
 }
 
 data class ProviderState(
@@ -841,14 +841,14 @@ data class ProviderState(
 )
 ```
 
-Java callers get a `TrakerJava` facade with `…Async(Callback<T>)` twins for every `suspend` function, and `addListener`/`removeListener` in place of the `SharedFlow`.
+Java callers get a `TrackerJava` facade with `…Async(Callback<T>)` twins for every `suspend` function, and `addListener`/`removeListener` in place of the `SharedFlow`.
 
 ---
 
 ## 11. Configuration
 
 ```kotlin
-data class TrakerConfig(
+data class TrackerConfig(
     val geolocation: GeolocationConfig = GeolocationConfig(),
     val motion: MotionConfig = MotionConfig(),
     val service: ServiceConfig = ServiceConfig(),
@@ -927,8 +927,8 @@ circular: a 66 m positioning error computes as ~14 m/s, ~14 m/s reads as vehicul
 vehicular carries the loosest ceiling there is. That circle is how a field capture stored a
 153 m spike and a 173° reversal inside an ordinary city drive (EC-139).
 
-`AccuracyTuning` is the **only** place `TrakerConfig` moves a number inside
-`TrakerConstants`, and it moves exactly three:
+`AccuracyTuning` is the **only** place `TrackerConfig` moves a number inside
+`TrackerConstants`, and it moves exactly three:
 
 | constant | set from | note |
 |---|---|---|
@@ -955,14 +955,14 @@ requests nothing of its own, so there is no cadence to set). Under `NETWORK_ONLY
 fused stream a network fix is what a Wi-Fi teleport arrives as, and on `NETWORK_ONLY` it is
 what *every* fix arrives as.
 
-### `TrakerConfig.Builder` (§11.2)
+### `TrackerConfig.Builder` (§11.2)
 
 The `data class` constructor is unchanged and remains the idiomatic Kotlin route. The
 builder exists for Java, where the alternative is positionally constructing five nested
 classes with ~60 parameters between them and taking a source break on every added field.
 
 ```kotlin
-val config = TrakerConfig.builder()
+val config = TrackerConfig.builder()
     .provider(LocationProviderType.GPS_ONLY)
     .accuracyProfile(AccuracyProfile.STRICT)   // or .maxAccuracyMeters(35f), which implies CUSTOM
     .useSignificantMotion(true)
@@ -971,7 +971,7 @@ val config = TrakerConfig.builder()
 ```
 
 `build()` is the one fail-fast entry point in the SDK, and deliberately so: everything
-reachable from `Traker` returns a typed `TrakerResult` because it runs inside a host's
+reachable from `Tracker` returns a typed `TrackerResult` because it runs inside a host's
 coroutine where a throw is an unpreventable crash, whereas this runs on the host's own
 thread while it is assembling a value. `buildUnchecked()` returns the same value unvalidated
 for hosts assembling config from untrusted input.
@@ -986,13 +986,13 @@ data class MotionConfig(
     val stopOnStationary: Boolean = false,              // incumbent parity: stop() on timeout
     val stopTimeoutMin: Int = 5,
     val stationaryRadiusM: Float = 150f,
-    val stationaryGeofenceId: String = TrakerGeofence.DEFAULT_ID,
-    val stationaryGeofenceOnEnterEvent: String = TrakerGeofence.DEFAULT_ENTER_EVENT,
-    val stationaryGeofenceOnExitEvent: String = TrakerGeofence.DEFAULT_EXIT_EVENT,
+    val stationaryGeofenceId: String = TrackerGeofence.DEFAULT_ID,
+    val stationaryGeofenceOnEnterEvent: String = TrackerGeofence.DEFAULT_ENTER_EVENT,
+    val stationaryGeofenceOnExitEvent: String = TrackerGeofence.DEFAULT_EXIT_EVENT,
     val motionTriggerDelayMs: Long = 0,                 // incumbent parity (Android-only)
     /** DATA-plane heartbeat: warms the filter but is NOT stored — this is what makes a
      *  2-hour steady user produce exactly one point. Distinct from the control-plane
-     *  TrakerEvent.Heartbeat. (EC-48, SDK-COMPARISON §3) */
+     *  TrackerEvent.Heartbeat. (EC-48, SDK-COMPARISON §3) */
     val heartbeatIntervalSec: Int = 900,
     val persistHeartbeat: Boolean = false,
     /** Store a point whenever the heading has turned this far since the last STORED one,
@@ -1123,7 +1123,7 @@ A `stop` segment carries no geometry, so **the drawn line breaks across it** —
 [POLYLINE-JSON.md](POLYLINE-JSON.md) before rendering.
 
 `TrackBuilder.build()` is **synchronous and pure, including the snap stage.** It takes
-road geometry the caller already fetched — not a provider it may call. `Traker` does the
+road geometry the caller already fetched — not a provider it may call. `Tracker` does the
 `suspend` round-trip and hands the result down as a value, which is what keeps the HTTP
 client out of `fieldtrack-geo` and lets every rule in `Snapper` be tested against a
 hand-written road with no server.

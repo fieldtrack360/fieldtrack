@@ -1,6 +1,6 @@
 package com.devstree.traker.motion
 
-import com.devstree.traker.domain.model.TrakerGeofence
+import com.devstree.traker.domain.model.TrackerGeofence
 
 /**
  * The seams between motion *decisions* and the Android hardware that serves them.
@@ -35,7 +35,7 @@ internal interface MotionWakeSource {
  * rather than propagate (EC-58).
  */
 internal interface GeofenceRegistrar {
-    fun register(geofence: TrakerGeofence): Boolean
+    fun register(geofence: TrackerGeofence): Boolean
     fun unregister(id: String): Boolean
 }
 

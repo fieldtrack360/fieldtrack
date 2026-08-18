@@ -26,5 +26,5 @@ internal class AndroidLogger() : TrackLogger {
         if (BuildConfig.SDK_LOGGING_ENABLED) Log.w(prefixed(tag), message)
     }
 
-    private fun prefixed(tag: String) = "Traker/$tag"
+    private fun prefixed(tag: String) = "Tracker/$tag"
 }

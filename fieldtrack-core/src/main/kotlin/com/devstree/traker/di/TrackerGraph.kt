@@ -2,8 +2,8 @@ package com.devstree.traker.di
 
 import android.annotation.SuppressLint
 import android.content.Context
-import com.devstree.traker.Traker
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.Tracker
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.capture.FixIngestor
 import com.devstree.traker.capture.LiveTrackFeed
 import com.devstree.traker.capture.LocationStreamController
@@ -13,7 +13,7 @@ import com.devstree.traker.data.db.FilterStateDao
 import com.devstree.traker.data.db.FixDecisionDao
 import com.devstree.traker.data.db.RawFixDao
 import com.devstree.traker.data.db.RawPointDao
-import com.devstree.traker.data.db.TrakerDatabase
+import com.devstree.traker.data.db.TrackerDatabase
 import com.devstree.traker.data.db.TrackPointDao
 import com.devstree.traker.data.db.TrackSessionDao
 import com.devstree.traker.data.location.AccuracyTuning
@@ -33,7 +33,7 @@ import com.devstree.traker.data.repository.PendingUploadStoreImpl
 import com.devstree.traker.data.repository.RoomPointStore
 import com.devstree.traker.data.repository.SessionRepositoryImpl
 import com.devstree.traker.data.repository.TrackPointRepositoryImpl
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.domain.repository.ConfigRepository
 import com.devstree.traker.domain.repository.DecisionRepository
 import com.devstree.traker.domain.repository.PendingUploadStore
@@ -43,7 +43,7 @@ import com.devstree.traker.domain.usecase.ResolveConfigUseCase
 import com.devstree.traker.domain.usecase.StartTrackingUseCase
 import com.devstree.traker.domain.usecase.StopTrackingUseCase
 import com.devstree.traker.geo.filter.AcceptancePipeline
-import com.devstree.traker.geo.filter.TrakerConstants
+import com.devstree.traker.geo.filter.TrackerConstants
 import com.devstree.traker.geo.motion.MotionStateMachine
 import com.devstree.traker.geo.motion.TurnDetector
 import com.devstree.traker.geo.port.Clock
@@ -93,10 +93,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  * graph is 60 readable lines in one file — a missing edge is a Kotlin compile error here
  * rather than a KSP error somewhere else, and a cycle is a `StackOverflowError` on first
  * touch rather than a build failure. Both are caught by simply constructing the graph,
- * which [TrakerGraphTest] does.
+ * which [TrackerGraphTest] does.
  *
  * Every member is `by lazy`, so nothing is built until something asks for it: touching
- * [permissions] does not open the database, and `Traker.getInstance()` does not do disk
+ * [permissions] does not open the database, and `Tracker.getInstance()` does not do disk
  * I/O on the caller's thread.
  *
  * Scoping matches the Hilt graph it replaces exactly: everything here was `@Singleton`,
@@ -104,7 +104,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  * database. One process, one graph, one [FixIngestor] — two would mean two filter states
  * writing one table.
  */
-internal class TrakerGraph private constructor(
+internal class TrackerGraph private constructor(
     @JvmField val context: Context,
 ) {
 
@@ -115,7 +115,7 @@ internal class TrakerGraph private constructor(
      * ingestor. Never a `var callback` — the second registrant would silently replace
      * the first, and the host UI plus a background collector is the normal case (EC-112).
      */
-    val events: MutableSharedFlow<TrakerEvent> by lazy {
+    val events: MutableSharedFlow<TrackerEvent> by lazy {
         MutableSharedFlow(
             replay = 0,
             extraBufferCapacity = EVENT_BUFFER,
@@ -130,7 +130,7 @@ internal class TrakerGraph private constructor(
 
     /**
      * Battery state: cached for the ingest path, broadcast-driven for the transitions.
-     * Also what [Traker.batteryInfo] and [Traker.batteryState] read from, so a host and a
+     * Also what [Tracker.batteryInfo] and [Tracker.batteryState] read from, so a host and a
      * stored point can never disagree about what the charge was.
      */
     val batteryMonitor: BatteryMonitor by lazy {
@@ -142,14 +142,14 @@ internal class TrakerGraph private constructor(
      * Every decision constant lives in this one object, which is what makes PLAN.md §3
      * invariant 1 ("no algorithm above fieldtrack-geo") mechanically checkable.
      */
-    val constants: TrakerConstants by lazy { TrakerConstants.Default }
+    val constants: TrackerConstants by lazy { TrackerConstants.Default }
     val pipeline: AcceptancePipeline by lazy { AcceptancePipeline(constants) }
     val motionStateMachine: MotionStateMachine by lazy { MotionStateMachine() }
     val turnDetector: TurnDetector by lazy { TurnDetector(constants) }
 
     // ── storage ─────────────────────────────────────────────────────────────
 
-    val database: TrakerDatabase by lazy { TrakerDatabase.build(context) }
+    val database: TrackerDatabase by lazy { TrackerDatabase.build(context) }
 
     val pointDao: TrackPointDao by lazy { database.points() }
     val sessionDao: TrackSessionDao by lazy { database.sessions() }
@@ -329,7 +329,7 @@ internal class TrakerGraph private constructor(
      * config — a host may call it, read the resolved value, and start with something else.
      * Everything downstream is session-scoped anyway.
      */
-    private fun applyConfig(config: TrakerConfig) {
+    private fun applyConfig(config: TrackerConfig) {
         locationSource.select(config.geolocation.providerType)
         ingestor.retune(AccuracyTuning.apply(constants, config.geolocation))
     }
@@ -355,8 +355,8 @@ internal class TrakerGraph private constructor(
 
     // ── the public surface ──────────────────────────────────────────────────
 
-    val trackIt: Traker by lazy {
-        Traker(
+    val trackIt: Tracker by lazy {
+        Tracker(
             startTracking = startTracking,
             stopTracking = stopTracking,
             resolveConfig = resolveConfig,
@@ -386,7 +386,7 @@ internal class TrakerGraph private constructor(
 
         @SuppressLint("StaticFieldLeak") // get() stores only context.applicationContext.
         @Volatile
-        private var instance: TrakerGraph? = null
+        private var instance: TrackerGraph? = null
 
         /**
          * The one graph for this process.
@@ -396,10 +396,10 @@ internal class TrakerGraph private constructor(
          * whatever they pass. Always stored against the **application** context — a
          * graph holding an Activity would leak it for the process lifetime.
          */
-        fun get(context: Context): TrakerGraph {
+        fun get(context: Context): TrackerGraph {
             instance?.let { return it }
             return synchronized(this) {
-                instance ?: TrakerGraph(context.applicationContext).also { instance = it }
+                instance ?: TrackerGraph(context.applicationContext).also { instance = it }
             }
         }
 

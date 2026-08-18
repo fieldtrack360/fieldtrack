@@ -19,7 +19,7 @@ The single hardest part of an Android background-location SDK is not the filter 
 | `WAKE_LOCK` | — | 20 s soft-wake on aggressive OEMs | Longer gaps on MIUI/ColorOS |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | — | Optional exemption | Never auto-requested; Play-policy sensitive (EC-15) |
 
-**Design decision.** The reference implementation treats `ACCESS_BACKGROUND_LOCATION` as a hard gate — `AttendanceLoggerService.onCreate` stops the service outright without it (`AttendanceLoggerService.kt:119-122, 894-903`). For an attendance product that is defensible. For a general SDK it is wrong: a user who chose "While using the app" gets *nothing*, not even foreground tracking. Traker degrades instead ([A16](SOURCE-AUDIT.md)).
+**Design decision.** The reference implementation treats `ACCESS_BACKGROUND_LOCATION` as a hard gate — `AttendanceLoggerService.onCreate` stops the service outright without it (`AttendanceLoggerService.kt:119-122, 894-903`). For an attendance product that is defensible. For a general SDK it is wrong: a user who chose "While using the app" gets *nothing*, not even foreground tracking. Tracker degrades instead ([A16](SOURCE-AUDIT.md)).
 
 ---
 
@@ -42,7 +42,7 @@ sealed interface PermissionResult {
 
 | Tier | `start()` behaviour |
 |---|---|
-| `NONE` | `TrakerResult.Error(PERMISSION_DENIED)`. No service, no crash (EC-01). |
+| `NONE` | `TrackerResult.Error(PERMISSION_DENIED)`. No service, no crash (EC-01). |
 | `FOREGROUND_ONLY` | Session opens. Stream runs while the app is visible; pauses on background with `Error(BACKGROUND_PERMISSION_MISSING)`; resumes automatically on return to foreground **and** on a later background grant (EC-03, EC-07). |
 | `FULL` | Normal operation. |
 
@@ -113,7 +113,7 @@ class PermissionManager(private val ctx: Context) {
 }
 ```
 
-The reference does the same two-stage chain (`CurrentLocationProvider.kt:401-491`) and caps retries at 3 (`:440`); Traker keeps the cap and adds the API-30 Settings branch, which the reference does not distinguish.
+The reference does the same two-stage chain (`CurrentLocationProvider.kt:401-491`) and caps retries at 3 (`:440`); Tracker keeps the cap and adds the API-30 Settings branch, which the reference does not distinguish.
 
 ---
 
@@ -178,7 +178,7 @@ settingsClient.checkLocationSettings(request)
 
 Retries are capped (EC-17) — the reference caps at 3 (`BackgroundLocationProvider.kt:272`) and 2 (`CurrentLocationProvider.kt:302`).
 
-**The SDK shows no UI.** No dialogs, no full-screen intents, no activities. The reference fires a full-screen `CATEGORY_CALL` notification when tracking looks dead (`LocationTrackingManager.kt:452-493`); that is an application decision with real policy risk, so Traker emits `Error(TRACKER_DEAD)` and the host decides.
+**The SDK shows no UI.** No dialogs, no full-screen intents, no activities. The reference fires a full-screen `CATEGORY_CALL` notification when tracking looks dead (`LocationTrackingManager.kt:452-493`); that is an application decision with real policy risk, so Tracker emits `Error(TRACKER_DEAD)` and the host decides.
 
 ---
 
@@ -259,10 +259,10 @@ internal class Watchdog(private val cfg: ServiceConfig) {
 
 What an integrating app must do — everything else is inside the AAR.
 
-1. `Traker.init(application)` in `Application.onCreate()`.
+1. `Tracker.init(application)` in `Application.onCreate()`.
 2. Provide a `NotificationConfig` (title, text, small icon, channel) — validated in `ready()` so a missing icon fails there, not inside `startForeground` (EC-77).
-3. Drive the permission ladder from an `Activity` (§3), or call `Traker.requestPermission()` step by step and render your own rationale.
-4. Observe `Traker.providerState()` and surface `NeedsSettings` / `Error(TRACKER_DEAD)` in your UI.
+3. Drive the permission ladder from an `Activity` (§3), or call `Tracker.requestPermission()` step by step and render your own rationale.
+4. Observe `Tracker.providerState()` and surface `NeedsSettings` / `Error(TRACKER_DEAD)` in your UI.
 5. Optionally offer the battery-optimisation exemption, and document the OEM autostart setting for MIUI/ColorOS/One UI users (EC-126, EC-127).
 6. Declare nothing in your manifest — permissions, service and receivers merge from the AAR.
 

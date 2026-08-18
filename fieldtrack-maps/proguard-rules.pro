@@ -1,4 +1,4 @@
-# Traker maps — build-time R8 configuration for the published release AAR.
+# Tracker maps — build-time R8 configuration for the published release AAR.
 #
 # See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation. Only the three renderer entry points and their public option

@@ -1,6 +1,6 @@
 package com.devstree.traker.capture
 
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.TrackingMode
 import com.devstree.traker.sdkLog
 import com.devstree.traker.data.location.FixMapper
@@ -40,7 +40,7 @@ internal class LocationStreamController(
 ) : CaptureStream {
 
     private var job: Job? = null
-    private var config: TrakerConfig? = null
+    private var config: TrackerConfig? = null
 
     @Volatile
     private var vehicular: Boolean = false
@@ -50,7 +50,7 @@ internal class LocationStreamController(
 
     val isRunning: Boolean get() = job?.isActive == true
 
-    fun start(config: TrakerConfig, vehicular: Boolean = false) {
+    fun start(config: TrackerConfig, vehicular: Boolean = false) {
         this.config = config
         this.vehicular = vehicular
         this.turning = false

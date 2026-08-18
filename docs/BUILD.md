@@ -1,6 +1,6 @@
 # Build Manual
 
-How the Traker Gradle build is put together, what to run, and what to change when you
+How the Tracker Gradle build is put together, what to run, and what to change when you
 add or edit a module.
 
 There is no `build-logic/` composite build and there are no `traker.*` convention
@@ -217,16 +217,16 @@ carries `applicationId`, `targetSdk`, `versionCode`, `versionName`.
 ### 4.4 Dependency injection — there isn't any
 
 **No module in this project uses a DI framework.** `fieldtrack-core` wires its own graph by
-hand in `di/TrakerGraph.kt`: one `internal class` of `by lazy` members, one
-double-checked process singleton, reached through `Traker.getInstance(context)`.
+hand in `di/TrackerGraph.kt`: one `internal class` of `by lazy` members, one
+double-checked process singleton, reached through `Tracker.getInstance(context)`.
 
 Adding a dependency means adding a `val` to that file. Adding a *module* that needs the
-core graph means adding an accessor to `TrakerArtifacts` (the seam `fieldtrack-sync` uses),
-because `TrakerGraph` is `internal` and a sibling Gradle module cannot see it.
+core graph means adding an accessor to `TrackerArtifacts` (the seam `fieldtrack-sync` uses),
+because `TrackerGraph` is `internal` and a sibling Gradle module cannot see it.
 
 The trade is stated rather than assumed. What was lost is compile-time graph verification;
-what replaces it is `TrakerGraphTest`, which touches every member — a missing edge is
-already a compile error in `TrakerGraph`, and a cycle overflows the stack in that test
+what replaces it is `TrackerGraphTest`, which touches every member — a missing edge is
+already a compile error in `TrackerGraph`, and a cycle overflows the stack in that test
 rather than on a user's device.
 
 > An earlier revision shipped Hilt inside `fieldtrack-core`. The consequence, recorded in
@@ -303,7 +303,7 @@ Every Maven artifact carries this version. Bump it once in the catalog before pu
 
 Needs no repository configuration and is the loop for testing the sample or another host
 against a local build. Add `mavenLocal()` to the host repositories and select the local
-Traker version.
+Tracker version.
 
 ### Remote
 
@@ -371,7 +371,7 @@ build over if they went missing.
 ## 5.6 R8 and consumer rules
 
 Every code-bearing published library, including `fieldtrack-geo`, ships build-time R8 rules
-and a `consumer-rules.pro`. The build-time rules protect Traker's own AAR; consumer rules
+and a `consumer-rules.pro`. The build-time rules protect Tracker's own AAR; consumer rules
 protect runtime behavior during the host application's separate R8 pass.
 
 ### The rules are short on purpose

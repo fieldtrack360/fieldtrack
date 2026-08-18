@@ -2,7 +2,7 @@ package com.devstree.traker.work
 
 import com.devstree.traker.ServiceConfig
 import com.devstree.traker.domain.model.ErrorCode
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.geo.model.TrackFix
 import com.devstree.traker.geo.port.Clock
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  */
 internal class Watchdog(
     private val clock: Clock,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
 ) {
 
     // Nullable, not a 0 sentinel: elapsedRealtimeNanos is 0 at boot, so a genuine fix
@@ -82,7 +82,7 @@ internal class Watchdog(
         return if (staleMinutes > threshold) {
             throttled(now, config) {
                 events.tryEmit(
-                    TrakerEvent.Error(
+                    TrackerEvent.Error(
                         ErrorCode.TRACKER_DEAD,
                         "No raw fix for $staleMinutes min (threshold $threshold)",
                     ),

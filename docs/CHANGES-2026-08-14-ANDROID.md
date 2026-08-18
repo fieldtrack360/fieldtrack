@@ -1,4 +1,4 @@
-# Traker Android — change review, 14 Aug 2026
+# Tracker Android — change review, 14 Aug 2026
 
 This is the Android-side follow-up to the iOS review in
 [`CHANGES-2026-08-13-IOS.md`](CHANGES-2026-08-13-IOS.md).
@@ -41,16 +41,16 @@ New target area: `fieldtrack-core/src/main/kotlin/com/devstree/traker/license/`.
 
 ### Wiring
 
-- `Traker.ready()` now runs a license check before config resolution or any state mutation.
-- `TrakerConfig.license: String?` was added as a transient override.
-- `TrakerConfig.Builder.license(_:)` was added for Java-friendly setup.
+- `Tracker.ready()` now runs a license check before config resolution or any state mutation.
+- `TrackerConfig.license: String?` was added as a transient override.
+- `TrackerConfig.Builder.license(_:)` was added for Java-friendly setup.
 - New `ErrorCode` values were added:
   - `LICENSE_MISSING`
   - `LICENSE_INVALID`
   - `LICENSE_BUNDLE_MISMATCH`
-- `Traker.state.value.providerState` now tracks `ProviderChange` events.
-- `Traker.state.value.motionState` now tracks `MotionChange` events.
-- `TrakerEvent.Heartbeat(atMs)` is now emitted by `HealthLoop` after each check when a session is open.
+- `Tracker.state.value.providerState` now tracks `ProviderChange` events.
+- `Tracker.state.value.motionState` now tracks `MotionChange` events.
+- `TrackerEvent.Heartbeat(atMs)` is now emitted by `HealthLoop` after each check when a session is open.
 
 ### Behaviour to check
 
@@ -62,7 +62,7 @@ New target area: `fieldtrack-core/src/main/kotlin/com/devstree/traker/license/`.
 ### Tests
 
 - `fieldtrack-core/src/test/kotlin/com/devstree/traker/license/LicenseTokenTest.kt`
-  - confirms `TrakerConfig.license` is not persisted
+  - confirms `TrackerConfig.license` is not persisted
   - checks the token shape parser
   - checks version rejection
 
@@ -85,9 +85,9 @@ These items were already implemented in this repo before the licensing pass:
 - `stopTimeoutMin`
 - `getCurrentLocation()`
 - geofence CRUD and event history
-- `TrakerEvent.Heartbeat`
-- `TrakerState.providerState`
-- `TrakerState.motionState`
+- `TrackerEvent.Heartbeat`
+- `TrackerState.providerState`
+- `TrackerState.motionState`
 
 So unlike the iOS change review, there was no broad motion/config port to make here.
 
@@ -112,33 +112,33 @@ So unlike the iOS change review, there was no broad motion/config port to make h
 
 | Parameter | Where | What it does |
 |---|---|---|
-| `TrakerConfig.license` | `TrakerConfig` / `TrakerConfig.Builder.license(...)` | Supplies a release token at startup. Debuggable installs are waived. |
-| `TrakerState.providerState` | `Traker.state` | Mirrors the latest provider snapshot from `ProviderChange` events. |
-| `TrakerState.motionState` | `Traker.state` | Mirrors the latest motion state from `MotionChange` events. |
-| `TrakerEvent.Heartbeat(atMs)` | `Traker.events` | Emits a control-plane heartbeat after the watchdog check when a session is open. |
-| `ErrorCode.LICENSE_MISSING` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when a release build starts without a token. |
-| `ErrorCode.LICENSE_INVALID` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when the token format, payload, signature, or key id is wrong. |
-| `ErrorCode.LICENSE_BUNDLE_MISMATCH` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when the token was issued for a different app id. |
+| `TrackerConfig.license` | `TrackerConfig` / `TrackerConfig.Builder.license(...)` | Supplies a release token at startup. Debuggable installs are waived. |
+| `TrackerState.providerState` | `Tracker.state` | Mirrors the latest provider snapshot from `ProviderChange` events. |
+| `TrackerState.motionState` | `Tracker.state` | Mirrors the latest motion state from `MotionChange` events. |
+| `TrackerEvent.Heartbeat(atMs)` | `Tracker.events` | Emits a control-plane heartbeat after the watchdog check when a session is open. |
+| `ErrorCode.LICENSE_MISSING` | `TrackerResult.Error` / `TrackerEvent.Error` | Returned when a release build starts without a token. |
+| `ErrorCode.LICENSE_INVALID` | `TrackerResult.Error` / `TrackerEvent.Error` | Returned when the token format, payload, signature, or key id is wrong. |
+| `ErrorCode.LICENSE_BUNDLE_MISMATCH` | `TrackerResult.Error` / `TrackerEvent.Error` | Returned when the token was issued for a different app id. |
 
 ### What it does
 
 - Fails `ready()` before any config is persisted if the token is missing or invalid.
-- Keeps `Traker.state.value.providerState` and `Traker.state.value.motionState` current for UI and diagnostics.
+- Keeps `Tracker.state.value.providerState` and `Tracker.state.value.motionState` current for UI and diagnostics.
 - Emits heartbeat events so the sample can show liveness, not just tracking state.
 - Keeps the token out of persisted config so `reset = false` cannot resurrect a stale release token.
 
 ### How to use it
 
 ```kotlin
-val config = TrakerConfig.builder()
+val config = TrackerConfig.builder()
     .license(BuildConfig.TRAKER_LICENSE.takeIf { it.isNotBlank() })
     .provider(LocationProviderType.FUSED)
     .accuracyProfile(AccuracyProfile.BALANCED)
     .build()
 
 when (val result = trackIt.ready(config)) {
-    is TrakerResult.Ok -> Unit
-    is TrakerResult.Error -> Log.e("Traker", "${result.code}: ${result.message}")
+    is TrackerResult.Ok -> Unit
+    is TrackerResult.Error -> Log.e("Tracker", "${result.code}: ${result.message}")
 }
 
 viewModelScope.launch {
@@ -150,9 +150,9 @@ viewModelScope.launch {
 viewModelScope.launch {
     trackIt.events.collect { event ->
         when (event) {
-            is TrakerEvent.ProviderChange -> println("provider changed")
-            is TrakerEvent.MotionChange -> println("motion changed")
-            is TrakerEvent.Heartbeat -> println("heartbeat at ${event.atMs}")
+            is TrackerEvent.ProviderChange -> println("provider changed")
+            is TrackerEvent.MotionChange -> println("motion changed")
+            is TrackerEvent.Heartbeat -> println("heartbeat at ${event.atMs}")
             else -> Unit
         }
     }

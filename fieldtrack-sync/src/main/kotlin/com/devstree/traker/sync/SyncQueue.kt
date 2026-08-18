@@ -28,7 +28,7 @@ public class SyncQueue internal constructor(
     private val logger: TrackLogger,
     /**
      * Where per-exchange events go. A plain lambda rather than a flow because the queue
-     * should not own the buffering policy — [TrakerSync] does, and it is the thing hosts
+     * should not own the buffering policy — [TrackerSync] does, and it is the thing hosts
      * collect from.
      */
     private val onEvent: (SyncEvent) -> Unit = {},

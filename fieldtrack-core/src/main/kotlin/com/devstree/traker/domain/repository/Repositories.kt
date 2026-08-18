@@ -1,6 +1,6 @@
 package com.devstree.traker.domain.repository
 
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.domain.model.PointQuery
 import com.devstree.traker.domain.model.TrackSession
 import com.devstree.traker.geo.model.FixDecision
@@ -27,8 +27,8 @@ public interface SessionRepository {
 }
 
 public interface ConfigRepository {
-    public suspend fun load(): TrakerConfig?
-    public suspend fun save(config: TrakerConfig)
+    public suspend fun load(): TrackerConfig?
+    public suspend fun save(config: TrackerConfig)
     public suspend fun clear()
 }
 

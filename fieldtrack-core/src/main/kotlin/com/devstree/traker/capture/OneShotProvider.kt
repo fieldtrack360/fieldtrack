@@ -1,12 +1,12 @@
 package com.devstree.traker.capture
 
 import android.os.Build
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.sdkLog
 import com.devstree.traker.data.location.FixMapper
 import com.devstree.traker.data.location.LocationSource
 import com.devstree.traker.domain.model.ErrorCode
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.geo.model.TrackFix
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.permission.ProviderStateMonitor
@@ -32,7 +32,7 @@ internal class OneShotProvider(
     private val locationSource: LocationSource,
     private val fixMapper: FixMapper,
     private val ingestor: FixIngestor,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val logger: TrackLogger,
     private val providerState: ProviderStateMonitor,
 ) {
@@ -42,7 +42,7 @@ internal class OneShotProvider(
 
     /** @return the mapped fix, or `null` if none could be obtained. */
     suspend fun capture(
-        config: TrakerConfig,
+        config: TrackerConfig,
         feedIngestor: Boolean = true,
         suppressAfterRepeatedFailures: Boolean = true,
     ): TrackFix? {
@@ -76,7 +76,7 @@ internal class OneShotProvider(
                     )
                 }
                 events.tryEmit(
-                    TrakerEvent.Error(
+                    TrackerEvent.Error(
                         ErrorCode.FIX_TIMEOUT,
                         "One-shot timed out after ${config.geolocation.oneShotTimeoutMs} ms " +
                             "(gps=${state.gpsEnabled}, accuracy=${state.accuracyAuthorization}, " +

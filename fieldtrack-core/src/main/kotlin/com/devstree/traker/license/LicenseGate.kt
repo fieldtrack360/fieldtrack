@@ -20,11 +20,11 @@ internal class LicenseGate(
 
     fun failure(forVerdict: LicenseVerdict): Failure? = when (forVerdict) {
         LicenseVerdict.Licensed, LicenseVerdict.Waived -> null
-        LicenseVerdict.Missing -> Failure(ErrorCode.LICENSE_MISSING, "Traker license token is required")
+        LicenseVerdict.Missing -> Failure(ErrorCode.LICENSE_MISSING, "Tracker license token is required")
         is LicenseVerdict.Invalid -> Failure(ErrorCode.LICENSE_INVALID, forVerdict.detail)
         is LicenseVerdict.BundleMismatch -> Failure(
             ErrorCode.LICENSE_BUNDLE_MISMATCH,
-            "Traker license is for ${forVerdict.licensed}, not ${forVerdict.actual}",
+            "Tracker license is for ${forVerdict.licensed}, not ${forVerdict.actual}",
         )
     }
 

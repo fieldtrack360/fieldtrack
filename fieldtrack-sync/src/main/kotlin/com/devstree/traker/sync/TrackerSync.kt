@@ -11,8 +11,8 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.devstree.traker.Traker
-import com.devstree.traker.TrakerArtifacts
+import com.devstree.traker.Tracker
+import com.devstree.traker.TrackerArtifacts
 import com.devstree.traker.domain.repository.SyncTrigger
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.sync.internal.NoOpTransport
@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * @property autoSync upload as points arrive. With it off, the host calls [TrakerSync.syncNow].
+ * @property autoSync upload as points arrive. With it off, the host calls [TrackerSync.syncNow].
  * @property batchSize rows per request. Larger means fewer requests but a bigger retry
  *   unit — a failure re-sends the whole batch.
  * @property gzipRequestBody compress the JSON body. Off by default and deliberately so:
@@ -52,7 +52,7 @@ public data class SyncConfig(
     /**
      * Everything wrong with this config, or an empty list.
      *
-     * Mirrors `TrakerConfig.validate()`: [TrakerSync.configure] runs this and throws, and
+     * Mirrors `TrackerConfig.validate()`: [TrackerSync.configure] runs this and throws, and
      * a host assembling a config from untrusted input can read it first instead.
      *
      * The scheme check is the one that earns its place. Android blocks cleartext by default
@@ -65,7 +65,7 @@ public data class SyncConfig(
 
     /**
      * @param requireAbsoluteUrl `false` while a builder holds only a path and the base is
-     *   still expected from `TrakerConfig.baseUrl`. [TrakerSync.configure] resolves first
+     *   still expected from `TrackerConfig.baseUrl`. [TrackerSync.configure] resolves first
      *   and then validates with `true`, so a config that never gets a base is still rejected
      *   — just at the point where the answer is finally known.
      */
@@ -78,7 +78,7 @@ public data class SyncConfig(
             !requireAbsoluteUrl && scheme == null -> Unit
             uri == null || scheme == null -> add(
                 "url is not a valid absolute URL: $url. Set a full url, or a baseUrl on " +
-                    "either SyncConfig.builder() or TrakerConfig.builder() for the path to " +
+                    "either SyncConfig.builder() or TrackerConfig.builder() for the path to " +
                     "resolve against.",
             )
             scheme == "https" -> Unit
@@ -102,7 +102,7 @@ public data class SyncConfig(
     private fun URI.isLoopback(): Boolean = host in LOOPBACK_HOSTS
 
     /**
-     * This config, with [url] completed from `TrakerConfig.baseUrl` if it needs completing.
+     * This config, with [url] completed from `TrackerConfig.baseUrl` if it needs completing.
      *
      * A **fallback, never an override**: an absolute `url` here is returned untouched, so a
      * host that sets both gets the one it wrote closest to the upload. Only a relative value
@@ -149,7 +149,7 @@ public data class SyncConfig(
      * one composed.
      *
      * [build] runs [validate] and throws `IllegalArgumentException`, matching
-     * `TrakerConfig.Builder.build()` — same deliberate exception to the SDK's no-throw
+     * `TrackerConfig.Builder.build()` — same deliberate exception to the SDK's no-throw
      * contract, same reason: this runs on your own thread while you assemble a value.
      */
     public class Builder {
@@ -205,8 +205,8 @@ public data class SyncConfig(
          * @throws IllegalArgumentException if [SyncConfig.validate] reports anything.
          *
          * A **path with no base URL is allowed here**, and only here: it means the base is
-         * expected from `TrakerConfig.baseUrl`, which this builder cannot see.
-         * [TrakerSync.configure] resolves the two and throws if neither supplied one, so
+         * expected from `TrackerConfig.baseUrl`, which this builder cannot see.
+         * [TrackerSync.configure] resolves the two and throws if neither supplied one, so
          * the config is still rejected — at the point where the answer is actually known,
          * with a message naming both places a base can come from.
          */
@@ -264,12 +264,12 @@ public data class SyncConfig(
  * depend on it gets an offline-first SDK with no network code linked at all
  * (PLAN.md §0).
  */
-public class TrakerSync internal constructor(
+public class TrackerSync internal constructor(
     private val context: Context,
     private val queue: SyncQueue,
-    private val trackIt: Traker,
+    private val trackIt: Tracker,
     private val logger: TrackLogger,
-    private val artifacts: TrakerArtifacts,
+    private val artifacts: TrackerArtifacts,
     private val eventSink: MutableSharedFlow<SyncEvent>,
 ) {
 
@@ -316,7 +316,7 @@ public class TrakerSync internal constructor(
      *   existing authenticated client — then OkHttp is never linked.
      * @throws IllegalArgumentException if [config] does not pass [SyncConfig.validate].
      *   The same deliberate exception to the SDK's no-throw contract that
-     *   `TrakerConfig.Builder.build()` makes, for the same reason: this runs on the host's
+     *   `TrackerConfig.Builder.build()` makes, for the same reason: this runs on the host's
      *   own thread while it assembles a value, which is where fail-fast belongs. The
      *   alternative — accepting it and failing at upload time — is the silent failure this
      *   validation exists to end.
@@ -330,7 +330,7 @@ public class TrakerSync internal constructor(
         this.transport = transport ?: defaultTransport()
         this.haltedReason = null
         if (resolved.url != config.url) {
-            sdkLog { logger.d(TAG, "Resolved upload endpoint against TrakerConfig.baseUrl") }
+            sdkLog { logger.d(TAG, "Resolved upload endpoint against TrackerConfig.baseUrl") }
         }
 
         // What makes autoSync mean anything. Core drives the trigger — on an accepted
@@ -434,16 +434,16 @@ public class TrakerSync internal constructor(
         }
 
     public companion object {
-        private const val TAG = "TrakerSync"
+        private const val TAG = "TrackerSync"
 
         @SuppressLint("StaticFieldLeak") // getInstance() stores only applicationContext.
         @Volatile
-        private var instance: TrakerSync? = null
+        private var instance: TrackerSync? = null
 
         /**
          * The upload half, for this process.
          *
-         * Idempotent and thread-safe, and paired with [Traker.getInstance] by
+         * Idempotent and thread-safe, and paired with [Tracker.getInstance] by
          * construction: both hang off the same core graph, so the queue drains the same
          * database the ingestor writes.
          *
@@ -451,15 +451,15 @@ public class TrakerSync internal constructor(
          * the object, not a configured transport.
          */
         @JvmStatic
-        public fun getInstance(context: Context): TrakerSync {
+        public fun getInstance(context: Context): TrackerSync {
             instance?.let { return it }
             return synchronized(this) {
                 instance ?: build(context.applicationContext).also { instance = it }
             }
         }
 
-        private fun build(app: Context): TrakerSync {
-            val access = TrakerArtifacts.of(app)
+        private fun build(app: Context): TrackerSync {
+            val access = TrackerArtifacts.of(app)
             // replay = 1 so a host opening an upload screen after a background drain sees
             // what happened rather than a blank panel — these events are a handful per
             // drain, minutes apart, so retaining one costs nothing. DROP_OLDEST with spare
@@ -470,7 +470,7 @@ public class TrakerSync internal constructor(
                 extraBufferCapacity = EVENT_BUFFER,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
-            return TrakerSync(
+            return TrackerSync(
                 context = app,
                 queue = SyncQueue(access.pendingUploads, access.clock, access.logger) {
                     sink.tryEmit(it)
@@ -496,7 +496,7 @@ internal class SyncWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val sync = TrakerSync.getInstance(applicationContext)
+        val sync = TrackerSync.getInstance(applicationContext)
 
         return when (val result = sync.syncNow()) {
             is SyncQueue.Result.Uploaded, SyncQueue.Result.Empty -> Result.success()
@@ -515,7 +515,7 @@ internal class SyncWorker(
      * enqueued one. So a server that named a time is honoured by enqueueing afresh and
      * reporting this attempt as done; without a time, the existing linear backoff stands.
      */
-    private fun reschedule(sync: TrakerSync, result: SyncQueue.Result.Retry): Result {
+    private fun reschedule(sync: TrackerSync, result: SyncQueue.Result.Retry): Result {
         val delayMs = result.retryAfterMs ?: return Result.retry()
         sync.rescheduleAfter(delayMs)
         return Result.success()

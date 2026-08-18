@@ -24,7 +24,7 @@ every public method, every event and callback.
 3. [Quick start](#3-quick-start)
 4. [Permissions](#4-permissions)
 5. [Configuration reference](#5-configuration-reference)
-6. [Public API — `Traker`](#6-public-api--traker)
+6. [Public API — `Tracker`](#6-public-api--traker)
 7. [Events, state and callbacks](#7-events-state-and-callbacks)
 8. [Data models](#8-data-models)
 9. [Plotting and export](#9-plotting-and-export)
@@ -176,15 +176,15 @@ or in config, which takes precedence:
 
 ```kotlin
 traker.ready(
-    TrakerConfig.builder()
+    TrackerConfig.builder()
         .license(BuildConfig.FIELDTRACK_LICENSE)
         .build()
 )
 ```
 
-The token is bound to your application id. `ready()` returns a `TrakerResult.Error` with
+The token is bound to your application id. `ready()` returns a `TrackerResult.Error` with
 `LICENSE_MISSING`, `LICENSE_INVALID` or `LICENSE_BUNDLE_MISMATCH` when the check fails, and
-the same failure is emitted on the event flow as `TrakerEvent.Error`.
+the same failure is emitted on the event flow as `TrackerEvent.Error`.
 
 The `license` field is never persisted with the rest of the config.
 
@@ -197,16 +197,16 @@ Three calls: `getInstance` → `ready` → `start`.
 ```kotlin
 class MyApplication : Application() {
 
-    val traker: Traker by lazy { Traker.getInstance(this) }
+    val traker: Tracker by lazy { Tracker.getInstance(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         scope.launch {
-            when (val result = traker.ready(TrakerConfig())) {
-                is TrakerResult.Ok    -> Log.d("app", "ready: ${result.value}")
-                is TrakerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
+            when (val result = traker.ready(TrackerConfig())) {
+                is TrackerResult.Ok    -> Log.d("app", "ready: ${result.value}")
+                is TrackerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
             }
         }
     }
@@ -217,8 +217,8 @@ class MyApplication : Application() {
 // After permissions are granted:
 suspend fun begin() {
     when (val result = traker.start(tag = "commute")) {
-        is TrakerResult.Ok    -> Log.d("app", "session ${result.value.id}")
-        is TrakerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
+        is TrackerResult.Ok    -> Log.d("app", "session ${result.value.id}")
+        is TrackerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
     }
 }
 
@@ -238,11 +238,11 @@ val distance = traker.getOdometerMeters()
 
 ### Contract notes
 
-- `Traker.getInstance(context)` is **idempotent and thread-safe** — one instance per process.
+- `Tracker.getInstance(context)` is **idempotent and thread-safe** — one instance per process.
   It retains only the application context, so passing an `Activity` leaks nothing. It is
   cheap: no database is opened and no disk touched until `ready()`.
-- **Nothing on the `Traker` surface throws.** Every fallible call returns `TrakerResult` with a
-  typed `ErrorCode`. The only deliberate exceptions are `TrakerConfig.Builder.build()` and
+- **Nothing on the `Tracker` surface throws.** Every fallible call returns `TrackerResult` with a
+  typed `ErrorCode`. The only deliberate exceptions are `TrackerConfig.Builder.build()` and
   `SyncConfig.Builder.build()`, which fail fast with `IllegalArgumentException` on your own
   thread while you assemble the value. Use `buildUnchecked()` + `validate()` if you prefer to
   read the errors yourself.
@@ -324,11 +324,11 @@ the pipeline, so `CONTINUOUS`/`ADAPTIVE` refuse to start on approximate-only acc
 
 ## 5. Configuration reference
 
-`TrakerConfig` is a `data class` with five nested blocks. Kotlin hosts can use named
-arguments and `copy()`; Java hosts (and anyone who prefers fluency) use `TrakerConfig.builder()`.
+`TrackerConfig` is a `data class` with five nested blocks. Kotlin hosts can use named
+arguments and `copy()`; Java hosts (and anyone who prefers fluency) use `TrackerConfig.builder()`.
 
 ```kotlin
-val config = TrakerConfig.builder()
+val config = TrackerConfig.builder()
     .provider(LocationProviderType.FUSED)
     .accuracyProfile(AccuracyProfile.STRICT)
     .intervalMs(30_000)
@@ -339,7 +339,7 @@ val config = TrakerConfig.builder()
 traker.ready(config)
 ```
 
-### 5.1 Top-level `TrakerConfig`
+### 5.1 Top-level `TrackerConfig`
 
 | Field | Type | Default | What it does |
 |---|---|---|---|
@@ -492,8 +492,8 @@ Derived read-only properties: `accuracy.maxAccuracyM` and `accuracy.recoveryTrus
 coerced to ≤ `maxAccuracyM`).
 
 ```kotlin
-TrakerConfig.builder().accuracyProfile(AccuracyProfile.STRICT).build()
-TrakerConfig.builder().maxAccuracyMeters(35f).build()   // implies CUSTOM
+TrackerConfig.builder().accuracyProfile(AccuracyProfile.STRICT).build()
+TrackerConfig.builder().maxAccuracyMeters(35f).build()   // implies CUSTOM
 ```
 
 ### 5.7 `PersistenceConfig`
@@ -534,27 +534,27 @@ Builder: `.maxDaysToPersist()`, `.maxRecords()`, `.persistRawFixes()`, `.rawRing
 
 ---
 
-## 6. Public API — `Traker`
+## 6. Public API — `Tracker`
 
 ```kotlin
-val traker = Traker.getInstance(context)   // @JvmStatic, idempotent, thread-safe
+val traker = Tracker.getInstance(context)   // @JvmStatic, idempotent, thread-safe
 ```
 
 ### 6.1 Lifecycle
 
 | Method | Signature | Notes |
 |---|---|---|
-| `ready` | `suspend fun ready(config: TrakerConfig = TrakerConfig()): TrakerResult<TrakerState>` | Verifies the license, resolves and validates config, restores persisted filter state, starts provider/battery monitoring, enqueues the daily prune, and emits `SessionInterrupted` if a session was left open by a crash or force-stop |
-| `start` | `suspend fun start(tag: String? = null): TrakerResult<TrackSession>` | Opens a session. `NOT_READY` if `ready()` was not called |
-| `stop` | `suspend fun stop(): TrakerResult<TrackSession?>` | Closes the open session |
-| `state` | `val state: StateFlow<TrakerState>` | Coarse lifecycle state |
-| `events` | `val events: SharedFlow<TrakerEvent>` | Replay 0, unlimited subscribers |
+| `ready` | `suspend fun ready(config: TrackerConfig = TrackerConfig()): TrackerResult<TrackerState>` | Verifies the license, resolves and validates config, restores persisted filter state, starts provider/battery monitoring, enqueues the daily prune, and emits `SessionInterrupted` if a session was left open by a crash or force-stop |
+| `start` | `suspend fun start(tag: String? = null): TrackerResult<TrackSession>` | Opens a session. `NOT_READY` if `ready()` was not called |
+| `stop` | `suspend fun stop(): TrackerResult<TrackSession?>` | Closes the open session |
+| `state` | `val state: StateFlow<TrackerState>` | Coarse lifecycle state |
+| `events` | `val events: SharedFlow<TrackerEvent>` | Replay 0, unlimited subscribers |
 
 ### 6.2 Location
 
 | Method | Signature | Notes |
 |---|---|---|
-| `getCurrentLocation` | `suspend fun getCurrentLocation(): TrakerResult<TrackFix>` | One fresh fix. **Snapshot only** — not accepted, persisted, added to the odometer, or emitted as a tracking location. Errors: `NOT_READY`, `PERMISSION_DENIED`, `LOCATION_DISABLED`, `FIX_TIMEOUT` |
+| `getCurrentLocation` | `suspend fun getCurrentLocation(): TrackerResult<TrackFix>` | One fresh fix. **Snapshot only** — not accepted, persisted, added to the odometer, or emitted as a tracking location. Errors: `NOT_READY`, `PERMISSION_DENIED`, `LOCATION_DISABLED`, `FIX_TIMEOUT` |
 | `providerState` | `fun providerState(): StateFlow<ProviderState>` | GPS toggle, permission tier, granularity, fused availability, battery saver. Broadcast-driven, never polled |
 | `permissionTier` | `fun permissionTier(): PermissionTier` | |
 | `permissions` | `fun permissions(): PermissionManager` | The permission ladder as data |
@@ -594,12 +594,12 @@ All reads are paged — `PointQuery(limit = 500, offset = 0)` by default.
 
 | Method | Signature |
 |---|---|
-| `addGeofence` | `suspend fun addGeofence(geofence: TrakerGeofence): TrakerResult<TrakerGeofence>` |
-| `removeGeofence` | `suspend fun removeGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerResult<Boolean>` |
-| `removeAllGeofences` | `suspend fun removeAllGeofences(): TrakerResult<Int>` |
-| `getGeofence` | `fun getGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerGeofence?` |
-| `getGeofences` | `fun getGeofences(): List<TrakerGeofence>` |
-| `getGeofenceEvents` | `fun getGeofenceEvents(geofenceId: String? = null, fromMs: Long? = null, toMs: Long? = null, limit: Int = 500, offset: Int = 0): List<TrakerGeofenceEvent>` |
+| `addGeofence` | `suspend fun addGeofence(geofence: TrackerGeofence): TrackerResult<TrackerGeofence>` |
+| `removeGeofence` | `suspend fun removeGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerResult<Boolean>` |
+| `removeAllGeofences` | `suspend fun removeAllGeofences(): TrackerResult<Int>` |
+| `getGeofence` | `fun getGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerGeofence?` |
+| `getGeofences` | `fun getGeofences(): List<TrackerGeofence>` |
+| `getGeofenceEvents` | `fun getGeofenceEvents(geofenceId: String? = null, fromMs: Long? = null, toMs: Long? = null, limit: Int = 500, offset: Int = 0): List<TrackerGeofenceEvent>` |
 | `deleteGeofenceEvents` | `fun deleteGeofenceEvents(geofenceId: String? = null, fromMs: Long? = null, toMs: Long? = null): Int` |
 
 ### 6.7 Device state
@@ -625,28 +625,28 @@ All reads are paged — `PointQuery(limit = 500, offset = 0)` by default.
 The SDK has **no `var callback` properties** — a second registrant would silently replace the
 first. Everything is a Kotlin `Flow`.
 
-### 7.1 `TrakerEvent` — the event flow
+### 7.1 `TrackerEvent` — the event flow
 
 ```kotlin
 lifecycleScope.launch {
     traker.events.collect { event ->
         when (event) {
-            is TrakerEvent.Location           -> draw(event.point)
-            is TrakerEvent.LocationRejected   -> log(event.decision)
-            is TrakerEvent.MotionChange       -> updateUi(event.state, event.point)
-            is TrakerEvent.ActivityChange     -> show(event.activity, event.confidence)
-            is TrakerEvent.EnabledChange      -> toggle(event.enabled)
-            is TrakerEvent.ProviderChange     -> render(event.state)
-            is TrakerEvent.Heartbeat          -> touch(event.atMs)
-            is TrakerEvent.PowerSaveChange    -> warn(event.enabled)
-            is TrakerEvent.BatteryChange      -> battery(event.battery)
-            is TrakerEvent.GeofenceAdded      -> Unit
-            is TrakerEvent.GeofenceRemoved    -> Unit
-            is TrakerEvent.GeofenceEntered    -> arrive(event.geofence)
-            is TrakerEvent.GeofenceExited     -> depart(event.geofence)
-            is TrakerEvent.SessionInterrupted -> offerResume(event.session)
-            is TrakerEvent.Diagnostic         -> log(event.message)
-            is TrakerEvent.Error              -> handle(event.code, event.message)
+            is TrackerEvent.Location           -> draw(event.point)
+            is TrackerEvent.LocationRejected   -> log(event.decision)
+            is TrackerEvent.MotionChange       -> updateUi(event.state, event.point)
+            is TrackerEvent.ActivityChange     -> show(event.activity, event.confidence)
+            is TrackerEvent.EnabledChange      -> toggle(event.enabled)
+            is TrackerEvent.ProviderChange     -> render(event.state)
+            is TrackerEvent.Heartbeat          -> touch(event.atMs)
+            is TrackerEvent.PowerSaveChange    -> warn(event.enabled)
+            is TrackerEvent.BatteryChange      -> battery(event.battery)
+            is TrackerEvent.GeofenceAdded      -> Unit
+            is TrackerEvent.GeofenceRemoved    -> Unit
+            is TrackerEvent.GeofenceEntered    -> arrive(event.geofence)
+            is TrackerEvent.GeofenceExited     -> depart(event.geofence)
+            is TrackerEvent.SessionInterrupted -> offerResume(event.session)
+            is TrackerEvent.Diagnostic         -> log(event.message)
+            is TrackerEvent.Error              -> handle(event.code, event.message)
         }
     }
 }
@@ -664,7 +664,7 @@ lifecycleScope.launch {
 | `PowerSaveChange` | `enabled: Boolean` | Battery saver on/off |
 | `BatteryChange` | `battery: BatteryInfo` | Plug, unplug, low, okay — and drift the capture path notices |
 | `GeofenceAdded` / `GeofenceRemoved` | `geofence` / `geofenceId` | Registry changed |
-| `GeofenceEntered` / `GeofenceExited` | `geofence: TrakerGeofence` | A fence was crossed |
+| `GeofenceEntered` / `GeofenceExited` | `geofence: TrackerGeofence` | A fence was crossed |
 | `SessionInterrupted` | `session: TrackSession` | `ready()` found a session left open by a crash or force-stop — you decide what to do |
 | `Diagnostic` | `message: String` | Informational |
 | `Error` | `code: ErrorCode`, `message: String` | Anything the SDK wants you to know about |
@@ -672,10 +672,10 @@ lifecycleScope.launch {
 Collect from a lifecycle scope for UI, or from an application-scoped one for work that must
 continue with no UI on screen.
 
-### 7.2 `TrakerState`
+### 7.2 `TrackerState`
 
 ```kotlin
-data class TrakerState(
+data class TrackerState(
     val isReady: Boolean = false,
     val isTracking: Boolean = false,
     val motionState: MotionState = MotionState.STOPPED,
@@ -697,12 +697,12 @@ data class ProviderState(
 )
 ```
 
-### 7.4 `TrakerResult` and `ErrorCode`
+### 7.4 `TrackerResult` and `ErrorCode`
 
 ```kotlin
-sealed interface TrakerResult<out T> {
-    data class Ok<T>(val value: T) : TrakerResult<T>
-    data class Error(val code: ErrorCode, val message: String) : TrakerResult<Nothing>
+sealed interface TrackerResult<out T> {
+    data class Ok<T>(val value: T) : TrackerResult<T>
+    data class Error(val code: ErrorCode, val message: String) : TrackerResult<Nothing>
 }
 ```
 
@@ -1009,7 +1009,7 @@ Up to **19** host fences. The SDK's internal stationary wake fence uses a reserv
 not count.
 
 ```kotlin
-val fence = TrakerGeofence(
+val fence = TrackerGeofence(
     id = "warehouse",
     latitude = 23.0225,
     longitude = 72.5714,
@@ -1019,8 +1019,8 @@ val fence = TrakerGeofence(
 )
 
 when (val result = traker.addGeofence(fence)) {
-    is TrakerResult.Ok    -> Unit
-    is TrakerResult.Error -> when (result.code) {
+    is TrackerResult.Ok    -> Unit
+    is TrackerResult.Error -> when (result.code) {
         ErrorCode.GEOFENCE_LIMIT_REACHED        -> pruneOldFences()
         ErrorCode.GEOFENCE_REGISTRATION_FAILED  -> retryLater()
         ErrorCode.INVALID_CONFIG                -> fixCoordinates()
@@ -1031,10 +1031,10 @@ when (val result = traker.addGeofence(fence)) {
 
 Validation: non-blank `id`, latitude in −90..90, longitude in −180..180, `radiusM > 0`.
 
-Crossings arrive as `TrakerEvent.GeofenceEntered` / `GeofenceExited` and are also persisted:
+Crossings arrive as `TrackerEvent.GeofenceEntered` / `GeofenceExited` and are also persisted:
 
 ```kotlin
-val history: List<TrakerGeofenceEvent> = traker.getGeofenceEvents(
+val history: List<TrackerGeofenceEvent> = traker.getGeofenceEvents(
     geofenceId = "warehouse",
     fromMs = startOfDay,
     limit = 100,
@@ -1043,15 +1043,15 @@ val deleted: Int = traker.deleteGeofenceEvents(geofenceId = "warehouse")
 ```
 
 ```kotlin
-data class TrakerGeofenceEvent(
-    val geofence: TrakerGeofence,
+data class TrackerGeofenceEvent(
+    val geofence: TrackerGeofence,
     val transition: GeofenceTransition,   // ENTER | EXIT
     val timestampMs: Long,
     val eventName: String,
 )
 ```
 
-Constants: `TrakerGeofence.MAX_GEOFENCES = 19`, `DEFAULT_ID = "trackit-stationary"`,
+Constants: `TrackerGeofence.MAX_GEOFENCES = 19`, `DEFAULT_ID = "trackit-stationary"`,
 `DEFAULT_ENTER_EVENT`, `DEFAULT_EXIT_EVENT`.
 
 ---
@@ -1077,7 +1077,7 @@ data class BatteryInfo(
 ```
 
 This is the same reading stamped on every stored point, so your display and your uploaded rows
-cannot disagree. `TrakerEvent.BatteryChange` carries the same transitions.
+cannot disagree. `TrackerEvent.BatteryChange` carries the same transitions.
 
 ```kotlin
 val sensors: DeviceSensors = traker.getSensors()
@@ -1198,7 +1198,7 @@ ArrowIcons.puck(sizePx = 56, color = Color.rgb(26, 115, 232))
 on it gets an offline-first SDK with no network code linked at all.
 
 ```kotlin
-val sync = TrakerSync.getInstance(context)   // @JvmStatic, idempotent, paired with Traker.getInstance
+val sync = TrackerSync.getInstance(context)   // @JvmStatic, idempotent, paired with Tracker.getInstance
 
 sync.configure(
     SyncConfig.builder()
@@ -1211,8 +1211,8 @@ sync.configure(
 )
 ```
 
-If you set `TrakerConfig.baseUrl`, you can supply only a path here — the base is resolved from
-config. An absolute `url` on `SyncConfig` always **wins** over `TrakerConfig.baseUrl`; the base
+If you set `TrackerConfig.baseUrl`, you can supply only a path here — the base is resolved from
+config. An absolute `url` on `SyncConfig` always **wins** over `TrackerConfig.baseUrl`; the base
 is a fallback, never an override.
 
 ### 14.1 `SyncConfig`
@@ -1244,11 +1244,11 @@ data class SyncTimeouts(
 )
 ```
 
-### 14.2 `TrakerSync` API
+### 14.2 `TrackerSync` API
 
 | Member | Signature | Notes |
 |---|---|---|
-| `getInstance` | `@JvmStatic fun getInstance(context: Context): TrakerSync` | Idempotent, thread-safe |
+| `getInstance` | `@JvmStatic fun getInstance(context: Context): TrackerSync` | Idempotent, thread-safe |
 | `configure` | `fun configure(config: SyncConfig, transport: SyncTransport? = null)` | Throws `IllegalArgumentException` on an invalid config. Omit `transport` to use the OkHttp default |
 | `endpoint` | `val endpoint: String?` | Where uploads go, or `null` if unconfigured — or if a 401 tore it down. Headers are deliberately not exposed |
 | `isConfigured` | `val isConfigured: Boolean` | Derived from `endpoint`. **Do not cache it** — a 401 clears configuration with no involvement from you |
@@ -1545,14 +1545,14 @@ These exact strings appear on `TrackPoint.acceptReason`, `RawPoint.reason` and
 
 ## 17. Java interop
 
-Every entry point is Java-callable. `getInstance`, `TrakerConfig.builder()` and
+Every entry point is Java-callable. `getInstance`, `TrackerConfig.builder()` and
 `SyncConfig.builder()` are `@JvmStatic`; `PointQuery`, `TrackOptions` and the paged query
 methods carry `@JvmOverloads`.
 
 ```java
-Traker traker = Traker.getInstance(context);
+Tracker traker = Tracker.getInstance(context);
 
-TrakerConfig config = TrakerConfig.builder()
+TrackerConfig config = TrackerConfig.builder()
         .provider(LocationProviderType.GPS_ONLY)
         .accuracyProfile(AccuracyProfile.STRICT)
         .intervalMs(30_000L)
@@ -1563,7 +1563,7 @@ TrakerConfig config = TrakerConfig.builder()
 `suspend` functions need a coroutine. From Java, call them from Kotlin glue, or wrap them in
 your own `CoroutineScope` helper. Flows are consumed the same way.
 
-`TrakerConfig.Builder.build()` and `SyncConfig.Builder.build()` throw
+`TrackerConfig.Builder.build()` and `SyncConfig.Builder.build()` throw
 `IllegalArgumentException` on an invalid config — use `buildUnchecked()` plus `validate()` if
 you are assembling config from untrusted input.
 
@@ -1597,7 +1597,7 @@ inside your APK.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `ready()` returns `LICENSE_MISSING` | Release build with no token | Add the `TrackItLicense` manifest meta-data or `.license(...)` in config ([§2](#2-license-token)) |
-| `start()` returns `NOT_READY` | `ready()` not called or it failed | Check the `TrakerResult` from `ready()` |
+| `start()` returns `NOT_READY` | `ready()` not called or it failed | Check the `TrackerResult` from `ready()` |
 | `start()` returns `PERMISSION_DENIED` | No location permission | Walk the ladder in [§4](#4-permissions) |
 | `start()` returns `PLAY_SERVICES_UNAVAILABLE` | No Google Play Services | Set `providerType = GPS_ONLY` |
 | Empty track, no points at all | `NETWORK_ONLY` with a tight accuracy ceiling | `validate()` rejects this — use `AccuracyProfile.RELAXED` or `CUSTOM` ≥ 50 m |

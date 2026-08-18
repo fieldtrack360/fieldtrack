@@ -3,8 +3,8 @@ package com.devstree.traker.motion
 import android.content.Context
 import androidx.core.content.edit
 import com.devstree.traker.domain.model.GeofenceTransition
-import com.devstree.traker.domain.model.TrakerGeofence
-import com.devstree.traker.domain.model.TrakerGeofenceEvent
+import com.devstree.traker.domain.model.TrackerGeofence
+import com.devstree.traker.domain.model.TrackerGeofenceEvent
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.encodeToString
@@ -27,7 +27,7 @@ internal class GeofenceStore(context: Context) {
     fun canAdd(id: String, isStationaryWakeFence: Boolean): Boolean = synchronized(lock) {
         val registrations = decodeRegistrations()
         isStationaryWakeFence || registrations.any { it.geofence.id == id } ||
-            registrations.count { !it.isStationaryWakeFence } < TrakerGeofence.MAX_GEOFENCES
+            registrations.count { !it.isStationaryWakeFence } < TrackerGeofence.MAX_GEOFENCES
     }
 
     fun put(registration: RegisteredGeofence) {
@@ -57,8 +57,8 @@ internal class GeofenceStore(context: Context) {
         registration: RegisteredGeofence,
         transition: GeofenceTransition,
         timestampMs: Long,
-    ): TrakerGeofenceEvent = synchronized(lock) {
-        val event = TrakerGeofenceEvent(
+    ): TrackerGeofenceEvent = synchronized(lock) {
+        val event = TrackerGeofenceEvent(
             geofence = registration.geofence,
             transition = transition,
             timestampMs = timestampMs,
@@ -82,7 +82,7 @@ internal class GeofenceStore(context: Context) {
         toMs: Long?,
         limit: Int,
         offset: Int,
-    ): List<TrakerGeofenceEvent> = synchronized(lock) {
+    ): List<TrackerGeofenceEvent> = synchronized(lock) {
         decodeEvents()
             .asReversed()
             .asSequence()
@@ -111,9 +111,9 @@ internal class GeofenceStore(context: Context) {
         serializer = ListSerializer(RegisteredGeofence.serializer()),
     )
 
-    private fun decodeEvents(): List<TrakerGeofenceEvent> = decode(
+    private fun decodeEvents(): List<TrackerGeofenceEvent> = decode(
         key = EVENTS_KEY,
-        serializer = ListSerializer(TrakerGeofenceEvent.serializer()),
+        serializer = ListSerializer(TrackerGeofenceEvent.serializer()),
     )
 
     private fun <T> decode(key: String, serializer: kotlinx.serialization.KSerializer<List<T>>): List<T> {
@@ -132,6 +132,6 @@ internal class GeofenceStore(context: Context) {
 
 @Serializable
 internal data class RegisteredGeofence(
-    val geofence: TrakerGeofence,
+    val geofence: TrackerGeofence,
     val isStationaryWakeFence: Boolean,
 )

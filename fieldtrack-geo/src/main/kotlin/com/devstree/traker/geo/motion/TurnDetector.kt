@@ -1,6 +1,6 @@
 package com.devstree.traker.geo.motion
 
-import com.devstree.traker.geo.filter.TrakerConstants
+import com.devstree.traker.geo.filter.TrackerConstants
 import com.devstree.traker.geo.math.Bearing
 import com.devstree.traker.geo.math.Haversine
 import com.devstree.traker.geo.model.TrackFix
@@ -30,7 +30,7 @@ private const val NANOS_PER_MILLI = 1_000_000L
  * fix's monotonic timestamp is the only clock, so a recorded drive replays identically.
  */
 public class TurnDetector(
-    private val c: TrakerConstants = TrakerConstants.Default,
+    private val c: TrackerConstants = TrackerConstants.Default,
 ) {
 
     /**

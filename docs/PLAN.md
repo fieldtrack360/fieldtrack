@@ -1,4 +1,4 @@
-# Traker SDK — Implementation Plan
+# Tracker SDK — Implementation Plan
 
 **v2 — 2026-07-30.** Rewritten after a line-by-line read of the reference implementation. v1 was written from the spec document and contained assumptions; those are gone.
 
@@ -27,8 +27,8 @@
 | Platform scope | **Android only; Kotlin, Java and React Native hosts** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. React Native **was** in this row and was moved out: it is a transport for the one engine, not another engine, and `fieldtrack-bridge` carries it (CROSS-PLATFORM.md). `fieldtrack-geo` is a plain Kotlin module with no Android dependencies, which keeps the engine 100 % JVM-unit-testable; that is still the reason it stays separate, and it does not become KMP. |
 | Server sync | **Offline-first, sync optional** | `fieldtrack-core` never touches the network. `fieldtrack-sync` is a separate optional artifact. |
 | Distribution | **Private Maven + npm + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six artifacts under `com.devstree.traker`, plus `@devstree/react-native-traker` on npm at the same version, enforced by a build check. BUILD.md §5.5. |
-| Name | **Traker** / `com.devstree.traker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `fieldtrack-bridge`. |
-| Dependency injection | **None — the graph is wired by hand** | Clean-architecture layering (`domain` / `data` / `service`) stands; it is assembled in one `internal` file, `di/TrakerGraph.kt`, reached through `Traker.getInstance(context)`. A host applies no Gradle plugin, annotates no `Application`, and runs no annotation processor. **This reverted an earlier decision to ship Hilt inside the SDK**, which had forced every consumer to adopt Hilt — unacceptable for a host whose `Application` class is not its own to annotate, and a hard blocker for the React Native package (CROSS-PLATFORM.md B-1). The position argued in [reference/EKF-DESIGN-REVIEW.md](reference/EKF-DESIGN-REVIEW.md) §S5 stands after all. Cost, accepted knowingly: no compile-time graph verification — `TrakerGraphTest` constructs every member instead. |
+| Name | **Tracker** / `com.devstree.traker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `fieldtrack-bridge`. |
+| Dependency injection | **None — the graph is wired by hand** | Clean-architecture layering (`domain` / `data` / `service`) stands; it is assembled in one `internal` file, `di/TrackerGraph.kt`, reached through `Tracker.getInstance(context)`. A host applies no Gradle plugin, annotates no `Application`, and runs no annotation processor. **This reverted an earlier decision to ship Hilt inside the SDK**, which had forced every consumer to adopt Hilt — unacceptable for a host whose `Application` class is not its own to annotate, and a hard blocker for the React Native package (CROSS-PLATFORM.md B-1). The position argued in [reference/EKF-DESIGN-REVIEW.md](reference/EKF-DESIGN-REVIEW.md) §S5 stands after all. Cost, accepted knowingly: no compile-time graph verification — `TrackerGraphTest` constructs every member instead. |
 
 **Single user.** One device, one user, explicit `start()` / `stop()`. Every company / employee / branch / punch / attendance / branch-WiFi / floor-detection concept is stripped — see §5 for the exact list.
 
@@ -53,7 +53,7 @@ v1 assumed the reference implementation was correct and the job was "port it, st
 **Two more the audit surfaced:**
 
 - **Batched fixes are being thrown away** ([A4](SOURCE-AUDIT.md)). The request asks the OS to batch (`setMaxUpdateDelayMillis(60_000)`) and the callback then reads only `locationResult.lastLocation`. A batch of 4–6 fixes collapses to 1 — precisely the samples turn geometry needs. It is masked by [A5](SOURCE-AUDIT.md): the burst gate keys on delivery time, so iterating the batch without also fixing the gate would reject the whole batch. Both are fixed together.
-- **`hasSpeed` / `hasBearing` default to `true`** ([A8](SOURCE-AUDIT.md)), so any construction path that forgets them produces a point claiming hardware it never had — silently disabling the network-fix rejection, the main defence against WiFi-positioning teleports. Traker defaults them `false`.
+- **`hasSpeed` / `hasBearing` default to `true`** ([A8](SOURCE-AUDIT.md)), so any construction path that forgets them produces a point claiming hardware it never had — silently disabling the network-fix rejection, the main defence against WiFi-positioning teleports. Tracker defaults them `false`.
 
 ---
 
@@ -84,7 +84,7 @@ Also out: reverse geocoding (optional module, off by default) · anything server
 
 Every decision lives in exactly one place. Two invariants, each enforced in CI, not by convention:
 
-1. **No algorithm above `fieldtrack-geo`.** A Konsist rule fails the build if `fieldtrack-core` contains a numeric literal inside a decision expression, or imports `kotlin.math` outside `provider/FixMapper`. Every constant lives in one `TrakerConstants` data class.
+1. **No algorithm above `fieldtrack-geo`.** A Konsist rule fails the build if `fieldtrack-core` contains a numeric literal inside a decision expression, or imports `kotlin.math` outside `provider/FixMapper`. Every constant lives in one `TrackerConstants` data class.
 2. **No platform types inside `fieldtrack-geo`.** `android.location.Location` never appears, so the entire engine runs and is tested on the JVM with no emulator. Conversion happens once, in `FixMapper`, which is also the only place validity rules live.
 
 The practical test: a behaviour change is a one-file change in `fieldtrack-geo`, and the fixture suite proves it on the JVM before any device sees it.
@@ -109,11 +109,11 @@ The same rule produces the arrow guarantee — `Arrows.place()` feeds both the G
                           └──────────────┬──────────────┘
                           ┌──────────────▼──────────────┐
                           │  fieldtrack-core  (Android)    │
-                          │  Traker API · FixIngestor  │
+                          │  Tracker API · FixIngestor  │
                           │  FusedLocation · FGS        │
                           │  WorkManager · Watchdog     │
                           │  ActivityTransition · Room  │
-                          │  Permissions · TrakerJava  │
+                          │  Permissions · TrackerJava  │
                           └────────┬───────────┬────────┘
                     ┌──────────────▼───┐  ┌────▼─────────┐
                     │ fieldtrack-maps     │  │ fieldtrack-sync │
@@ -153,17 +153,17 @@ The hybrid is the point: motion-gated shutdown layered **on top of** the nine-ga
 
 ## 5. Provenance — what is lifted, fixed, or dropped
 
-| Reference source | → Traker | Action |
+| Reference source | → Tracker | Action |
 |---|---|---|
 | `utility/location/utils/KalmanLatLngFilter.kt` | `geo/filter/KalmanFilter.kt` | Port the maths. **Drop all 12 `@Volatile` fields**; state becomes an immutable `FilterState`. `predictSigma(state, at, q)` takes `q` explicitly ([A7](SOURCE-AUDIT.md)). Serialisable to `filter_state`. |
-| `LocationUtil.isKalmanFilteredLocation` (`:172-669`) + constants (`:69-109`) | `geo/filter/AcceptancePipeline.kt`, `TrakerConstants.kt` | Port stage-for-stage, order preserved. Signature becomes `(fix, past, state) -> (verdict, newState, point?)`. Negative-Δt branch removed (unreachable under a monotonic clock). Gen-1 constants at `:51-61` **not** ported ([A18](SOURCE-AUDIT.md)). |
+| `LocationUtil.isKalmanFilteredLocation` (`:172-669`) + constants (`:69-109`) | `geo/filter/AcceptancePipeline.kt`, `TrackerConstants.kt` | Port stage-for-stage, order preserved. Signature becomes `(fix, past, state) -> (verdict, newState, point?)`. Negative-Δt branch removed (unreachable under a monotonic clock). Gen-1 constants at `:51-61` **not** ported ([A18](SOURCE-AUDIT.md)). |
 | `LocationUtil.isKalmanFilteredLocationBackup` (`:695`, ~350 lines) | — | **Drop.** Marked "Currently unused. REVERT TARGET". |
 | `LocationUtil.isBetterAndBestLocation`, `isBetterLocation`, `isSpeedSpike`, `isImpossibleJump` | — | **Drop.** Gen-1; `isBetterAndBestLocation` also has a dead conditional ([A15](SOURCE-AUDIT.md)). |
 | `providers/base/LocationProviderBase.kt:71-132` | `core/provider/LocationRequests.kt` | Port the five request configs. Drop the low-power request and the speed-based switcher (dead code, `BackgroundLocationProvider.kt:395-413`). |
 | `providers/BackgroundLocationProvider.kt` | `core/provider/StreamProvider.kt` | Port structure and the `elapsedRealtimeNanos` staleness gate (`:325-329`). **Fix**: iterate `locationResult.locations` ([A4](SOURCE-AUDIT.md)). Strip the `LocationUpdateViewModel` singleton — emit to a `Flow`. |
 | `providers/CurrentLocationProvider.kt` | `core/provider/OneShotProvider.kt` | Port the settings-resolution flow and retry caps. Same batch fix. UI/permission dialogs move out of the provider into `PermissionManager`. |
 | `service/AttendanceLoggerService.kt` (1055 lines) | `core/service/TrackingService.kt` | **Rewrite.** Keep: FGS promotion + the dual-exception catch (`:925-954`), the 2-min health loop, the `AppOpsManager` revocation watcher (`:877-892`), notification lifecycle. Drop: WiFi/branch verification, floor detection, attendance approval gates, company notification data, `ACTION_AUTO_ATTEND_MEETING`. Target ≤ 350 lines. |
-| `utility/location/LocationTrackingManager.kt` | `core/Traker.kt`, `core/session/SessionManager.kt`, `core/work/Watchdog.kt` | **Rewrite.** Entirely company-coupled. Keep the watchdog logic in `isLocationHeartBeatActive()` (`:341-395`) and the raw-fix liveness clock. Drop the full-screen-intent nudge — the SDK emits an event, the host owns UI. |
+| `utility/location/LocationTrackingManager.kt` | `core/Tracker.kt`, `core/session/SessionManager.kt`, `core/work/Watchdog.kt` | **Rewrite.** Entirely company-coupled. Keep the watchdog logic in `isLocationHeartBeatActive()` (`:341-395`) and the raw-fix liveness clock. Drop the full-screen-intent nudge — the SDK emits an event, the host owns UI. |
 | `activityrecognition/ActivityTransitionManager.kt` + receiver | `core/motion/ActivityRecognizer.kt` | Port the transition set, the `FLAG_MUTABLE` + `setPackage` PendingIntent, segment open/close, 24 h auto-close. **Fix**: add a 30 s watchdog that cancels the snapshot subscription unconditionally ([A12](SOURCE-AUDIT.md)); force-capture over an in-process `SharedFlow`, not `startForegroundService` from a receiver ([A13](SOURCE-AUDIT.md)). ObjectBox → Room. |
 | `network/worker/UpdateLocationWorker.kt` | `core/work/BackstopWorker.kt` | Keep the 15-min periodic capture, 30 s timeout, linear backoff, and the `WorkInfo` state inspection. Drop the upload half (→ `fieldtrack-sync`). **Fix**: feed the shared ingestor instead of deriving its own `past` ([A3](SOURCE-AUDIT.md)). |
 | `ui/company/.../EmployeeLocationHistoryViewModel.kt` (1446 lines) | `geo/plot/*` | **Mine, don't port.** Extract `filterLocationForStopsAndPunches` (`:664-738`), `generateSegmentNodes` (`:764-900`), `buildNodeSegment` (`:902-1159`), `calculateSegmentMotion` (`:1247-1297`), `durationWeightedPercentile` (`:1304-1330`), `buildActivityTimeline` (`:1334-1390`), `findDominantOverlap` (`:1404-1424`). Make all of them **pure** ([A10](SOURCE-AUDIT.md)). Drop device attribution, punch bookends, verified-office logic, networking, `LiveData`. |
@@ -210,7 +210,7 @@ traker/
 ├─ fieldtrack-geo/          # plain Kotlin/JVM library — no Android dependency
 │  └─ main/kotlin/com/devstree/traker/geo/
 │     ├─ model/   TrackFix, TrackPoint, FilterState, Verdict, FixDecision
-│     ├─ filter/  KalmanFilter, AcceptancePipeline, Validation, TrakerConstants
+│     ├─ filter/  KalmanFilter, AcceptancePipeline, Validation, TrackerConstants
 │     ├─ motion/  MotionStateMachine, TurnDetector
 │     ├─ plot/    Consolidation, SignificantNodes, Clusters, SpeedStats,
 │     │           ActivityLabels, Snapper, Bezier, Arrows, PolylineCodec, TrackBuilder
@@ -219,11 +219,11 @@ traker/
 │     └─ port/    PointStore, Clock, TrackLogger, RoadSnapProvider
 ├─ fieldtrack-core/         # Android library — the public SDK. Clean architecture, hand-wired graph.
 │  └─ main/kotlin/com/devstree/traker/
-│     ├─ Traker.kt · TrakerConfig.kt          # public surface
-│     ├─ domain/     model/ (TrackSession, TrakerEvent, ProviderState, TrakerResult)
+│     ├─ Tracker.kt · TrackerConfig.kt          # public surface
+│     ├─ domain/     model/ (TrackSession, TrackerEvent, ProviderState, TrackerResult)
 │     │              repository/ (interfaces only — no Android types)
 │     │              usecase/ (StartTracking, StopTracking, ResolveConfig)
-│     ├─ data/       db/ (entities, daos, TrakerDatabase, mappers)
+│     ├─ data/       db/ (entities, daos, TrackerDatabase, mappers)
 │     │              repository/ (implementations, RoomPointStore, ConfigStore)
 │     │              location/ (FixMapper, LocationRequests, FusedLocationSource)
 │     │              platform/ (AndroidClock, AndroidLogger)
@@ -232,7 +232,7 @@ traker/
 │     ├─ motion/     ActivityTransitionReceiver, MotionController
 │     ├─ work/       BackstopWorker, RestoreWorker, PruneWorker, Watchdog
 │     ├─ permission/ PermissionManager, ProviderStateMonitor
-│     └─ di/         TrakerModule, TrakerBindings, RepositoryModule
+│     └─ di/         TrackerModule, TrackerBindings, RepositoryModule
 ├─ fieldtrack-maps/ · fieldtrack-sync/
 ├─ fieldtrack-snap/        # optional artifact — OsrmSnapProvider. Depends on fieldtrack-geo
 │                       # ONLY (its port), never on core: it turns a list of coordinates

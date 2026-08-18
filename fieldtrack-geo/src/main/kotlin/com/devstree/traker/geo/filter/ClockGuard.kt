@@ -45,7 +45,7 @@ public object ClockGuard {
         lastElapsedNanos: Long,
         fixElapsedNanos: Long,
         outOfOrderRun: Int,
-        c: TrakerConstants = TrakerConstants.Default,
+        c: TrackerConstants = TrackerConstants.Default,
     ): Step {
         // 0 means "nothing seen yet", not "boot". Under a monotonic clock a genuine first
         // fix can legitimately arrive at nanos 0, and treating that as a rewind would
@@ -85,7 +85,7 @@ public object ClockGuard {
      */
     public fun <T> inFixOrder(
         items: List<T>,
-        c: TrakerConstants = TrakerConstants.Default,
+        c: TrackerConstants = TrackerConstants.Default,
         elapsedNanos: (T) -> Long,
     ): List<T> {
         if (items.size < 2) return items

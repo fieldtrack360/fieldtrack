@@ -11,8 +11,8 @@ import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.devstree.traker.TrakerConfig
-import com.devstree.traker.di.TrakerGraph
+import com.devstree.traker.TrackerConfig
+import com.devstree.traker.di.TrackerGraph
 import com.devstree.traker.service.TrackingService
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit
  * argument for `EntryPointAccessors` over `@HiltWorker` when this used Hilt, and it is
  * the same argument now that there is no Hilt at all.
  */
-private fun Context.trackItGraph(): TrakerGraph = TrakerGraph.get(applicationContext)
+private fun Context.trackItGraph(): TrackerGraph = TrackerGraph.get(applicationContext)
 
 /**
  * The 15-minute safety net.
@@ -49,7 +49,7 @@ internal class BackstopWorker(
     override suspend fun doWork(): Result {
         val deps = applicationContext.trackItGraph()
         val session = deps.sessions.current() ?: return Result.success()
-        val config = deps.config.load() ?: TrakerConfig()
+        val config = deps.config.load() ?: TrackerConfig()
 
         // Runs whether or not a fix arrives. This is the only supervision that survives a
         // dead service, so it is the one thing that can notice a backlog left behind by a
@@ -107,7 +107,7 @@ internal class RestoreWorker(
     override suspend fun doWork(): Result {
         val deps = applicationContext.trackItGraph()
         deps.sessions.current() ?: return Result.success()
-        val config = deps.config.load() ?: TrakerConfig()
+        val config = deps.config.load() ?: TrackerConfig()
         TrackingService.start(applicationContext, config.service)
         return Result.success()
     }
@@ -141,7 +141,7 @@ internal class PruneWorker(
 
     override suspend fun doWork(): Result {
         val deps = applicationContext.trackItGraph()
-        val config = deps.config.load() ?: TrakerConfig()
+        val config = deps.config.load() ?: TrackerConfig()
         val now = deps.clock.wallTimeMs()
 
         val persistence = config.persistence

@@ -147,16 +147,16 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
 /** Kept here rather than in six build files, for the reason the whole file exists. */
 fun pomDescription(module: String): String = when (module) {
     "fieldtrack-geo" ->
-        "Traker engine — Kalman filter, acceptance pipeline, motion state machine and " +
+        "Tracker engine — Kalman filter, acceptance pipeline, motion state machine and " +
             "plotting. Pure Kotlin source packaged as an R8-obfuscated Android AAR."
     "fieldtrack-core" ->
-        "Traker — background location tracking and track plotting for Android. " +
+        "Tracker — background location tracking and track plotting for Android. " +
             "The capture stack, Room storage and the public SDK surface."
-    "fieldtrack-maps" -> "Traker — Google Maps rendering for tracks built by fieldtrack-core."
-    "fieldtrack-sync" -> "Traker — optional HTTP upload with a retry queue."
-    "fieldtrack-snap" -> "Traker — optional road snapping against an OSRM server."
+    "fieldtrack-maps" -> "Tracker — Google Maps rendering for tracks built by fieldtrack-core."
+    "fieldtrack-sync" -> "Tracker — optional HTTP upload with a retry queue."
+    "fieldtrack-snap" -> "Tracker — optional road snapping against an OSRM server."
     "fieldtrack" ->
-        "Traker — umbrella artifact. Depending on this pulls in every Traker module " +
+        "Tracker — umbrella artifact. Depending on this pulls in every Tracker module " +
             "(core, geo, maps, sync, snap) transitively; no code of its own."
-    else -> "Traker — $module"
+    else -> "Tracker — $module"
 }

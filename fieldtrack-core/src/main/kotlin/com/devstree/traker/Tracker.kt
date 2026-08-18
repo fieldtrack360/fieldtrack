@@ -10,16 +10,16 @@ import com.devstree.traker.domain.model.ErrorCode
 import com.devstree.traker.domain.model.PermissionTier
 import com.devstree.traker.domain.model.PointQuery
 import com.devstree.traker.domain.model.ProviderState
-import com.devstree.traker.domain.model.TrakerGeofence
-import com.devstree.traker.domain.model.TrakerGeofenceEvent
-import com.devstree.traker.domain.model.TrakerEvent
-import com.devstree.traker.domain.model.TrakerResult
-import com.devstree.traker.domain.model.TrakerState
+import com.devstree.traker.domain.model.TrackerGeofence
+import com.devstree.traker.domain.model.TrackerGeofenceEvent
+import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.domain.model.TrackerResult
+import com.devstree.traker.domain.model.TrackerState
 import com.devstree.traker.domain.model.TrackSession
 import com.devstree.traker.data.db.RawFixDao
 import com.devstree.traker.data.db.RawPointDao
 import com.devstree.traker.data.db.toDomain
-import com.devstree.traker.di.TrakerGraph
+import com.devstree.traker.di.TrackerGraph
 import com.devstree.traker.license.LicenseGate
 import com.devstree.traker.domain.repository.DecisionRepository
 import com.devstree.traker.domain.repository.SessionRepository
@@ -73,13 +73,13 @@ import kotlinx.coroutines.flow.update
 /**
  * The SDK's public surface.
  *
- * Obtained with [Traker.getInstance]:
+ * Obtained with [Tracker.getInstance]:
  *
  * ```kotlin
- * val trackIt = Traker.getInstance(context)
+ * val trackIt = Tracker.getInstance(context)
  * ```
  *
- * One instance per process, wired by hand in `di/TrakerGraph.kt`. **The SDK carries no
+ * One instance per process, wired by hand in `di/TrackerGraph.kt`. **The SDK carries no
  * DI framework and requires none from the host** — no Hilt plugin, no `@HiltAndroidApp`,
  * no KSP. An earlier revision shipped Hilt inside `fieldtrack-core` and pushed that
  * requirement onto every consumer; it was removed because an SDK whose install story
@@ -87,13 +87,13 @@ import kotlinx.coroutines.flow.update
  * annotate its own `Application` class (CROSS-PLATFORM.md B-1).
  *
  * A host that uses a DI framework is of course still free to bind this object into its
- * own graph: `@Provides fun trackIt(app: Application) = Traker.getInstance(app)`.
+ * own graph: `@Provides fun trackIt(app: Application) = Tracker.getInstance(app)`.
  *
- * Nothing here throws. Every fallible call returns [TrakerResult] with a typed
+ * Nothing here throws. Every fallible call returns [TrackerResult] with a typed
  * [ErrorCode], because an SDK that throws into a host's coroutine is a crash the host
  * cannot reasonably prevent (EC-01, EC-75).
  */
-public class Traker internal constructor(
+public class Tracker internal constructor(
     private val startTracking: StartTrackingUseCase,
     private val stopTracking: StopTrackingUseCase,
     private val resolveConfig: ResolveConfigUseCase,
@@ -114,23 +114,23 @@ public class Traker internal constructor(
     private val permissions: PermissionManager,
     private val context: Context,
     private val scope: CoroutineScope,
-    private val eventSink: MutableSharedFlow<TrakerEvent>,
+    private val eventSink: MutableSharedFlow<TrackerEvent>,
 ) {
 
     @Volatile
     private var sensors: DeviceSensors? = null
 
-    private val _state = MutableStateFlow(TrakerState())
-    public val state: StateFlow<TrakerState> = _state.asStateFlow()
+    private val _state = MutableStateFlow(TrackerState())
+    public val state: StateFlow<TrackerState> = _state.asStateFlow()
 
     /**
      * Replay 0, unlimited subscribers. Collect from a lifecycle scope for UI, or from an
      * application-scoped one for work that must continue with no UI on screen (EC-114).
      */
-    public val events: SharedFlow<TrakerEvent> = eventSink.asSharedFlow()
+    public val events: SharedFlow<TrackerEvent> = eventSink.asSharedFlow()
 
     @Volatile
-    private var config: TrakerConfig? = null
+    private var config: TrackerConfig? = null
 
     @Volatile
     private var stateSyncJob: Job? = null
@@ -139,28 +139,28 @@ public class Traker internal constructor(
     private var roadSnapProvider: RoadSnapProvider = RoadSnapProvider.Disabled
 
     /** Returns a registered fence by id, or null when it is not registered. */
-    public fun getGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerGeofence? =
+    public fun getGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerGeofence? =
         stationaryFence.get(id)
 
     /** Snapshot of every registered fence. Android and iOS both cap this at 19. */
-    public fun getGeofences(): List<TrakerGeofence> = stationaryFence.all()
+    public fun getGeofences(): List<TrackerGeofence> = stationaryFence.all()
 
     /**
      * Registers or replaces a persistent system geofence.
      */
-    public suspend fun addGeofence(geofence: TrakerGeofence): TrakerResult<TrakerGeofence> {
+    public suspend fun addGeofence(geofence: TrackerGeofence): TrackerResult<TrackerGeofence> {
         if (geofence.id.isBlank() || geofence.latitude !in -90.0..90.0 ||
             geofence.longitude !in -180.0..180.0 || geofence.radiusM <= 0f
         ) {
-            return TrakerResult.Error(ErrorCode.INVALID_CONFIG, "Invalid geofence")
+            return TrackerResult.Error(ErrorCode.INVALID_CONFIG, "Invalid geofence")
         }
         return when (stationaryFence.add(geofence)) {
-            StationaryFence.AddResult.ADDED -> TrakerResult.Ok(geofence)
-            StationaryFence.AddResult.LIMIT_REACHED -> TrakerResult.Error(
+            StationaryFence.AddResult.ADDED -> TrackerResult.Ok(geofence)
+            StationaryFence.AddResult.LIMIT_REACHED -> TrackerResult.Error(
                 ErrorCode.GEOFENCE_LIMIT_REACHED,
-                "A maximum of ${TrakerGeofence.MAX_GEOFENCES} geofences may be registered",
+                "A maximum of ${TrackerGeofence.MAX_GEOFENCES} geofences may be registered",
             )
-            StationaryFence.AddResult.FAILED -> TrakerResult.Error(
+            StationaryFence.AddResult.FAILED -> TrackerResult.Error(
                 ErrorCode.GEOFENCE_REGISTRATION_FAILED,
                 "Geofence registration failed",
             )
@@ -168,10 +168,10 @@ public class Traker internal constructor(
     }
 
     /** Removes one registered geofence. `Ok(false)` means no matching id existed. */
-    public suspend fun removeGeofence(id: String = TrakerGeofence.DEFAULT_ID): TrakerResult<Boolean> {
+    public suspend fun removeGeofence(id: String = TrackerGeofence.DEFAULT_ID): TrackerResult<Boolean> {
         val removed = stationaryFence.remove(id)
-        return if (removed != null) TrakerResult.Ok(removed) else {
-            TrakerResult.Error(
+        return if (removed != null) TrackerResult.Ok(removed) else {
+            TrackerResult.Error(
                 ErrorCode.GEOFENCE_REMOVAL_FAILED,
                 "Geofence removal failed",
             )
@@ -179,12 +179,12 @@ public class Traker internal constructor(
     }
 
     /** Removes all SDK-managed geofences. */
-    public suspend fun removeAllGeofences(): TrakerResult<Int> {
+    public suspend fun removeAllGeofences(): TrackerResult<Int> {
         val removedCount = stationaryFence.removeAll()
         return if (removedCount != null) {
-            TrakerResult.Ok(removedCount)
+            TrackerResult.Ok(removedCount)
         } else {
-            TrakerResult.Error(ErrorCode.GEOFENCE_REMOVAL_FAILED, "Geofence removal failed")
+            TrackerResult.Error(ErrorCode.GEOFENCE_REMOVAL_FAILED, "Geofence removal failed")
         }
     }
 
@@ -196,7 +196,7 @@ public class Traker internal constructor(
         toMs: Long? = null,
         limit: Int = 500,
         offset: Int = 0,
-    ): List<TrakerGeofenceEvent> =
+    ): List<TrackerGeofenceEvent> =
         stationaryFence.store.events(geofenceId, fromMs, toMs, limit, offset)
 
     /** Deletes matching crossing history and returns the number of deleted records. */
@@ -211,15 +211,15 @@ public class Traker internal constructor(
      * Resolves configuration, restores persisted filter state, and reports an
      * interrupted session if one was left open by a crash or force-stop (EC-66).
      */
-    public suspend fun ready(config: TrakerConfig = TrakerConfig()): TrakerResult<TrakerState> {
+    public suspend fun ready(config: TrackerConfig = TrackerConfig()): TrackerResult<TrackerState> {
         val licenseGate = LicenseGate(context)
         when (val verdict = licenseGate.check(explicit = config.license)) {
             com.devstree.traker.license.LicenseVerdict.Licensed,
             com.devstree.traker.license.LicenseVerdict.Waived -> Unit
             else -> {
                 val failure = licenseGate.failure(verdict)!!
-                eventSink.tryEmit(TrakerEvent.Error(failure.code, failure.message))
-                return TrakerResult.Error(failure.code, failure.message)
+                eventSink.tryEmit(TrackerEvent.Error(failure.code, failure.message))
+                return TrackerResult.Error(failure.code, failure.message)
             }
         }
 
@@ -232,7 +232,7 @@ public class Traker internal constructor(
         // should not conclude the layer is working.
         if (integrityMonitor.current.waived) {
             eventSink.tryEmit(
-                TrakerEvent.Diagnostic(
+                TrackerEvent.Diagnostic(
                     "device integrity waived — debuggable build or security.enabled = false",
                 ),
             )
@@ -241,8 +241,8 @@ public class Traker internal constructor(
         val resolved = resolveConfig(config)
         if (resolved.validationErrors.isNotEmpty()) {
             val message = resolved.validationErrors.joinToString("; ")
-            eventSink.tryEmit(TrakerEvent.Error(ErrorCode.INVALID_CONFIG, message))
-            return TrakerResult.Error(ErrorCode.INVALID_CONFIG, message)
+            eventSink.tryEmit(TrackerEvent.Error(ErrorCode.INVALID_CONFIG, message))
+            return TrackerResult.Error(ErrorCode.INVALID_CONFIG, message)
         }
 
         this.config = resolved.config
@@ -252,17 +252,17 @@ public class Traker internal constructor(
             stateSyncJob = scope.launch {
                 eventSink.collect { event ->
                     when (event) {
-                        is TrakerEvent.ProviderChange ->
+                        is TrackerEvent.ProviderChange ->
                             _state.update { it.copy(providerState = event.state) }
 
-                        is TrakerEvent.MotionChange ->
+                        is TrackerEvent.MotionChange ->
                             _state.update { it.copy(motionState = event.state) }
 
                         // The SDK can end a session without the host calling stop() — the
                         // health loop does exactly that on a BLOCK-policy integrity finding.
                         // Without this, `state.isTracking` would stay true for a session
                         // that no longer exists.
-                        is TrakerEvent.EnabledChange ->
+                        is TrackerEvent.EnabledChange ->
                             if (!event.enabled) {
                                 _state.update { it.copy(isTracking = false, currentSessionId = null) }
                             }
@@ -282,7 +282,7 @@ public class Traker internal constructor(
         PruneWorker.enqueue(context)
 
         sessions.current()?.let { open ->
-            eventSink.tryEmit(TrakerEvent.SessionInterrupted(open))
+            eventSink.tryEmit(TrackerEvent.SessionInterrupted(open))
         }
 
         _state.update {
@@ -292,7 +292,7 @@ public class Traker internal constructor(
                 providerState = providerStateMonitor.state.value,
             )
         }
-        return TrakerResult.Ok(_state.value)
+        return TrackerResult.Ok(_state.value)
     }
 
     /**
@@ -304,13 +304,13 @@ public class Traker internal constructor(
      * doors. The report is published either way — a `WARN` finding still reaches the host
      * and still rides along on every point.
      */
-    private fun integrityGate(security: SecurityConfig): TrakerResult.Error? {
+    private fun integrityGate(security: SecurityConfig): TrackerResult.Error? {
         val report = integrityMonitor.evaluate(security)
         if (!report.blocked) return null
 
         val message = "Device integrity check failed: ${report.describeBlocking()}"
-        eventSink.tryEmit(TrakerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
-        return TrakerResult.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message)
+        eventSink.tryEmit(TrackerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
+        return TrackerResult.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message)
     }
 
     /**
@@ -323,7 +323,7 @@ public class Traker internal constructor(
 
     /**
      * Probes now and returns the fresh report, publishing it to [integrityState] and to
-     * [TrakerEvent.IntegrityChange] if anything moved.
+     * [TrackerEvent.IntegrityChange] if anything moved.
      *
      * Reads `/proc`, the installed-package list and a loopback socket — tens of
      * milliseconds. Call it on a state change worth re-checking (an app install, a return
@@ -364,7 +364,7 @@ public class Traker internal constructor(
      * running, on the capture path's own refresh.
      *
      * Starts at [BatteryInfo.Unknown] until something reads; call [batteryInfo] once if you
-     * need a value immediately. [TrakerEvent.BatteryChange] carries the same transitions
+     * need a value immediately. [TrackerEvent.BatteryChange] carries the same transitions
      * for hosts collecting the event flow.
      */
     public fun batteryState(): StateFlow<BatteryInfo> = batteryMonitor.state
@@ -381,9 +381,9 @@ public class Traker internal constructor(
      */
     public fun permissions(): PermissionManager = permissions
 
-    public suspend fun start(tag: String? = null): TrakerResult<TrackSession> {
+    public suspend fun start(tag: String? = null): TrackerResult<TrackSession> {
         val active = config
-            ?: return TrakerResult.Error(ErrorCode.NOT_READY, "Call ready() before start()")
+            ?: return TrackerResult.Error(ErrorCode.NOT_READY, "Call ready() before start()")
 
         // Re-evaluated rather than reused from ready(): a device can be tampered with in
         // the seconds between the two calls, and start() is the one that opens a session
@@ -392,15 +392,15 @@ public class Traker internal constructor(
         integrityMonitor.onSessionStart()
 
         return when (val result = startTracking(active, tag)) {
-            is TrakerResult.Ok -> {
+            is TrackerResult.Ok -> {
                 _state.update { it.copy(isTracking = true, currentSessionId = result.value.id) }
                 result
             }
-            is TrakerResult.Error -> result
+            is TrackerResult.Error -> result
         }
     }
 
-    public suspend fun stop(): TrakerResult<TrackSession?> {
+    public suspend fun stop(): TrackerResult<TrackSession?> {
         val result = stopTracking()
         _state.update { it.copy(isTracking = false, currentSessionId = null) }
         return result
@@ -413,11 +413,11 @@ public class Traker internal constructor(
      * to odometer distance, or emitted as a tracking location. Call [start] when the
      * location should become part of a session.
      */
-    public suspend fun getCurrentLocation(): TrakerResult<TrackFix> {
+    public suspend fun getCurrentLocation(): TrackerResult<TrackFix> {
         val active = config
-            ?: return TrakerResult.Error(ErrorCode.NOT_READY, "Call ready() before getCurrentLocation()")
+            ?: return TrackerResult.Error(ErrorCode.NOT_READY, "Call ready() before getCurrentLocation()")
         if (permissions.tier() == PermissionTier.NONE) {
-            return TrakerResult.Error(
+            return TrackerResult.Error(
                 ErrorCode.PERMISSION_DENIED,
                 "Location permission not granted",
             )
@@ -426,7 +426,7 @@ public class Traker internal constructor(
         providerStateMonitor.refresh()
         val provider = providerStateMonitor.state.value
         if (!provider.gpsEnabled && !provider.networkEnabled) {
-            return TrakerResult.Error(ErrorCode.LOCATION_DISABLED, "Location services are disabled")
+            return TrackerResult.Error(ErrorCode.LOCATION_DISABLED, "Location services are disabled")
         }
 
         val fix = oneShotProvider.capture(
@@ -434,11 +434,11 @@ public class Traker internal constructor(
             feedIngestor = false,
             suppressAfterRepeatedFailures = false,
         )
-            ?: return TrakerResult.Error(
+            ?: return TrackerResult.Error(
                 ErrorCode.FIX_TIMEOUT,
                 "No usable location fix arrived within ${active.geolocation.oneShotTimeoutMs} ms",
             )
-        return TrakerResult.Ok(fix)
+        return TrackerResult.Ok(fix)
     }
 
     public suspend fun getPoints(query: PointQuery = PointQuery()): List<TrackPoint> =
@@ -573,7 +573,7 @@ public class Traker internal constructor(
             .map { Snapper.RoadGeometry.Snapped(it) }
             .getOrElse { failure ->
                 eventSink.tryEmit(
-                    TrakerEvent.Error(
+                    TrackerEvent.Error(
                         ErrorCode.SNAP_UNAVAILABLE,
                         "Road snapping failed: ${failure.message ?: failure::class.simpleName}",
                     ),
@@ -664,7 +664,7 @@ public class Traker internal constructor(
          * disk. The first real work happens in [ready].
          */
         @JvmStatic
-        public fun getInstance(context: Context): Traker = TrakerGraph.get(context).trackIt
+        public fun getInstance(context: Context): Tracker = TrackerGraph.get(context).trackIt
     }
 
 }

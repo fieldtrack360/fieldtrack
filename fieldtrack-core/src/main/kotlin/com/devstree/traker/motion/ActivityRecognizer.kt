@@ -4,7 +4,7 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.sdkLog
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.permission.PermissionManager
@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 internal class ActivityRecognizer(
     private val context: Context,
     private val permissions: PermissionManager,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val logger: TrackLogger,
     private val scope: CoroutineScope,
 ) {
@@ -74,7 +74,7 @@ internal class ActivityRecognizer(
             }
             .addOnFailureListener { error ->
                 sdkLog { logger.w(TAG, "Activity transition registration failed: ${error.message}") }
-                events.tryEmit(TrakerEvent.Diagnostic("activity_recognition_unavailable"))
+                events.tryEmit(TrackerEvent.Diagnostic("activity_recognition_unavailable"))
             }
 
         armSnapshotWatchdog()

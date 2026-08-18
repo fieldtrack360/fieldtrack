@@ -1,4 +1,4 @@
-# Traker maps — rules a consuming app inherits.
+# Tracker maps — rules a consuming app inherits.
 #
 # Nothing to keep, and this is the one module where that is true by design rather than by
 # delegation to another library's rules.

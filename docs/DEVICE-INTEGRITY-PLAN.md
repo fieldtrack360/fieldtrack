@@ -70,7 +70,7 @@ fieldtrack-core/src/main/kotlin/com/devstree/traker/integrity/
 
 Probes are `internal` and behind a port, so `IntegrityEvaluator` is unit-testable with
 fakes on the JVM — same pattern as `MotionPorts.kt` / `BatteryProbe.kt`. Wiring goes into
-`di/TrakerGraph.kt` next to `sensorProbe` and `batteryMonitor`.
+`di/TrackerGraph.kt` next to `sensorProbe` and `batteryMonitor`.
 
 ### 2.1 Public model
 
@@ -113,7 +113,7 @@ the report, and the error message names the blocking signals. This keeps the exi
 
 ### 2.2 Config
 
-New `SecurityConfig` block on `TrakerConfig`, alongside `sensors`/`persistence`:
+New `SecurityConfig` block on `TrackerConfig`, alongside `sensors`/`persistence`:
 
 ```kotlin
 @Serializable
@@ -133,7 +133,7 @@ public data class SecurityConfig(
 )
 ```
 
-Validation added to `TrakerConfig.validate()`: `maxClockSkewMs >= 0`,
+Validation added to `TrackerConfig.validate()`: `maxClockSkewMs >= 0`,
 `recheckIntervalMs == 0L || recheckIntervalMs >= 60_000`.
 
 `mockLocation = BLOCK` also forces `geolocation.mockLocationPolicy = MockPolicy.REJECT`
@@ -150,7 +150,7 @@ internal object IntegrityEnvironment {
 
 When waived: probes do not run at all (zero cost in debug), the report is
 `IntegrityReport(waived = true, findings = emptyList())`, nothing blocks, and a single
-`TrakerEvent.Diagnostic("integrity: waived — debuggable build")` is emitted at `ready()`
+`TrackerEvent.Diagnostic("integrity: waived — debuggable build")` is emitted at `ready()`
 so the state is visible rather than silent.
 
 **Hardening (recommended, optional):** a repackaged APK can set `debuggable=true` to
@@ -167,16 +167,16 @@ license-token format change.
 
 | Point | Behaviour |
 |---|---|
-| `Traker.ready()` | Evaluate after the license gate passes, before `resolveConfig`. `BLOCK` → emit `TrakerEvent.Error` and return `TrakerResult.Error(DEVICE_INTEGRITY_BLOCKED, …)`, exactly like the license path at `Traker.kt:210-219`. |
-| `Traker.start()` | Re-evaluate (cheap probes only) — a device can be tampered with between `ready()` and `start()`. `BLOCK` → `TrakerResult.Error`, no session opened. |
+| `Tracker.ready()` | Evaluate after the license gate passes, before `resolveConfig`. `BLOCK` → emit `TrackerEvent.Error` and return `TrackerResult.Error(DEVICE_INTEGRITY_BLOCKED, …)`, exactly like the license path at `Tracker.kt:210-219`. |
+| `Tracker.start()` | Re-evaluate (cheap probes only) — a device can be tampered with between `ready()` and `start()`. `BLOCK` → `TrackerResult.Error`, no session opened. |
 | `HealthLoop` | Every `recheckIntervalMs` while tracking, full re-evaluation. On a new `BLOCK` finding: emit the error event and stop the session through the existing `StopTrackingUseCase`. |
 | `FixIngestor` | Stamps the current report's `flags` onto every accepted point (no probe work per fix — reads the monitor's cached `StateFlow` value). |
-| `TrakerSync` | Uploads the flags with the point (§6). |
+| `TrackerSync` | Uploads the flags with the point (§6). |
 
-New event: `TrakerEvent.IntegrityChange(val report: IntegrityReport)` — emitted only when
+New event: `TrackerEvent.IntegrityChange(val report: IntegrityReport)` — emitted only when
 the flag bitmask changes, not on every re-evaluation.
 
-New public API on `Traker`:
+New public API on `Tracker`:
 
 ```kotlin
 public fun integrity(): IntegrityReport                  // last evaluation, no probing
@@ -289,14 +289,14 @@ available:
 
 ## 5. Storage — Room v7
 
-Current schema version is 6 (`data/db/TrakerDatabase.kt:21`, `fieldtrack-core/schemas/`).
+Current schema version is 6 (`data/db/TrackerDatabase.kt:21`, `fieldtrack-core/schemas/`).
 
 - Add `integrityFlags INTEGER NOT NULL DEFAULT 0` to `TrackPointEntity` and
   `RawFixEntity` (`data/db/Entities.kt:50`, `:220` neighbourhood).
 - Bump `@Database(version = 7)`, add an explicit `Migration(6, 7)` — the file already
-  states destructive migration is never used (`TrakerDatabase.kt:22-25`), so this is
+  states destructive migration is never used (`TrackerDatabase.kt:22-25`), so this is
   mandatory, not optional.
-- Export `7.json` into `fieldtrack-core/schemas/com.devstree.traker.data.db.TrakerDatabase/`
+- Export `7.json` into `fieldtrack-core/schemas/com.devstree.traker.data.db.TrackerDatabase/`
   and commit it.
 - Map through `Mappers.kt` and expose on the public `TrackPoint` (`fieldtrack-geo`
   `model/TrackPoint.kt`) as `val integrityFlags: Int = 0` — defaulted, so it is a
@@ -369,7 +369,7 @@ the debug waiver unusable, which is the opposite of the requirement.
 
 ### 7.2 Gradle release verification (this repo)
 
-Add `verifyReleaseIntegrity` to `buildSrc/src/main/kotlin/TrakerReleaseTasks.kt`, wired as
+Add `verifyReleaseIntegrity` to `buildSrc/src/main/kotlin/TrackerReleaseTasks.kt`, wired as
 a dependency of the publish task:
 
 - Every library module's release build type has `isMinifyEnabled = true`.
@@ -399,8 +399,8 @@ JVM unit tests (Robolectric where a `Context` is needed — already in the test 
   ignored as a reference, telephony ISO mismatch and the blank-ISO skip.
 - `MockLocationProbeTest` — app-op `MODE_ALLOWED` on a visible package; empty visible list
   → no finding, no crash.
-- `TrakerReadyIntegrityTest` — `ready()` returns `DEVICE_INTEGRITY_BLOCKED` and emits the
-  matching `TrakerEvent.Error`; waived build returns `Ok`.
+- `TrackerReadyIntegrityTest` — `ready()` returns `DEVICE_INTEGRITY_BLOCKED` and emits the
+  matching `TrackerEvent.Error`; waived build returns `Ok`.
 - `SyncPayloadWireTest` (existing file) — extend with the two new fields, asserting old
   payloads still deserialize.
 - `MigrationTest` 6 → 7 once the schema is exported.
@@ -432,7 +432,7 @@ asserting no warning.
 |---|---|---|
 | P0 | `integrity` package: models, ports, evaluator, `SecurityConfig`, waiver, unit tests with fake probes. Nothing wired. | — |
 | P1 | The five real probes + their Robolectric tests. Still not wired. | P0 |
-| P2 | Wiring: `TrakerGraph`, `ready()`/`start()` gates, `HealthLoop` re-check, `TrakerEvent.IntegrityChange`, `ErrorCode.DEVICE_INTEGRITY_BLOCKED`, public `Traker` API. | P1 |
+| P2 | Wiring: `TrackerGraph`, `ready()`/`start()` gates, `HealthLoop` re-check, `TrackerEvent.IntegrityChange`, `ErrorCode.DEVICE_INTEGRITY_BLOCKED`, public `Tracker` API. | P1 |
 | P3 | Persistence: Room v7 + migration + schema export + `TrackPoint.integrityFlags`. | P2 |
 | P4 | `fieldtrack-sync` wire fields + `SyncPayloadWireTest`. | P3 |
 | P5 | `fieldtrack-lint` module, four detectors, detector tests, `lintPublish` wiring, `verifyReleaseIntegrity` task. | P2 |
@@ -464,7 +464,7 @@ P5 is independent of P3/P4 and can run in parallel with them.
   AGP 9 rejects the `sourceSets.assets` wiring the helper needs, which is a pre-existing
   limitation recorded in `USER-GUIDE.md`. The migration itself is additive, hand-written
   and exercised by Room's schema validation on every debug open.
-- **An end-to-end `ready()` gate test.** `Traker` construction pulls the whole graph and
+- **An end-to-end `ready()` gate test.** `Tracker` construction pulls the whole graph and
   Robolectric's application is not debuggable, so the license gate answers first. The gate
   is covered at its two seams instead: `IntegrityEvaluatorTest` (does this report block?)
   and `IntegrityMonitorTest` (what is published when it does).

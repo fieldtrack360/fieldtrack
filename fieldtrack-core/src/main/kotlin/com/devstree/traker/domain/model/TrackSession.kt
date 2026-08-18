@@ -27,9 +27,9 @@ public data class TrackSession(
 }
 
 /** Result type for every fallible entry point. The SDK returns errors; it never throws. */
-public sealed interface TrakerResult<out T> {
-    public data class Ok<T>(val value: T) : TrakerResult<T>
-    public data class Error(val code: ErrorCode, val message: String) : TrakerResult<Nothing>
+public sealed interface TrackerResult<out T> {
+    public data class Ok<T>(val value: T) : TrackerResult<T>
+    public data class Error(val code: ErrorCode, val message: String) : TrackerResult<Nothing>
 }
 
 public enum class ErrorCode {
@@ -55,7 +55,7 @@ public enum class ErrorCode {
      * The device or process failed a `BLOCK`-policy integrity check — a hooking framework,
      * a selected mock-location app, or whatever else `SecurityConfig` was told to refuse.
      *
-     * The message names the blocking signals; `Traker.integrity()` carries the full report.
+     * The message names the blocking signals; `Tracker.integrity()` carries the full report.
      * Never returned by a debuggable build, where the whole layer is waived.
      */
     DEVICE_INTEGRITY_BLOCKED,
@@ -69,7 +69,7 @@ public enum class ErrorCode {
     /** Geofence removal failed. The active fence may still be armed in Play Services. */
     GEOFENCE_REMOVAL_FAILED,
 
-    /** The SDK-managed geofence registry already contains [TrakerGeofence.MAX_GEOFENCES]. */
+    /** The SDK-managed geofence registry already contains [TrackerGeofence.MAX_GEOFENCES]. */
     GEOFENCE_LIMIT_REACHED,
 
     /**
@@ -111,15 +111,15 @@ public data class ProviderState(
  * `var callback`, which silently lets the second registrant replace the first
  * (EC-112).
  */
-public sealed interface TrakerEvent {
-    public data class Location(val point: TrackPoint) : TrakerEvent
-    public data class LocationRejected(val decision: FixDecision) : TrakerEvent
-    public data class MotionChange(val state: MotionState, val point: TrackPoint?) : TrakerEvent
-    public data class ActivityChange(val activity: ActivityType, val confidence: Int) : TrakerEvent
-    public data class EnabledChange(val enabled: Boolean) : TrakerEvent
-    public data class ProviderChange(val state: ProviderState) : TrakerEvent
-    public data class Heartbeat(val atMs: Long) : TrakerEvent
-    public data class PowerSaveChange(val enabled: Boolean) : TrakerEvent
+public sealed interface TrackerEvent {
+    public data class Location(val point: TrackPoint) : TrackerEvent
+    public data class LocationRejected(val decision: FixDecision) : TrackerEvent
+    public data class MotionChange(val state: MotionState, val point: TrackPoint?) : TrackerEvent
+    public data class ActivityChange(val activity: ActivityType, val confidence: Int) : TrackerEvent
+    public data class EnabledChange(val enabled: Boolean) : TrackerEvent
+    public data class ProviderChange(val state: ProviderState) : TrackerEvent
+    public data class Heartbeat(val atMs: Long) : TrackerEvent
+    public data class PowerSaveChange(val enabled: Boolean) : TrackerEvent
 
     /**
      * Charge level or power source changed.
@@ -128,14 +128,14 @@ public sealed interface TrakerEvent {
      * the capture path notices between them. With no session running there is nothing
      * polling, so only the four broadcasts fire.
      */
-    public data class BatteryChange(val battery: BatteryInfo) : TrakerEvent
-    public data class GeofenceAdded(val geofence: TrakerGeofence) : TrakerEvent
-    public data class GeofenceRemoved(val geofenceId: String) : TrakerEvent
-    public data class GeofenceEntered(val geofence: TrakerGeofence) : TrakerEvent
-    public data class GeofenceExited(val geofence: TrakerGeofence) : TrakerEvent
+    public data class BatteryChange(val battery: BatteryInfo) : TrackerEvent
+    public data class GeofenceAdded(val geofence: TrackerGeofence) : TrackerEvent
+    public data class GeofenceRemoved(val geofenceId: String) : TrackerEvent
+    public data class GeofenceEntered(val geofence: TrackerGeofence) : TrackerEvent
+    public data class GeofenceExited(val geofence: TrackerGeofence) : TrackerEvent
 
     /** A session was found still open at launch — the host decides what to do (EC-66). */
-    public data class SessionInterrupted(val session: TrackSession) : TrakerEvent
+    public data class SessionInterrupted(val session: TrackSession) : TrackerEvent
     /**
      * The device-integrity flag set changed — a hooking framework appeared, a mock fix
      * arrived, developer options were switched on mid-session.
@@ -143,9 +143,9 @@ public sealed interface TrakerEvent {
      * Emitted on transitions only, not on every re-evaluation. A `BLOCK`-policy finding
      * arrives here *and* as an [Error] with `ErrorCode.DEVICE_INTEGRITY_BLOCKED`.
      */
-    public data class IntegrityChange(val report: IntegrityReport) : TrakerEvent
-    public data class Diagnostic(val message: String) : TrakerEvent
-    public data class Error(val code: ErrorCode, val message: String) : TrakerEvent
+    public data class IntegrityChange(val report: IntegrityReport) : TrackerEvent
+    public data class Diagnostic(val message: String) : TrackerEvent
+    public data class Error(val code: ErrorCode, val message: String) : TrackerEvent
 }
 
 /**
@@ -155,7 +155,7 @@ public sealed interface TrakerEvent {
  * and the same model so all additions and crossings share one event contract.
  */
 @Serializable
-public data class TrakerGeofence(
+public data class TrackerGeofence(
     val id: String,
     val latitude: Double,
     val longitude: Double,
@@ -174,8 +174,8 @@ public data class TrakerGeofence(
 
 /** A persisted crossing of a registered geofence. */
 @Serializable
-public data class TrakerGeofenceEvent(
-    val geofence: TrakerGeofence,
+public data class TrackerGeofenceEvent(
+    val geofence: TrackerGeofence,
     val transition: GeofenceTransition,
     val timestampMs: Long,
     val eventName: String,
@@ -185,7 +185,7 @@ public data class TrakerGeofenceEvent(
 public enum class GeofenceTransition { ENTER, EXIT }
 
 /** Coarse lifecycle state of the SDK itself. */
-public data class TrakerState(
+public data class TrackerState(
     val isReady: Boolean = false,
     val isTracking: Boolean = false,
     val motionState: MotionState = MotionState.STOPPED,

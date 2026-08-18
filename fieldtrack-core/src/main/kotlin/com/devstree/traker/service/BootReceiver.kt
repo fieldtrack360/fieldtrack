@@ -3,7 +3,7 @@ package com.devstree.traker.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.devstree.traker.di.TrakerGraph
+import com.devstree.traker.di.TrackerGraph
 import com.devstree.traker.domain.repository.ConfigRepository
 import com.devstree.traker.domain.repository.SessionRepository
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +33,7 @@ public class BootReceiver : BroadcastReceiver() {
         // every boot of every install, and building the graph — which opens the database
         // on first touch — before knowing the broadcast is ours would put disk I/O on the
         // main thread of a boot storm.
-        val graph = TrakerGraph.get(context)
+        val graph = TrackerGraph.get(context)
         val sessions: SessionRepository = graph.sessions
         val config: ConfigRepository = graph.config
 

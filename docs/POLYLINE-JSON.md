@@ -3,7 +3,7 @@
 The headline deliverable: a ready-to-draw track that any map library on any platform can render without doing geometry. Produced entirely on-device by `fieldtrack-geo`; no backend, no routing key, no quota.
 
 ```kotlin
-val json = Traker.exportPolylineJson(
+val json = Tracker.exportPolylineJson(
     TrackQuery.Session(sessionId),
     TrackOptions(zoom = 14f, includeRawPoints = true),
 )
@@ -91,7 +91,7 @@ val json = Traker.exportPolylineJson(
 
 Direction arrows are the one thing every consumer wants and nobody wants to compute. Placement needs bearings, geodesic offsets, zoom-adaptive spacing and jump handling — and if the renderer and the export compute it separately they drift, which is exactly what happened in the reference implementation ([A9](SOURCE-AUDIT.md): two ladders, visibly different arrow density before and after the first pinch).
 
-Traker computes arrow anchors **once**, in `fieldtrack-geo`, and that same function feeds both `fieldtrack-maps` and this JSON. A consumer draws a rotated marker at each anchor:
+Tracker computes arrow anchors **once**, in `fieldtrack-geo`, and that same function feeds both `fieldtrack-maps` and this JSON. A consumer draws a rotated marker at each anchor:
 
 ```kotlin
 track.arrows.forEach { a ->
@@ -143,7 +143,7 @@ Coordinates are `[longitude, latitude]` per RFC 7946 — the opposite order from
   "version": 1,
   "recordedAtMs": 1785500000000,
   "device": { "model": "Pixel 8", "sdkInt": 35, "oem": "Google" },
-  "config": { /* full TrakerConfig snapshot */ },
+  "config": { /* full TrackerConfig snapshot */ },
   "fixes": [
     { "timeMs": 1785456123000, "elapsedNs": 91827364500000,
       "lat": 23.0225, "lng": 72.5714, "acc": 8.2,

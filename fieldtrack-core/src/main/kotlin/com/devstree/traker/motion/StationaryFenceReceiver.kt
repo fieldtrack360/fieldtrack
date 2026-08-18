@@ -3,9 +3,9 @@ package com.devstree.traker.motion
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.devstree.traker.di.TrakerGraph
+import com.devstree.traker.di.TrackerGraph
 import com.devstree.traker.domain.model.GeofenceTransition
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.google.android.gms.location.Geofence
 import com.devstree.traker.service.CaptureBus
 import com.google.android.gms.location.GeofencingEvent
@@ -19,12 +19,12 @@ public class StationaryFenceReceiver : BroadcastReceiver() {
 
         // Manifest-declared receiver: constructed by the system, so the graph is looked
         // up rather than injected. Lazy, so this builds nothing that is not already up.
-        val graph = TrakerGraph.get(context)
-        val events: MutableSharedFlow<TrakerEvent> = graph.events
+        val graph = TrackerGraph.get(context)
+        val events: MutableSharedFlow<TrackerEvent> = graph.events
         val motionController = graph.motionController
 
         if (event.hasError()) {
-            events.tryEmit(TrakerEvent.Diagnostic("geofence_error: ${event.errorCode}"))
+            events.tryEmit(TrackerEvent.Diagnostic("geofence_error: ${event.errorCode}"))
             return
         }
 
@@ -33,7 +33,7 @@ public class StationaryFenceReceiver : BroadcastReceiver() {
             Geofence.GEOFENCE_TRANSITION_EXIT -> GeofenceTransition.EXIT
             else -> {
                 events.tryEmit(
-                    TrakerEvent.Diagnostic("stationary_fence_transition:${event.geofenceTransition}"),
+                    TrackerEvent.Diagnostic("stationary_fence_transition:${event.geofenceTransition}"),
                 )
                 return
             }
@@ -43,15 +43,15 @@ public class StationaryFenceReceiver : BroadcastReceiver() {
         event.triggeringGeofences.orEmpty().forEach { triggered ->
             val registration = graph.stationaryFence.store.registration(triggered.requestId)
             if (registration == null) {
-                events.tryEmit(TrakerEvent.Diagnostic("unknown_geofence:${triggered.requestId}"))
+                events.tryEmit(TrackerEvent.Diagnostic("unknown_geofence:${triggered.requestId}"))
                 return@forEach
             }
             graph.stationaryFence.store.record(registration, transition, System.currentTimeMillis())
             when (transition) {
                 GeofenceTransition.ENTER ->
-                    events.tryEmit(TrakerEvent.GeofenceEntered(registration.geofence))
+                    events.tryEmit(TrackerEvent.GeofenceEntered(registration.geofence))
                 GeofenceTransition.EXIT -> {
-                    events.tryEmit(TrakerEvent.GeofenceExited(registration.geofence))
+                    events.tryEmit(TrackerEvent.GeofenceExited(registration.geofence))
                     stationaryFenceExited = stationaryFenceExited || registration.isStationaryWakeFence
                 }
             }

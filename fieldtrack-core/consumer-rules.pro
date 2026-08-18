@@ -1,4 +1,4 @@
-# Traker core — rules a consuming app inherits.
+# Tracker core — rules a consuming app inherits.
 #
 # These are *consumer* rules: they are merged into the host's R8 configuration, so every
 # line here constrains somebody else's build. That is the reason this file is short and
@@ -15,7 +15,7 @@
 #                          generated descriptor carries them as string literals, so the
 #                          wire format survives obfuscation by construction.
 #   room-runtime           `-keep class * extends androidx.room.RoomDatabase`, which
-#                          covers TrakerDatabase and the generated `_Impl` it loads.
+#                          covers TrackerDatabase and the generated `_Impl` it loads.
 #                          Entities and DAOs are referenced statically by generated code.
 #   work-runtime           `-keepnames class * extends androidx.work.ListenableWorker`
 #                          plus their constructors, which covers BackstopWorker,

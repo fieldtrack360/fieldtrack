@@ -11,7 +11,7 @@ import com.devstree.traker.data.location.LocationSource
 import com.devstree.traker.domain.model.ErrorCode
 import com.devstree.traker.domain.model.PermissionTier
 import com.devstree.traker.domain.model.ProviderState
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +29,7 @@ internal class ProviderStateMonitor(
     private val context: Context,
     private val permissions: PermissionManager,
     private val locationSource: LocationSource,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
 ) {
 
     private val _state = MutableStateFlow(ProviderState())
@@ -103,15 +103,15 @@ internal class ProviderStateMonitor(
         if (next == previous) return
 
         _state.value = next
-        events.tryEmit(TrakerEvent.ProviderChange(next))
+        events.tryEmit(TrackerEvent.ProviderChange(next))
 
         if (next.powerSaveMode != previous.powerSaveMode) {
-            events.tryEmit(TrakerEvent.PowerSaveChange(next.powerSaveMode))
+            events.tryEmit(TrackerEvent.PowerSaveChange(next.powerSaveMode))
         }
 
         if (previous.permission == PermissionTier.FULL && next.permission != PermissionTier.FULL) {
             events.tryEmit(
-                TrakerEvent.Error(
+                TrackerEvent.Error(
                     ErrorCode.BACKGROUND_PERMISSION_MISSING,
                     "Background location revoked; degraded to ${next.permission}",
                 ),
@@ -120,7 +120,7 @@ internal class ProviderStateMonitor(
 
         if (previous.gpsEnabled && !next.gpsEnabled) {
             events.tryEmit(
-                TrakerEvent.Error(ErrorCode.LOCATION_DISABLED, "Location services turned off"),
+                TrackerEvent.Error(ErrorCode.LOCATION_DISABLED, "Location services turned off"),
             )
         }
     }

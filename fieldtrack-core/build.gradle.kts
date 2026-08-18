@@ -98,9 +98,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime.ktx)
 
-    // No DI framework, deliberately. The graph is wired by hand in di/TrakerGraph.kt so
+    // No DI framework, deliberately. The graph is wired by hand in di/TrackerGraph.kt so
     // that a host needs no Gradle plugin, no `@HiltAndroidApp`, and no annotation
-    // processor of its own — see Traker's KDoc and CROSS-PLATFORM.md B-1. KSP below is
+    // processor of its own — see Tracker's KDoc and CROSS-PLATFORM.md B-1. KSP below is
     // Room's alone.
 
     implementation(libs.androidx.room.runtime)

@@ -12,12 +12,12 @@ import androidx.core.app.ServiceCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.devstree.traker.ServiceConfig
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.sdkLog
 import com.devstree.traker.capture.OneShotProvider
-import com.devstree.traker.di.TrakerGraph
+import com.devstree.traker.di.TrackerGraph
 import com.devstree.traker.domain.model.ErrorCode
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.domain.repository.ConfigRepository
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.motion.MotionController
@@ -43,9 +43,9 @@ public class TrackingService : LifecycleService() {
      * the graph opens the database on first touch — every member here is itself lazy, so
      * nothing is built until the field below it is actually read.
      */
-    private val graph by lazy { TrakerGraph.get(applicationContext) }
+    private val graph by lazy { TrackerGraph.get(applicationContext) }
 
-    private val events: MutableSharedFlow<TrakerEvent> get() = graph.events
+    private val events: MutableSharedFlow<TrackerEvent> get() = graph.events
 
     private val logger: TrackLogger get() = graph.logger
 
@@ -92,7 +92,7 @@ public class TrackingService : LifecycleService() {
 
     private fun startSupervision() {
         lifecycleScope.launch {
-            val config = configRepository.load() ?: TrakerConfig()
+            val config = configRepository.load() ?: TrackerConfig()
 
             // In-process force-capture. Never startForegroundService() from a receiver:
             // a `running` flag goes stale between an OS kill and onDestroy, and the call
@@ -144,7 +144,7 @@ public class TrackingService : LifecycleService() {
         // piles a "did not call startForeground" ANR on top of the original failure.
         // RestoreWorker re-promotes when the app is next eligible (EC-62).
         sdkLog { logger.w(TAG, "startForeground(location) refused: ${e.message}") }
-        events.tryEmit(TrakerEvent.Error(ErrorCode.FGS_START_REFUSED, e.message.orEmpty()))
+        events.tryEmit(TrackerEvent.Error(ErrorCode.FGS_START_REFUSED, e.message.orEmpty()))
         stopSelf()
         false
     }

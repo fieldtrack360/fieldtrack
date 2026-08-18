@@ -1,4 +1,4 @@
-# Traker sync — rules a consuming app inherits.
+# Tracker sync — rules a consuming app inherits.
 #
 # Nothing. The previous rule here was:
 #

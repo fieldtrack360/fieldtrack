@@ -60,7 +60,7 @@ public data class TrackFix(
     /**
      * A fix with neither hardware speed nor hardware bearing is treated as
      * network-derived (WiFi/cell database). Stage 1.5 rejects these above
-     * [TrakerConstants.accuracyNlpReject] unless the vehicular bypass applies —
+     * [TrackerConstants.accuracyNlpReject] unless the vehicular bypass applies —
      * they arrive "fresh", so no timestamp gate catches them (EC-32).
      */
     val looksLikeNetworkFix: Boolean get() = !hasSpeed && !hasBearing

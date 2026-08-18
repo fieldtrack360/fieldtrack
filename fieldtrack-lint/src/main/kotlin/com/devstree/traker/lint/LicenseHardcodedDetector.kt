@@ -44,7 +44,7 @@ class LicenseHardcodedDetector : Detector(), SourceCodeScanner {
     }
 
     companion object {
-        private const val BUILDER_CLASS = "com.devstree.traker.TrakerConfig.Builder"
+        private const val BUILDER_CLASS = "com.devstree.traker.TrackerConfig.Builder"
 
         @JvmField
         val LICENSE_HARDCODED: Issue = Issue.create(

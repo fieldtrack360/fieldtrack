@@ -1,4 +1,4 @@
-# Traker snap — build-time R8 configuration for the published release AAR.
+# Tracker snap — build-time R8 configuration for the published release AAR.
 #
 # See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation. The public surface is one class; everything else — the chunk

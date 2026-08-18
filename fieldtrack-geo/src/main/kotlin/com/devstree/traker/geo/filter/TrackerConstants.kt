@@ -15,7 +15,7 @@ package com.devstree.traker.geo.filter
  * The Gen-1 leftovers at `LocationUtil.kt:51-61` are deliberately absent — porting
  * them would imply they were live, and they are not (SOURCE-AUDIT A18).
  */
-public data class TrakerConstants(
+public data class TrackerConstants(
     // ── timing ────────────────────────────────────────────────────────────────
     /** Duplicate callbacks closer than this are one event, not two (EC-30). */
     val burstMs: Long = 500,
@@ -323,6 +323,6 @@ public data class TrakerConstants(
     val turnBurstMaxDtSec: Float = 30.0f,
 ) {
     public companion object {
-        public val Default: TrakerConstants = TrakerConstants()
+        public val Default: TrackerConstants = TrackerConstants()
     }
 }

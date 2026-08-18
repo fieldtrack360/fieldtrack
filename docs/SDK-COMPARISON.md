@@ -1,10 +1,10 @@
-# Plugin Identification — Traker vs. the incumbent SDK
+# Plugin Identification — Tracker vs. the incumbent SDK
 
-The benchmark is Transistor Software's Background Geolocation SDK (`com.transistorsoft:tslocationmanager`), the de-facto standard for background location and the library any Android team will compare Traker against.
+The benchmark is Transistor Software's Background Geolocation SDK (`com.transistorsoft:tslocationmanager`), the de-facto standard for background location and the library any Android team will compare Tracker against.
 
-Traker is a **native Android library** — no iOS, no React Native, no Flutter. Comparisons below are on the Android surface only; the incumbent's iOS and cross-platform reach is out of scope by design, not by schedule (§7).
+Tracker is a **native Android library** — no iOS, no React Native, no Flutter. Comparisons below are on the Android surface only; the incumbent's iOS and cross-platform reach is out of scope by design, not by schedule (§7).
 
-This document identifies, feature by feature, where Traker is at **parity**, where it **adapts**, where it is **deliberately different**, and where it **will not compete**. Four areas are covered in depth because they were called out specifically: stop detection, application lifecycle, config reset/persistence, and device sensors.
+This document identifies, feature by feature, where Tracker is at **parity**, where it **adapts**, where it is **deliberately different**, and where it **will not compete**. Four areas are covered in depth because they were called out specifically: stop detection, application lifecycle, config reset/persistence, and device sensors.
 
 Sources: [Config](https://docs.transistorsoft.com/kotlin/Config/) · [ActivityConfig](https://docs.transistorsoft.com/kotlin/ActivityConfig/) · [AppConfig](https://docs.transistorsoft.com/kotlin/AppConfig/) · [BackgroundGeolocation API](https://docs.transistorsoft.com/react-native/BackgroundGeolocation/) · [Setup](https://docs.transistorsoft.com/kotlin/setup/)
 
@@ -12,17 +12,17 @@ Sources: [Config](https://docs.transistorsoft.com/kotlin/Config/) · [ActivityCo
 
 ## 1. Positioning in one paragraph
 
-They solve **capture**: get location in the background, cheaply, without the OS killing you. They do it very well and they do not touch what happens next — the SDK hands you points and stops. Traker solves capture **and plotting**: the nine-gate acceptance pipeline (which they do not have) plus a full on-device plotting plane that emits a ready-to-draw polyline with arrows, stop nodes and statistics (which nothing on the market has). Where their capture design is better than ours, we adopt it — stop detection, lifecycle defaults, config persistence and the sensor API in this document are all cases of that. What we give up in exchange is reach: they ship five platforms, we ship one, deeply.
+They solve **capture**: get location in the background, cheaply, without the OS killing you. They do it very well and they do not touch what happens next — the SDK hands you points and stops. Tracker solves capture **and plotting**: the nine-gate acceptance pipeline (which they do not have) plus a full on-device plotting plane that emits a ready-to-draw polyline with arrows, stop nodes and statistics (which nothing on the market has). Where their capture design is better than ours, we adopt it — stop detection, lifecycle defaults, config persistence and the sensor API in this document are all cases of that. What we give up in exchange is reach: they ship five platforms, we ship one, deeply.
 
 ---
 
 ## 2. Feature matrix
 
-**Legend:** ✅ parity · 🔁 adapted (same goal, different mechanism) · ⭐ Traker-only · ⛔ not planned
+**Legend:** ✅ parity · 🔁 adapted (same goal, different mechanism) · ⭐ Tracker-only · ⛔ not planned
 
 ### Lifecycle & configuration
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | `ready(config)` once at startup | ✅ | ✅ | Same contract |
 | Config persisted across launches | ✅ | ✅ | DataStore |
@@ -31,13 +31,13 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 | `reset()` to factory defaults | ✅ | ✅ | |
 | `start()` / `stop()` | ✅ | ✅ | Idempotent (EC-72, EC-74) |
 | `changePace(moving)` | ✅ | ✅ | |
-| `getState()` | ✅ | 🔁 | `StateFlow<TrakerState>` — reactive, not a one-shot getter |
+| `getState()` | ✅ | 🔁 | `StateFlow<TrackerState>` — reactive, not a one-shot getter |
 | Scheduling (`schedule`, `startSchedule`) | ✅ | ⛔ | Host owns scheduling; `WorkManager` in the app is a one-liner |
-| License key required for release builds | ✅ | ⭐ | Release builds check `TrakerConfig.license` or `TrackItLicense`; debuggable installs are waived |
+| License key required for release builds | ✅ | ⭐ | Release builds check `TrackerConfig.license` or `TrackItLicense`; debuggable installs are waived |
 
 ### Geolocation
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | `desiredAccuracy` | ✅ | ✅ | |
 | `distanceFilter` | ✅ | 🔁 | Ours defaults to **0 and is documented as a footgun** — a non-zero OS distance filter is a stationary-drift *generator*. Theirs is the primary sampling control; ours does all thinning in software |
@@ -57,7 +57,7 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 
 ### Motion & activity
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | Motion-triggered stop detection | ✅ | ✅ | §3 |
 | `disableStopDetection` | ✅ | ✅ | |
@@ -73,7 +73,7 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 
 ### Persistence & sync
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | SQLite persistence | ✅ | 🔁 | Room with reactive `Flow` queries instead of a polled API |
 | `maxDaysToPersist`, `maxRecords` | ✅ | ✅ | |
@@ -81,7 +81,7 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 | `insertLocation` | ✅ | ✅ | Validated like a real fix (EC-86) |
 | HTTP `url`/`method`/`headers`/`params`/`autoSync`/`batchSync` | ✅ | 🔁 | Optional `fieldtrack-sync` module — core never touches the network |
 | JWT / SAS authorization with auto-refresh | ✅ | ⛔ | Host's concern |
-| `onHttp` event | ✅ | 🔁 | `TrakerSync.events` → `SyncEvent.HttpResponse(statusCode, count)`, one per exchange. In `fieldtrack-sync` only. No response body — it can be megabytes; implement `SyncTransport` if you need it |
+| `onHttp` event | ✅ | 🔁 | `TrackerSync.events` → `SyncEvent.HttpResponse(statusCode, count)`, one per exchange. In `fieldtrack-sync` only. No response body — it can be megabytes; implement `SyncTransport` if you need it |
 | `Retry-After` honoured | ✅ | ✅ | Both delta-seconds and HTTP-date, clamped 1 s–6 h; the worker re-enqueues at the server's time |
 | Terminal auth failures | ✅ (401) | ⭐ (401 **and** 403) | 401 clears the queue, 403 keeps it — a revoked key is the same user, an expired session may not be |
 | **Session as a first-class entity** | ⛔ | ⭐ | Every point belongs to a session with a config snapshot |
@@ -89,24 +89,24 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 
 ### Application lifecycle
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | `stopOnTerminate` | ✅ (default `true`) | 🔁 (default **`false`**) | §4 |
 | `startOnBoot` | ✅ (default `false`) | 🔁 (default **`true`**) | §4 |
-| `enableHeadless` + `registerHeadlessTask` | ✅ | ⛔ | §4 — the concept exists to survive a dead JS/Dart context. A Kotlin host collects `Traker.events` from an application-scoped `CoroutineScope` instead |
+| `enableHeadless` + `registerHeadlessTask` | ✅ | ⛔ | §4 — the concept exists to survive a dead JS/Dart context. A Kotlin host collects `Tracker.events` from an application-scoped `CoroutineScope` instead |
 | Foreground service + notification config | ✅ | ✅ | |
 | `onNotificationAction` | ✅ | ✅ | |
 | `heartbeatInterval` / `onHeartbeat` | ✅ (disabled on Android) | 🔁 | Ours is the **stationary filter heartbeat** — a different, load-bearing concept (§3) |
 
 ### Geofencing
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | Geofence CRUD, crossing history, enter/exit events | ✅ | ✅ | Both platforms support 19 persistent SDK-managed fences; Android uses Play Services system geofencing |
 
 ### Diagnostics & device
 
-| Capability | Incumbent | Traker | Notes |
+| Capability | Incumbent | Tracker | Notes |
 |---|---|---|---|
 | `getSensors()` | ✅ | ✅ ⭐ | §6 — we match the API **and act on it** |
 | `getDeviceInfo()` | ✅ | ✅ | |
@@ -118,7 +118,7 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 
 ### Plotting — the whole differentiator
 
-| Capability | Incumbent | Traker |
+| Capability | Incumbent | Tracker |
 |---|---|---|
 | Stop consolidation (centroid, dwell) | ⛔ | ⭐ |
 | Significant-node detection | ⛔ | ⭐ |
@@ -149,11 +149,11 @@ Two states, `moving` and `stationary`. Location services run only while moving; 
 | `activityRecognitionInterval` | 10 000 ms (min 500) | AR polling rate |
 | `minimumActivityRecognitionConfidence` | 75 (Android), 70 (iOS) | Below this, transitions are ignored |
 
-### What Traker does
+### What Tracker does
 
 Parity on all Android-applicable knobs, plus two changes:
 
-**1. Stop detection never gates capture, only sampling rate.** Their design treats the motion API as authoritative — if it says still, location goes off. On Android that is a real risk: the reference implementation documents entire 17-minute drives during which AR reported `STILL` on OnePlus and Xiaomi devices under battery saver. Traker's `MOVING` transition has three independent triggers, any of which suffices:
+**1. Stop detection never gates capture, only sampling rate.** Their design treats the motion API as authoritative — if it says still, location goes off. On Android that is a real risk: the reference implementation documents entire 17-minute drives during which AR reported `STILL` on OnePlus and Xiaomi devices under battery saver. Tracker's `MOVING` transition has three independent triggers, any of which suffices:
 
 ```
 AR ENTER(vehicle|walk|run|bike)   ─┐
@@ -164,7 +164,7 @@ a heartbeat fix > stationaryRadius from anchor ─┘
 
 The fourth is the safety net their design lacks: even in `ADAPTIVE` mode a heartbeat fix still runs every 15 minutes while stationary, so a device whose AR is broken and whose geofence never fired still self-corrects within one heartbeat instead of never.
 
-**2. Two different things are called "heartbeat", and conflating them breaks stationary accuracy.** Theirs is a control-plane timer (`heartbeatInterval`, disabled on Android) that fires an event while stationary. Ours is a **data-plane** mechanism: while stationary, one fix per 900 s is accepted *into the Kalman filter* and deliberately **not stored**. It keeps the prediction clock warm so the next real movement is not gated as an outlier, while producing zero rows for a parked user. That is what makes "2 hours steady ⇒ exactly one stored point" achievable (EC-48). We ship both, named differently: `motion.heartbeatIntervalSec` (data) and `TrakerEvent.Heartbeat` (control).
+**2. Two different things are called "heartbeat", and conflating them breaks stationary accuracy.** Theirs is a control-plane timer (`heartbeatInterval`, disabled on Android) that fires an event while stationary. Ours is a **data-plane** mechanism: while stationary, one fix per 900 s is accepted *into the Kalman filter* and deliberately **not stored**. It keeps the prediction clock warm so the next real movement is not gated as an outlier, while producing zero rows for a parked user. That is what makes "2 hours steady ⇒ exactly one stored point" achievable (EC-48). We ship both, named differently: `motion.heartbeatIntervalSec` (data) and `TrackerEvent.Heartbeat` (control).
 
 ```kotlin
 data class MotionConfig(
@@ -195,7 +195,7 @@ Three related knobs. `stopOnTerminate` (default **`true`**) decides whether a sw
 
 The crucial nuance from their docs: with `stopOnTerminate: false` the SDK records and uploads locations **regardless** of `enableHeadless`. Headless is only needed when you want *custom* work to run with no UI — a local notification, a bespoke upload.
 
-### What Traker does
+### What Tracker does
 
 ```kotlin
 data class ServiceConfig(
@@ -209,7 +209,7 @@ data class ServiceConfig(
 
 **Why our defaults are inverted.** Theirs are conservative — safe for an app that only sometimes wants background tracking, and they document flipping them. But an SDK whose entire purpose is surviving termination should not ship defaults under which a swipe-away silently ends tracking; the failure is invisible and the user only discovers it as missing data. We flip them and document the flip.
 
-**No headless API, because the problem it solves does not exist here.** `enableHeadless` is a bridge artifact: it exists because a JS context or a Flutter isolate can die while the native process lives on, so events need somewhere else to land. Traker is consumed by Kotlin and Java directly — capture, filtering and storage all run in `fieldtrack-core` inside the foreground service, in the same process as the host. A host that wants work to continue with no UI on screen collects `Traker.events` from an application- or service-scoped `CoroutineScope`; there is nothing to re-register and nothing to keep alive (EC-114).
+**No headless API, because the problem it solves does not exist here.** `enableHeadless` is a bridge artifact: it exists because a JS context or a Flutter isolate can die while the native process lives on, so events need somewhere else to land. Tracker is consumed by Kotlin and Java directly — capture, filtering and storage all run in `fieldtrack-core` inside the foreground service, in the same process as the host. A host that wants work to continue with no UI on screen collects `Tracker.events` from an application- or service-scoped `CoroutineScope`; there is nothing to re-register and nothing to keep alive (EC-114).
 
 The invariant that matters is unchanged and stated plainly: **capture never depends on a host collector being alive.** If every subscriber goes away, fixes are still filtered and still written to Room. Collectors are for reacting, never for recording.
 
@@ -225,12 +225,12 @@ The SDK persists its configuration across app launches; `ready()` is called once
 
 Their warning is worth repeating verbatim in spirit: during development always leave `reset: true`, because with `reset: false` the SDK **ignores your `Config` after the first launch** — you edit constants, rebuild, and nothing changes. It is a genuinely confusing failure mode and the single most common support question in this category.
 
-### What Traker does
+### What Tracker does
 
 Same semantics, same default:
 
 ```kotlin
-data class TrakerConfig(
+data class TrackerConfig(
     …
     /**
      * true  (default) — ready() applies this config on top of factory defaults.
@@ -262,7 +262,7 @@ Three additions on top of parity:
 
 It is a **diagnostic**: it tells you the SDK will behave badly. It does not change what the SDK does.
 
-### What Traker does — parity, then use them
+### What Tracker does — parity, then use them
 
 We match the API and then act on the answer, and we enumerate more than three sensors because several are directly useful for accuracy and for battery management.
 
@@ -279,10 +279,10 @@ data class DeviceSensors(
     val motionQuality: MotionQuality,     // FULL | DEGRADED | POOR
 )
 
-suspend fun Traker.getSensors(): DeviceSensors
+suspend fun Tracker.getSensors(): DeviceSensors
 ```
 
-| Sensor | `Sensor.TYPE_*` | Permission | Power | Traker use |
+| Sensor | `Sensor.TYPE_*` | Permission | Power | Tracker use |
 |---|---|---|---|---|
 | Accelerometer | `ACCELEROMETER` | none | low | Stationarity corroboration; phantom-Doppler veto |
 | Gyroscope | `GYROSCOPE` | none | medium | AR quality signal; turn assist |
@@ -358,7 +358,7 @@ A pressure delta of roughly 0.4 hPa ≈ 3–4 m of altitude. A signal gap accomp
 
 #### 6.5 `motionQuality` drives automatic degradation
 
-Where the incumbent reports the problem, Traker reacts to it:
+Where the incumbent reports the problem, Tracker reacts to it:
 
 | Quality | Condition | Automatic response |
 |---|---|---|

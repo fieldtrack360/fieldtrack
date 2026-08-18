@@ -6,7 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
@@ -30,22 +30,22 @@ internal class ConfigStore(
     /**
      * The config as last loaded or saved, without touching disk.
      *
-     * Exists for the one caller that cannot suspend: `TrakerSync.configure()` runs on the
-     * host's own thread and needs [TrakerConfig.baseUrl] to resolve a path against. `null`
+     * Exists for the one caller that cannot suspend: `TrackerSync.configure()` runs on the
+     * host's own thread and needs [TrackerConfig.baseUrl] to resolve a path against. `null`
      * until `ready()` has run, which is the honest answer at that point — the alternative is
      * a blocking disk read on a host thread to say "nothing yet".
      */
     @Volatile
-    var cached: TrakerConfig? = null
+    var cached: TrackerConfig? = null
         private set
 
-    suspend fun load(): TrakerConfig? {
+    suspend fun load(): TrackerConfig? {
         val raw = context.trackItDataStore.data.first()[KEY_CONFIG] ?: return null
-        return runCatching { json.decodeFromString<TrakerConfig>(raw) }.getOrNull()
+        return runCatching { json.decodeFromString<TrackerConfig>(raw) }.getOrNull()
             ?.also { cached = it }
     }
 
-    suspend fun save(config: TrakerConfig) {
+    suspend fun save(config: TrackerConfig) {
         val encoded = json.encodeToString(config)
         context.trackItDataStore.edit { it[KEY_CONFIG] = encoded }
         cached = config
@@ -56,7 +56,7 @@ internal class ConfigStore(
         cached = null
     }
 
-    fun encode(config: TrakerConfig): String = json.encodeToString(config)
+    fun encode(config: TrackerConfig): String = json.encodeToString(config)
 
     private companion object {
         val KEY_CONFIG = stringPreferencesKey("config_json")

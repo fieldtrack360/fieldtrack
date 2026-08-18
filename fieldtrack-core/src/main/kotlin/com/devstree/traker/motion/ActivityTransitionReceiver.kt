@@ -3,8 +3,8 @@ package com.devstree.traker.motion
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.devstree.traker.di.TrakerGraph
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.di.TrackerGraph
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.geo.model.ActivityType
 import com.devstree.traker.service.CaptureBus
 import com.google.android.gms.location.ActivityTransitionResult
@@ -28,14 +28,14 @@ public class ActivityTransitionReceiver : BroadcastReceiver() {
         // Resolved here rather than field-injected: a manifest-declared receiver is
         // constructed by the system, so there is no constructor to wire and nothing to
         // inject into. The graph is lazy, so this costs nothing but a map lookup.
-        val graph = TrakerGraph.get(context)
-        val events: MutableSharedFlow<TrakerEvent> = graph.events
+        val graph = TrackerGraph.get(context)
+        val events: MutableSharedFlow<TrackerEvent> = graph.events
         val motionController = graph.motionController
 
         // Processed chronologically — delivery order is not guaranteed.
         result.transitionEvents.sortedBy { it.elapsedRealTimeNanos }.forEach { event ->
             val activity = event.activityType.toActivityType()
-            events.tryEmit(TrakerEvent.ActivityChange(activity, confidence = 0))
+            events.tryEmit(TrackerEvent.ActivityChange(activity, confidence = 0))
             motionController.onActivityTransition(activity)
 
             // One extra fix at the transition — the cheapest turn-geometry win there is.

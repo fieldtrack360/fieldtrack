@@ -3,12 +3,12 @@ package com.devstree.traker.sync
 /**
  * What the upload half is doing, as it happens.
  *
- * [TrakerSync.syncNow] already returns the outcome of a drain the host asked for. This
- * exists for the drains it did not: [TrakerSync.requestSync] hands the work to WorkManager,
+ * [TrackerSync.syncNow] already returns the outcome of a drain the host asked for. This
+ * exists for the drains it did not: [TrackerSync.requestSync] hands the work to WorkManager,
  * which may run it minutes later in a process the host is not watching, and until now the
  * only trace of what the server said was a debug log.
  *
- * Deliberately **not** a case on `TrakerEvent`. That flow belongs to `fieldtrack-core`, which
+ * Deliberately **not** a case on `TrackerEvent`. That flow belongs to `fieldtrack-core`, which
  * never opens a socket; putting HTTP status codes in it would mean a host with no upload
  * module compiling against events it can never receive.
  */

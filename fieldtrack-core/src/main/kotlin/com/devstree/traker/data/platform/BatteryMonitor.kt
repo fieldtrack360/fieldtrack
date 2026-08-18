@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import com.devstree.traker.domain.model.BatteryInfo
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.geo.port.Clock
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,13 +26,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * is still noticed — at most a minute late, on a value that moves once every several minutes.
  *
  * The two paths converge on [refresh], which emits only on an actual change, so a host
- * collecting [TrakerEvent.BatteryChange] sees transitions rather than a heartbeat.
+ * collecting [TrackerEvent.BatteryChange] sees transitions rather than a heartbeat.
  */
 internal class BatteryMonitor(
     private val context: Context,
     private val probe: BatteryReader,
     private val clock: Clock,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val ttlMs: Long = DEFAULT_TTL_MS,
 ) : BatteryReader {
 
@@ -102,7 +102,7 @@ internal class BatteryMonitor(
         if (next == _state.value) return next
 
         _state.value = next
-        events.tryEmit(TrakerEvent.BatteryChange(next))
+        events.tryEmit(TrackerEvent.BatteryChange(next))
         return next
     }
 

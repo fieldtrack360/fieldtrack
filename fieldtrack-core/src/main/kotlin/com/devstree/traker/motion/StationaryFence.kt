@@ -4,8 +4,8 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import com.devstree.traker.domain.model.TrakerEvent
-import com.devstree.traker.domain.model.TrakerGeofence
+import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.domain.model.TrackerGeofence
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.sdkLog
 import com.google.android.gms.location.Geofence
@@ -20,7 +20,7 @@ import kotlinx.coroutines.tasks.await
 /** Persistent multi-geofence registry backed by Android's system geofencing service. */
 internal class StationaryFence(
     private val context: Context,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val logger: TrackLogger,
 ) : GeofenceRegistrar {
     internal val store: GeofenceStore = GeofenceStore(context)
@@ -39,12 +39,12 @@ internal class StationaryFence(
         )
     }
 
-    fun all(): List<TrakerGeofence> = store.registrations().map { it.geofence }
+    fun all(): List<TrackerGeofence> = store.registrations().map { it.geofence }
 
-    fun get(id: String): TrakerGeofence? = store.registration(id)?.geofence
+    fun get(id: String): TrackerGeofence? = store.registration(id)?.geofence
 
     @SuppressLint("MissingPermission") // Public caller receives a typed failure.
-    suspend fun add(geofence: TrakerGeofence): AddResult = mutationLock.withLock {
+    suspend fun add(geofence: TrackerGeofence): AddResult = mutationLock.withLock {
         if (!store.canAdd(geofence.id, isStationaryWakeFence = false)) {
             return@withLock AddResult.LIMIT_REACHED
         }
@@ -52,7 +52,7 @@ internal class StationaryFence(
         runCatching { client.addGeofences(requestFor(geofence), pendingIntent).await() }
             .onSuccess {
                 store.put(RegisteredGeofence(geofence, isStationaryWakeFence = false))
-                events.tryEmit(TrakerEvent.GeofenceAdded(geofence))
+                events.tryEmit(TrackerEvent.GeofenceAdded(geofence))
             }
             .onFailure(::reportRegistrationFailure)
             .fold(onSuccess = { AddResult.ADDED }, onFailure = { AddResult.FAILED })
@@ -63,7 +63,7 @@ internal class StationaryFence(
         runCatching { client.removeGeofences(listOf(id)).await() }
             .onSuccess {
                 store.remove(id)
-                events.tryEmit(TrakerEvent.GeofenceRemoved(registration.geofence.id))
+                events.tryEmit(TrackerEvent.GeofenceRemoved(registration.geofence.id))
             }
             .fold(onSuccess = { true }, onFailure = { null })
     }
@@ -74,7 +74,7 @@ internal class StationaryFence(
         runCatching { client.removeGeofences(registrations.map { it.geofence.id }).await() }
             .onSuccess {
                 store.clearRegistrations().forEach {
-                    events.tryEmit(TrakerEvent.GeofenceRemoved(it.geofence.id))
+                    events.tryEmit(TrackerEvent.GeofenceRemoved(it.geofence.id))
                 }
             }
             .fold(onSuccess = { registrations.size }, onFailure = { null })
@@ -82,12 +82,12 @@ internal class StationaryFence(
 
     /** Fire-and-observe path used by the motion controller, which is not suspend-based. */
     @SuppressLint("MissingPermission") // StartTrackingUseCase already gates permission.
-    override fun register(geofence: TrakerGeofence): Boolean {
+    override fun register(geofence: TrackerGeofence): Boolean {
         return runCatching { client.addGeofences(requestFor(geofence), pendingIntent) }
             .onSuccess { task ->
                 task.addOnSuccessListener {
                     store.put(RegisteredGeofence(geofence, isStationaryWakeFence = true))
-                    events.tryEmit(TrakerEvent.GeofenceAdded(geofence))
+                    events.tryEmit(TrackerEvent.GeofenceAdded(geofence))
                 }.addOnFailureListener(::reportRegistrationFailure)
             }
             .onFailure(::reportRegistrationFailure)
@@ -100,13 +100,13 @@ internal class StationaryFence(
             .onSuccess { task ->
                 task.addOnSuccessListener {
                     store.remove(id)
-                    events.tryEmit(TrakerEvent.GeofenceRemoved(registration.geofence.id))
+                    events.tryEmit(TrackerEvent.GeofenceRemoved(registration.geofence.id))
                 }
             }
             .isSuccess
     }
 
-    private fun requestFor(geofence: TrakerGeofence): GeofencingRequest {
+    private fun requestFor(geofence: TrackerGeofence): GeofencingRequest {
         val fence = Geofence.Builder()
             .setRequestId(geofence.id)
             .setCircularRegion(geofence.latitude, geofence.longitude, geofence.radiusM)
@@ -123,7 +123,7 @@ internal class StationaryFence(
 
     private fun reportRegistrationFailure(error: Throwable) {
         sdkLog { logger.w(TAG, "Geofence registration failed: ${error.message}") }
-        events.tryEmit(TrakerEvent.Diagnostic("geofence_unavailable: ${error.message}"))
+        events.tryEmit(TrackerEvent.Diagnostic("geofence_unavailable: ${error.message}"))
     }
 
     internal enum class AddResult { ADDED, LIMIT_REACHED, FAILED }

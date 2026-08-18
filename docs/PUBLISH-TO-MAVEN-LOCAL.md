@@ -1,6 +1,6 @@
-# Traker SDK Publishing Guide
+# Tracker SDK Publishing Guide
 
-This document explains how to build, verify, and publish the Traker SDK artifacts for the sample app or another Android project. The complete R8 policy is in [PROGUARD-SETUP.md](PROGUARD-SETUP.md).
+This document explains how to build, verify, and publish the Tracker SDK artifacts for the sample app or another Android project. The complete R8 policy is in [PROGUARD-SETUP.md](PROGUARD-SETUP.md).
 
 ## Local Development Workflow
 
@@ -59,7 +59,7 @@ dependencies {
 
 ## Versioning
 
-The Traker SDK uses [Semantic Versioning](https://semver.org/) (Major.Minor.Patch).
+The Tracker SDK uses [Semantic Versioning](https://semver.org/) (Major.Minor.Patch).
 
 ### How to Update the Version
 The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle/libs.versions.toml).
@@ -74,7 +74,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 4.  Run `./gradlew publishToMavenLocal` (or `publish`) to build artifacts with the new version.
 
 ### When to Update the Version
-- **Major (1.0.0)**: When you make incompatible API changes (e.g., changing a method signature in `Traker` or removing a property from `TrakerConfig`).
+- **Major (1.0.0)**: When you make incompatible API changes (e.g., changing a method signature in `Tracker` or removing a property from `TrackerConfig`).
 - **Minor (0.2.0)**: When you add functionality in a backwards-compatible manner (e.g., adding a new `AccuracyProfile` or a new field in `TrackPoint`).
 - **Patch (0.1.1)**: When you make backwards-compatible bug fixes.
 

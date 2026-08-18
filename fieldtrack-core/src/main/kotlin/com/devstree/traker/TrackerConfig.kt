@@ -3,7 +3,7 @@ package com.devstree.traker
 import com.devstree.traker.geo.model.MockPolicy
 import com.devstree.traker.integrity.IntegrityPolicy
 import java.net.URI
-import com.devstree.traker.domain.model.TrakerGeofence
+import com.devstree.traker.domain.model.TrackerGeofence
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
@@ -17,7 +17,7 @@ import kotlinx.serialization.Transient
  *   question in this category (SDK-COMPARISON §5).
  */
 @Serializable
-public data class TrakerConfig(
+public data class TrackerConfig(
     val geolocation: GeolocationConfig = GeolocationConfig(),
     val motion: MotionConfig = MotionConfig(),
     val service: ServiceConfig = ServiceConfig(),
@@ -34,7 +34,7 @@ public data class TrakerConfig(
      * config it is already building, and have `fieldtrack-sync` resolve a path against it:
      *
      * ```kotlin
-     * trackIt.ready(TrakerConfig.builder().baseUrl("https://api.example.com").build())
+     * trackIt.ready(TrackerConfig.builder().baseUrl("https://api.example.com").build())
      * sync.configure(SyncConfig.builder().path("v1/location/batch").build())
      * ```
      *
@@ -150,7 +150,7 @@ public data class TrakerConfig(
         /** Below this a network centroid can never pass, so the ceiling is a mute button. */
         internal const val MIN_NETWORK_ACCURACY_M = 50f
 
-        /** `TrakerConfig.builder()` — the Java-friendly entry point. See [Builder]. */
+        /** `TrackerConfig.builder()` — the Java-friendly entry point. See [Builder]. */
         @JvmStatic
         public fun builder(): Builder = Builder()
     }
@@ -160,12 +160,12 @@ public data class TrakerConfig(
      *
      * The `data class` constructor is unchanged and remains the idiomatic Kotlin route —
      * named arguments and `copy()` already do this job well. This exists because they do
-     * it only from Kotlin: from Java, `TrakerConfig(GeolocationConfig(...), ...)` means
+     * it only from Kotlin: from Java, `TrackerConfig(GeolocationConfig(...), ...)` means
      * positionally constructing five nested classes with ~60 parameters between them, and
      * every added field is a source break for every host that did.
      *
      * ```kotlin
-     * val config = TrakerConfig.builder()
+     * val config = TrackerConfig.builder()
      *     .provider(LocationProviderType.GPS_ONLY)
      *     .accuracyProfile(AccuracyProfile.STRICT)
      *     .useStepCorroboration(true)
@@ -174,7 +174,7 @@ public data class TrakerConfig(
      *
      * [build] runs [validate] and throws `IllegalArgumentException` on failure. That is a
      * deliberate exception to the SDK's no-throw contract: everything reachable from
-     * [Traker] returns a typed `TrakerResult` because it runs inside a host's coroutine
+     * [Tracker] returns a typed `TrackerResult` because it runs inside a host's coroutine
      * where a throw is an unpreventable crash. This runs on the host's own thread while it
      * is assembling a value, which is exactly where fail-fast belongs — the alternative is
      * an invalid config that reports itself an entire `ready()` call later. Use
@@ -206,7 +206,7 @@ public data class TrakerConfig(
         public fun license(value: String?): Builder = apply { license = value }
 
         /**
-         * Base URL for the upload endpoint — see [TrakerConfig.baseUrl].
+         * Base URL for the upload endpoint — see [TrackerConfig.baseUrl].
          *
          * Read only by `fieldtrack-sync`, and only when a `SyncConfig` does not carry an
          * absolute URL of its own. Setting it with that module absent is harmless and does
@@ -214,7 +214,7 @@ public data class TrakerConfig(
          */
         public fun baseUrl(value: String?): Builder = apply { baseUrl = value }
 
-        /** See [TrakerConfig.reset] — leave `true` during development. */
+        /** See [TrackerConfig.reset] — leave `true` during development. */
         public fun reset(value: Boolean): Builder = apply { reset = value }
 
         // ── geolocation ──────────────────────────────────────────────────────
@@ -483,16 +483,16 @@ public data class TrakerConfig(
 
         // ── terminal ─────────────────────────────────────────────────────────
 
-        /** @throws IllegalArgumentException if [TrakerConfig.validate] reports anything. */
-        public fun build(): TrakerConfig {
+        /** @throws IllegalArgumentException if [TrackerConfig.validate] reports anything. */
+        public fun build(): TrackerConfig {
             val config = buildUnchecked()
             val errors = config.validate()
-            require(errors.isEmpty()) { "Invalid TrakerConfig: ${errors.joinToString("; ")}" }
+            require(errors.isEmpty()) { "Invalid TrackerConfig: ${errors.joinToString("; ")}" }
             return config
         }
 
         /** The same value, unvalidated. `ready()` still validates and returns a typed error. */
-        public fun buildUnchecked(): TrakerConfig = TrakerConfig(
+        public fun buildUnchecked(): TrackerConfig = TrackerConfig(
             geolocation = geolocation,
             motion = motion,
             service = service,
@@ -575,14 +575,14 @@ public data class MotionConfig(
     val stopOnStationary: Boolean = false,
     val stopTimeoutMin: Int = 5,
     val stationaryRadiusM: Float = 150f,
-    val stationaryGeofenceId: String = TrakerGeofence.DEFAULT_ID,
-    val stationaryGeofenceOnEnterEvent: String = TrakerGeofence.DEFAULT_ENTER_EVENT,
-    val stationaryGeofenceOnExitEvent: String = TrakerGeofence.DEFAULT_EXIT_EVENT,
+    val stationaryGeofenceId: String = TrackerGeofence.DEFAULT_ID,
+    val stationaryGeofenceOnEnterEvent: String = TrackerGeofence.DEFAULT_ENTER_EVENT,
+    val stationaryGeofenceOnExitEvent: String = TrackerGeofence.DEFAULT_EXIT_EVENT,
     val motionTriggerDelayMs: Long = 0,
     /**
      * DATA-plane heartbeat: warms the filter but is **not stored**. This is what makes
      * a two-hour steady user produce exactly one point. Distinct from the control-plane
-     * [com.devstree.traker.domain.model.TrakerEvent.Heartbeat] (EC-48).
+     * [com.devstree.traker.domain.model.TrackerEvent.Heartbeat] (EC-48).
      */
     val heartbeatIntervalSec: Int = 900,
     val persistHeartbeat: Boolean = false,
@@ -740,8 +740,8 @@ public enum class LocationProviderType {
  * stage (spec §8.1, §8.3).
  *
  * ```kotlin
- * TrakerConfig.builder().accuracyProfile(AccuracyProfile.STRICT).build()
- * TrakerConfig.builder().maxAccuracyMeters(35f).build()   // implies CUSTOM
+ * TrackerConfig.builder().accuracyProfile(AccuracyProfile.STRICT).build()
+ * TrackerConfig.builder().maxAccuracyMeters(35f).build()   // implies CUSTOM
  * ```
  */
 @Serializable

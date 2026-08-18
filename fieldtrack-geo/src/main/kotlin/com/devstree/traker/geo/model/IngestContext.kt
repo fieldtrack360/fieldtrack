@@ -36,9 +36,9 @@ public data class IngestContext(
      * speed and distance gates decided. `0` disables it.
      *
      * Host config (`MotionConfig.bearingChangeCaptureDeg`) rather than a
-     * [com.devstree.traker.geo.filter.TrakerConstants] value, for the same reason
+     * [com.devstree.traker.geo.filter.TrackerConstants] value, for the same reason
      * [mockPolicy] is: it is a policy the host owns, not a number the engine tuned. The
-     * engine's own floors on the comparison stay in `TrakerConstants` (EC-45).
+     * engine's own floors on the comparison stay in `TrackerConstants` (EC-45).
      */
     val bearingChangeCaptureDeg: Int = DEFAULT_BEARING_CHANGE_CAPTURE_DEG,
     /**

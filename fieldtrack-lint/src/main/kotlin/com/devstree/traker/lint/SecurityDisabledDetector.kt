@@ -108,7 +108,7 @@ class SecurityDisabledDetector : Detector(), SourceCodeScanner {
     }
 
     companion object {
-        private const val BUILDER_CLASS = "com.devstree.traker.TrakerConfig.Builder"
+        private const val BUILDER_CLASS = "com.devstree.traker.TrackerConfig.Builder"
         private const val INTEGRITY_POLICY_CLASS = "com.devstree.traker.integrity.IntegrityPolicy"
         private const val MOCK_POLICY_CLASS = "com.devstree.traker.geo.model.MockPolicy"
 

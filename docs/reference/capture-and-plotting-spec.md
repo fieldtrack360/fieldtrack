@@ -4,7 +4,7 @@
 **Source:** Production-proven native Android implementation (values verified against source, 2026-07)
 **Audience:** Implementation team. This document is self-contained: every algorithm, constant, payload shape, and rendering rule needed to implement the system is included. Verify §28 (checklist) against your backend before coding.
 
-> **Provenance note.** This document was originally written targeting React Native across iOS and Android. Traker is Android-only, so the React Native and iOS material has been removed: the cross-platform library mapping, the iOS strategy section, and the TypeScript module layout. Every algorithm, constant, threshold and rendering rule is unchanged from the field-verified original — those are the parts Traker ports. §26 keeps the platform-agnostic pitfalls, which are the ones that actually reproduce the §8 symptoms.
+> **Provenance note.** This document was originally written targeting React Native across iOS and Android. Tracker is Android-only, so the React Native and iOS material has been removed: the cross-platform library mapping, the iOS strategy section, and the TypeScript module layout. Every algorithm, constant, threshold and rendering rule is unchanged from the field-verified original — those are the parts Tracker ports. §26 keeps the platform-agnostic pitfalls, which are the ones that actually reproduce the §8 symptoms.
 
 ---
 
@@ -180,7 +180,7 @@ Plotting-side advancements (Part B): road-snapper V1 (per-point veto + turn anch
 
 A deliberately simple **scalar** Kalman filter — one shared variance for both coordinates, no velocity state. Cheap, stable, and all sophistication lives in the per-fix Q/R tuning (§7 Stage 7). Port as-is.
 
-> **Superseded in Traker.** This document records the reference implementation as field-verified, and this description of it stays accurate. Traker ported the scalar filter as instructed and then replaced it: at the faster cadences Traker samples at, a position-only filter lags a moving target by a fixed amount every fix, which cost one rejected fix in four on a straight road. The replacement is **constant velocity** — position plus an inferred velocity — with the gate measuring against whichever prediction is closer, so a corner is still judged exactly as described here. The Q/R tuning in §7 Stage 7 is unchanged apart from `q` becoming an acceleration. See [API.md](../API.md) §4 and EC-44a.
+> **Superseded in Tracker.** This document records the reference implementation as field-verified, and this description of it stays accurate. Tracker ported the scalar filter as instructed and then replaced it: at the faster cadences Tracker samples at, a position-only filter lags a moving target by a fixed amount every fix, which cost one rejected fix in four on a straight road. The replacement is **constant velocity** — position plus an inferred velocity — with the gate measuring against whichever prediction is closer, so a corner is still judged exactly as described here. The Q/R tuning in §7 Stage 7 is unchanged apart from `q` becoming an acceleration. See [API.md](../API.md) §4 and EC-44a.
 
 ### 6.1 State
 

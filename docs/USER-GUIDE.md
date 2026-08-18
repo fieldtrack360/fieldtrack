@@ -92,14 +92,14 @@ Three calls. `getInstance` → `ready` → `start`.
 ```kotlin
 class SampleApplication : Application() {
 
-    val trackIt: Traker by lazy { Traker.getInstance(this) }
+    val trackIt: Tracker by lazy { Tracker.getInstance(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         scope.launch {
-            trackIt.ready(TrakerConfig())
+            trackIt.ready(TrackerConfig())
         }
     }
 }
@@ -109,8 +109,8 @@ class SampleApplication : Application() {
 // In a ViewModel, after permissions are granted:
 suspend fun begin() {
     when (val result = trackIt.start(tag = "commute")) {
-        is TrakerResult.Ok -> Log.d("app", "session ${result.value.id}")
-        is TrakerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
+        is TrackerResult.Ok -> Log.d("app", "session ${result.value.id}")
+        is TrackerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
     }
 }
 
@@ -129,7 +129,7 @@ val json = trackIt.exportPolylineJson(PointQuery(sessionId = sessionId))
 
 | Call | What it does | When |
 |---|---|---|
-| `Traker.getInstance(context)` | Returns the process-wide instance. Idempotent, thread-safe, cheap — the graph is lazy, so this opens no database and touches no disk. Safe to pass an Activity; the application context is what is retained. | Anywhere |
+| `Tracker.getInstance(context)` | Returns the process-wide instance. Idempotent, thread-safe, cheap — the graph is lazy, so this opens no database and touches no disk. Safe to pass an Activity; the application context is what is retained. | Anywhere |
 | `ready(config)` | Resolves the effective config, restores persisted filter state, enqueues the retention worker, and reports a session left open by a crash. | Once, in `Application.onCreate` |
 | `start(tag)` | Opens a session and starts the capture pipeline. Idempotent while already tracking — a double tap returns the existing session rather than splitting a drive in two. | After permissions |
 
@@ -139,17 +139,17 @@ them.
 
 ### Nothing throws
 
-Every fallible entry point returns `TrakerResult<T>`:
+Every fallible entry point returns `TrackerResult<T>`:
 
 ```kotlin
-public sealed interface TrakerResult<out T> {
-    public data class Ok<T>(val value: T) : TrakerResult<T>
-    public data class Error(val code: ErrorCode, val message: String) : TrakerResult<Nothing>
+public sealed interface TrackerResult<out T> {
+    public data class Ok<T>(val value: T) : TrackerResult<T>
+    public data class Error(val code: ErrorCode, val message: String) : TrackerResult<Nothing>
 }
 ```
 
 An SDK that throws into a host's coroutine is a crash the host cannot reasonably prevent.
-The one deliberate exception is `TrakerConfig.Builder.build()`, which runs on your own
+The one deliberate exception is `TrackerConfig.Builder.build()`, which runs on your own
 thread while you assemble a value — see [§5.1](#51-the-builder).
 
 ---
@@ -175,7 +175,7 @@ Every fix gets exactly one of three verdicts:
 
 | Verdict | Meaning |
 |---|---|
-| `Accept` | Stored, emitted as `TrakerEvent.Location` |
+| `Accept` | Stored, emitted as `TrackerEvent.Location` |
 | `Skip` | The filter learned from it; nothing stored |
 | `Reject` | Dropped entirely |
 
@@ -289,20 +289,20 @@ under approximate-only with `Error(COARSE_ONLY)`. `MOTION_ONLY` is allowed.
 A permission can be revoked while the foreground service is running. The SDK watches
 `AppOpsManager` and reacts immediately — no polling. On a downgrade the stream stops but
 the **session stays open**: whether to end it is your decision, never a side effect of a
-permission toggle. You get `TrakerEvent.Error(BACKGROUND_PERMISSION_MISSING)` and a
+permission toggle. You get `TrackerEvent.Error(BACKGROUND_PERMISSION_MISSING)` and a
 `ProviderChange`.
 
 ---
 
 ## 5. Configuration
 
-`TrakerConfig` has five blocks: `geolocation`, `motion`, `service`, `persistence`,
+`TrackerConfig` has five blocks: `geolocation`, `motion`, `service`, `persistence`,
 `sensors` — plus `license`, `baseUrl` and `reset`.
 
 ### 5.1 The builder
 
 ```kotlin
-val config = TrakerConfig.builder()
+val config = TrackerConfig.builder()
     .provider(LocationProviderType.GPS_ONLY)
     .accuracyProfile(AccuracyProfile.STRICT)
     .trackingMode(TrackingMode.ADAPTIVE)
@@ -325,7 +325,7 @@ value unvalidated if you are assembling config from untrusted input and would ra
 The Kotlin data-class constructor is unchanged and still idiomatic:
 
 ```kotlin
-TrakerConfig(
+TrackerConfig(
     geolocation = GeolocationConfig(trackingMode = TrackingMode.CONTINUOUS),
     persistence = PersistenceConfig(persistRawPoints = true),
 )
@@ -519,7 +519,7 @@ stored. That is what makes a two-hour steady user produce exactly one point. It 
 least 5× the sampling interval or it fires every fix and defeats stationary suppression
 entirely; `validate()` checks it (EC-121).
 
-Distinct from `TrakerEvent.Heartbeat`, which is the control-plane liveness signal.
+Distinct from `TrackerEvent.Heartbeat`, which is the control-plane liveness signal.
 
 ### 5.9 Sensors
 
@@ -594,7 +594,7 @@ throws with the same text. What is checked:
 
 ### 5.13 Changing config later
 
-There is **no `setConfig()` on `Traker` yet** — `docs/API.md` §10 documents it as intended
+There is **no `setConfig()` on `Tracker` yet** — `docs/API.md` §10 documents it as intended
 surface, and it is not implemented. Today, config is applied at `ready()` and the
 provider/accuracy parts are re-applied at each `start()`. To change config, call `ready()`
 again with `reset = true` before the next `start()`.
@@ -876,17 +876,17 @@ an application scope for work that must continue with no UI on screen.
 ```kotlin
 trackIt.events.collect { event ->
     when (event) {
-        is TrakerEvent.Location -> onPoint(event.point)
-        is TrakerEvent.LocationRejected -> log(event.decision.reason)
-        is TrakerEvent.MotionChange -> onMotion(event.state, event.point)
-        is TrakerEvent.ActivityChange -> onActivity(event.activity, event.confidence)
-        is TrakerEvent.EnabledChange -> onTrackingToggled(event.enabled)
-        is TrakerEvent.ProviderChange -> onProviderState(event.state)
-        is TrakerEvent.PowerSaveChange -> onPowerSave(event.enabled)
-        is TrakerEvent.Heartbeat -> onAlive(event.atMs)
-        is TrakerEvent.SessionInterrupted -> offerResume(event.session)
-        is TrakerEvent.Diagnostic -> log(event.message)
-        is TrakerEvent.Error -> onError(event.code, event.message)
+        is TrackerEvent.Location -> onPoint(event.point)
+        is TrackerEvent.LocationRejected -> log(event.decision.reason)
+        is TrackerEvent.MotionChange -> onMotion(event.state, event.point)
+        is TrackerEvent.ActivityChange -> onActivity(event.activity, event.confidence)
+        is TrackerEvent.EnabledChange -> onTrackingToggled(event.enabled)
+        is TrackerEvent.ProviderChange -> onProviderState(event.state)
+        is TrackerEvent.PowerSaveChange -> onPowerSave(event.enabled)
+        is TrackerEvent.Heartbeat -> onAlive(event.atMs)
+        is TrackerEvent.SessionInterrupted -> offerResume(event.session)
+        is TrackerEvent.Diagnostic -> log(event.message)
+        is TrackerEvent.Error -> onError(event.code, event.message)
     }
 }
 ```
@@ -906,7 +906,7 @@ battery.isLow         // percent != null && percent <= 15
 trackIt.batteryState().collect { battery -> render(battery) }
 ```
 
-`TrakerEvent.BatteryChange` carries the same transitions on the event flow. Events fire on
+`TrackerEvent.BatteryChange` carries the same transitions on the event flow. Events fire on
 plug, unplug, low and okay — plus whatever drift the capture path notices while a session
 runs — never on a timer, and never when the reading has not changed.
 
@@ -1020,7 +1020,7 @@ direction.
 carrying a second full URL that drifts when the environment changes:
 
 ```kotlin
-val sync = TrakerSync.getInstance(context)
+val sync = TrackerSync.getInstance(context)
 
 sync.configure(
     SyncConfig.builder()
@@ -1032,12 +1032,12 @@ sync.configure(
 )
 ```
 
-If your app already sets a base URL for its own API, put it on `TrakerConfig` instead and
+If your app already sets a base URL for its own API, put it on `TrackerConfig` instead and
 give the sync module only a path:
 
 ```kotlin
 trackIt.ready(
-    TrakerConfig.builder()
+    TrackerConfig.builder()
         .baseUrl(BuildConfig.API_BASE_URL)          // core stores it; core never reads it
         .build(),
 )
@@ -1047,7 +1047,7 @@ sync.configure(SyncConfig.builder().path("v1/location/batch").build())
 
 **Resolution is a fallback, never an override**, and it runs at `configure()`:
 
-| `SyncConfig` carries | `TrakerConfig.baseUrl` | Endpoint |
+| `SyncConfig` carries | `TrackerConfig.baseUrl` | Endpoint |
 |---|---|---|
 | an absolute `url` | anything | the absolute `url` — what you wrote closest to the upload wins |
 | `baseUrl` + `path` | anything | the sync-level pair |
@@ -1082,7 +1082,7 @@ sync.configure(
 
 | Field | Default | Meaning |
 |---|---|---|
-| `url` | — | The full endpoint. From the builder, `baseUrl` + `path`, or a `path` resolved against `TrakerConfig.baseUrl`. |
+| `url` | — | The full endpoint. From the builder, `baseUrl` + `path`, or a `path` resolved against `TrackerConfig.baseUrl`. |
 | `method` | `POST` | Any method that carries a body. |
 | `headers` | empty | Sent on every request. `Content-Type` is set for you unless you set it. |
 | `autoSync` | `true` | The SDK drives its own uploads — see [11.3](#113-who-triggers-an-upload). |
@@ -1104,7 +1104,7 @@ from untrusted input — it returns every problem as a list instead of throwing.
 
 | Member | Returns | What it does |
 |---|---|---|
-| `TrakerSync.getInstance(context)` | `TrakerSync` | Process-wide instance, sharing Traker's database. Idempotent. Does not configure anything. |
+| `TrackerSync.getInstance(context)` | `TrackerSync` | Process-wide instance, sharing Tracker's database. Idempotent. Does not configure anything. |
 | `configure(config, transport = null)` | `Unit` | Sets the endpoint and optional custom transport. Throws on an invalid config. Clears a previous 403 halt. |
 | `syncNow()` | `SyncQueue.Result` | Drains inline and tells you what happened. `suspend`. |
 | `requestSync()` | `Unit` | Enqueues network-constrained WorkManager work. Safe to call often. No-op before `configure()` and after a 403. |
@@ -1321,10 +1321,10 @@ This module has **no tests**. It is thin by design, but "thin" is not "verified"
 `fieldtrack-bridge` gives you the SDK without `suspend` and without `Flow`.
 
 ```java
-TrakerClient client = TrakerClient.getInstance(context);
+TrackerClient client = TrackerClient.getInstance(context);
 
-client.ready(new TrakerConfig(), new ResultCallback<TrakerState>() {
-    @Override public void onSuccess(TrakerState state) { /* … */ }
+client.ready(new TrackerConfig(), new ResultCallback<TrackerState>() {
+    @Override public void onSuccess(TrackerState state) { /* … */ }
     @Override public void onError(ErrorCode code, String message) { /* … */ }
 });
 
@@ -1342,7 +1342,7 @@ sub.cancel();
 Build config fluently — this is what the builder exists for:
 
 ```java
-TrakerConfig config = TrakerConfig.builder()
+TrackerConfig config = TrackerConfig.builder()
     .provider(LocationProviderType.GPS_ONLY)
     .accuracyProfile(AccuracyProfile.STRICT)
     .trackingMode(TrackingMode.ADAPTIVE)
@@ -1353,7 +1353,7 @@ TrakerConfig config = TrakerConfig.builder()
 Synchronous getters where nothing can fail: `getState()`, `getProviderState()`,
 `getSensors()`, `permissions()`, `isOffRoute()`.
 
-`TrakerJson` on the same module is the JSON facade for anything that speaks JSON rather
+`TrackerJson` on the same module is the JSON facade for anything that speaks JSON rather
 than Kotlin types.
 
 ---
@@ -1363,29 +1363,29 @@ than Kotlin types.
 npm package `@fieldtrack360/react-native-fieldtrack`, version-locked to the Maven artifacts.
 
 ```ts
-import * as Traker from '@devstree/react-native-traker';
+import * as Tracker from '@devstree/react-native-traker';
 
-await Traker.ready({ geolocation: { providerType: 'GPS_ONLY' } });
-const session = await Traker.start('commute');
+await Tracker.ready({ geolocation: { providerType: 'GPS_ONLY' } });
+const session = await Tracker.start('commute');
 
-const points = await Traker.getPoints({ sessionId: session.id });
-const track = await Traker.buildTrack({ sessionId: session.id }, { zoom: 14 });
+const points = await Tracker.getPoints({ sessionId: session.id });
+const track = await Tracker.buildTrack({ sessionId: session.id }, { zoom: 14 });
 
-const sub = Traker.addEventListener(event => console.log(event));
-const liveSub = Traker.addLiveTrackListener(frame => draw(frame));
-Traker.setLiveTrackThrottleMs(200);
+const sub = Tracker.addEventListener(event => console.log(event));
+const liveSub = Tracker.addLiveTrackListener(frame => draw(frame));
+Tracker.setLiveTrackThrottleMs(200);
 
 sub.remove();
-await Traker.stop();
+await Tracker.stop();
 ```
 
-Errors reject with a `TrakerError` carrying the SDK's own `code` — branch on that;
+Errors reject with a `TrackerError` carrying the SDK's own `code` — branch on that;
 `message` is for humans and is not stable.
 
 **Android only.** The package installs on iOS and every call rejects with a typed
 `UNSUPPORTED_PLATFORM`. That is deliberate, not an omission: an iOS version would be a
 second implementation of a seven-stage acceptance pipeline, not a port. Check
-`Traker.isSupported` before wiring UI.
+`Tracker.isSupported` before wiring UI.
 
 ---
 
@@ -1461,7 +1461,7 @@ mock-location apps.
 Each group carries a policy — `ALLOW`, `WARN` or `BLOCK`:
 
 ```kotlin
-val config = TrakerConfig.builder()
+val config = TrackerConfig.builder()
     .hookingPolicy(IntegrityPolicy.BLOCK)                // default
     .mockLocationIntegrityPolicy(IntegrityPolicy.BLOCK)  // default
     .accessibilityPolicy(IntegrityPolicy.WARN)           // default
@@ -1470,14 +1470,14 @@ val config = TrakerConfig.builder()
     .build()
 
 when (val result = traker.ready(config)) {
-    is TrakerResult.Error ->
+    is TrackerResult.Error ->
         if (result.code == ErrorCode.DEVICE_INTEGRITY_BLOCKED) blocked(traker.integrity())
-    is TrakerResult.Ok -> Unit
+    is TrackerResult.Ok -> Unit
 }
 ```
 
-`WARN` is not "ignore": the finding reaches you through `Traker.integrityState()` and
-`TrakerEvent.IntegrityChange`, is stamped on every stored point as `integrityFlags`, and is
+`WARN` is not "ignore": the finding reaches you through `Tracker.integrityState()` and
+`TrackerEvent.IntegrityChange`, is stamped on every stored point as `integrityFlags`, and is
 uploaded with it. Only `BLOCK` refuses to start — and ends a live session, checked again
 every fifteen minutes while tracking.
 
@@ -1500,7 +1500,7 @@ Stated rather than discovered:
 - **Nothing is published to a remote repository yet.** `publishToMavenLocal` works with no
   configuration.
 - **No `setConfig()`, `changePace()`, `getCurrentPosition()`, `insertPoint()`,
-  `deletePoints()`, `requestPermission()` or `exportFixture()` on `Traker`.** Use
+  `deletePoints()`, `requestPermission()` or `exportFixture()` on `Tracker`.** Use
   `getCurrentLocation()` for a fresh non-persisted snapshot. The other names remain
   target-surface entries in `API.md` §10 and are not implemented.
 - **`fieldtrack-maps` has no tests.**

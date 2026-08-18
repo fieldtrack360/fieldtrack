@@ -1,4 +1,4 @@
-# Traker core — build-time R8 configuration for the published release AAR.
+# Tracker core — build-time R8 configuration for the published release AAR.
 #
 # Distinct from consumer-rules.pro, and the two must not be confused: that file is merged
 # into the HOST's build and constrains somebody else's R8 pass; this one runs when the
@@ -16,7 +16,7 @@
 
 # ── attributes the public API needs to stay usable ──────────────────────────
 #
-# Signature keeps generics on the kept surface (a host sees Flow<TrakerEvent>, not raw
+# Signature keeps generics on the kept surface (a host sees Flow<TrackerEvent>, not raw
 # Flow). InnerClasses/EnclosingMethod keep the nested-class structure of Builder and the
 # sealed hierarchies. Runtime annotations carry kotlin.Metadata, which R8 rewrites for
 # kept classes — without it a Kotlin host loses named arguments, default values and
@@ -55,13 +55,13 @@
 -keep public class com.devstree.traker.SensorConfig$Companion { public protected *; }
 -keep public class com.devstree.traker.ServiceConfig { public protected *; }
 -keep public class com.devstree.traker.ServiceConfig$Companion { public protected *; }
--keep public class com.devstree.traker.Traker { public protected *; }
--keep public class com.devstree.traker.Traker$Companion { public protected *; }
--keep public class com.devstree.traker.TrakerArtifacts { public protected *; }
--keep public class com.devstree.traker.TrakerArtifacts$Companion { public protected *; }
--keep public class com.devstree.traker.TrakerConfig { public protected *; }
--keep public class com.devstree.traker.TrakerConfig$Builder { public protected *; }
--keep public class com.devstree.traker.TrakerConfig$Companion { public protected *; }
+-keep public class com.devstree.traker.Tracker { public protected *; }
+-keep public class com.devstree.traker.Tracker$Companion { public protected *; }
+-keep public class com.devstree.traker.TrackerArtifacts { public protected *; }
+-keep public class com.devstree.traker.TrackerArtifacts$Companion { public protected *; }
+-keep public class com.devstree.traker.TrackerConfig { public protected *; }
+-keep public class com.devstree.traker.TrackerConfig$Builder { public protected *; }
+-keep public class com.devstree.traker.TrackerConfig$Companion { public protected *; }
 -keep public class com.devstree.traker.TrackingMode { public protected *; }
 -keep public class com.devstree.traker.SecurityConfig { public protected *; }
 -keep public class com.devstree.traker.SecurityConfig$Companion { public protected *; }
@@ -85,18 +85,18 @@
 -keep public class com.devstree.traker.domain.model.PermissionTier { public protected *; }
 -keep public class com.devstree.traker.domain.model.PointQuery { public protected *; }
 -keep public class com.devstree.traker.domain.model.PointQuery$Companion { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerGeofence { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerGeofence$Companion { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerGeofenceEvent { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerGeofence { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerGeofence$Companion { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerGeofenceEvent { public protected *; }
 -keep public class com.devstree.traker.domain.model.ProviderState { public protected *; }
 -keep public class com.devstree.traker.domain.model.BatteryInfo { public protected *; }
 -keep public class com.devstree.traker.domain.model.BatteryInfo$Companion { public protected *; }
 -keep public class com.devstree.traker.domain.model.PowerSource { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerEvent { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerEvent$* { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerResult { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerResult$* { public protected *; }
--keep public class com.devstree.traker.domain.model.TrakerState { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerEvent { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerEvent$* { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerResult { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerResult$* { public protected *; }
+-keep public class com.devstree.traker.domain.model.TrackerState { public protected *; }
 -keep public class com.devstree.traker.domain.model.TrackSession { public protected *; }
 -keep public class com.devstree.traker.domain.repository.** { public protected *; }
 
@@ -130,7 +130,7 @@
     <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 
-# Room resolves TrakerDatabase_Impl via Class.forName(database.name + "_Impl"); both
+# Room resolves TrackerDatabase_Impl via Class.forName(database.name + "_Impl"); both
 # ends of that lookup must keep their names. Same reasoning as the worker rule: Room's
 # own consumer rule does not run in this pass.
 -keep class * extends androidx.room.RoomDatabase
@@ -150,7 +150,7 @@
 
 # Most SDK logging goes through the TrackLogger port rather than android.util.Log
 # directly. Mark both methods side-effect-free so R8 also removes the string construction
-# feeding those calls. The sample still receives structured TrakerEvent diagnostics.
+# feeding those calls. The sample still receives structured TrackerEvent diagnostics.
 -assumenosideeffects class com.devstree.traker.geo.port.TrackLogger {
     public void d(java.lang.String, java.lang.String);
     public void w(java.lang.String, java.lang.String);

@@ -1,6 +1,6 @@
 package com.devstree.traker.data.repository
 
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.data.db.FixDecisionDao
 import com.devstree.traker.data.db.TrackPointDao
 import com.devstree.traker.data.db.TrackSessionDao
@@ -152,7 +152,7 @@ internal class DecisionRepositoryImpl(
 internal class ConfigRepositoryImpl(
     private val store: ConfigStore,
 ) : ConfigRepository {
-    override suspend fun load(): TrakerConfig? = store.load()
-    override suspend fun save(config: TrakerConfig) = store.save(config)
+    override suspend fun load(): TrackerConfig? = store.load()
+    override suspend fun save(config: TrackerConfig) = store.save(config)
     override suspend fun clear() = store.clear()
 }

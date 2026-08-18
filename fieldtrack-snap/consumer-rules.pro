@@ -1,4 +1,4 @@
-# Traker snap — rules a consuming app inherits.
+# Tracker snap — rules a consuming app inherits.
 #
 # Nothing. The previous rule here was:
 #

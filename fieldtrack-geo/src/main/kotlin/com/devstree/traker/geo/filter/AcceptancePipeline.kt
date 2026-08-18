@@ -45,7 +45,7 @@ import kotlin.math.min
  * decision sequence.
  */
 public class AcceptancePipeline(
-    private val c: TrakerConstants = TrakerConstants.Default,
+    private val c: TrackerConstants = TrackerConstants.Default,
 ) {
 
     public fun accept(
@@ -634,7 +634,7 @@ public class AcceptancePipeline(
      * after it bisects the turn and reports half the angle, while the chip reports the
      * heading the vehicle is actually pointing.
      *
-     * The displacement fallback is deliberately floored at [TrakerConstants.bearingCaptureMinDist]:
+     * The displacement fallback is deliberately floored at [TrackerConstants.bearingCaptureMinDist]:
      * `atan2` over two fixes 3 m apart with 8 m accuracy is a random number.
      */
     private fun headingOf(fix: TrackFix, past: TrackPoint, distanceMoved: Double): Float? = when {

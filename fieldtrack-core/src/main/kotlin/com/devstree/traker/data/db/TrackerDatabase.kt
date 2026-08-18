@@ -24,7 +24,7 @@ import androidx.sqlite.execSQL
     // fallbackToDestructiveMigration() is never called anywhere in this module.
     exportSchema = true,
 )
-internal abstract class TrakerDatabase : RoomDatabase() {
+internal abstract class TrackerDatabase : RoomDatabase() {
     abstract fun points(): TrackPointDao
     abstract fun sessions(): TrackSessionDao
     abstract fun decisions(): FixDecisionDao
@@ -192,10 +192,10 @@ internal abstract class TrakerDatabase : RoomDatabase() {
             }
         }
 
-        fun build(context: Context): TrakerDatabase =
+        fun build(context: Context): TrackerDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
-                TrakerDatabase::class.java,
+                TrackerDatabase::class.java,
                 nameFor(context),
             )
                 .addMigrations(

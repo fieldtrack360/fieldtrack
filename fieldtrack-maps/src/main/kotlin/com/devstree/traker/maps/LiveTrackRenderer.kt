@@ -23,7 +23,7 @@ import com.google.android.gms.maps.model.Polyline
 import com.google.android.gms.maps.model.PolylineOptions
 
 /**
- * Draws the live surface — [LiveTrackUpdate] frames from `Traker.liveTrack()` — the
+ * Draws the live surface — [LiveTrackUpdate] frames from `Tracker.liveTrack()` — the
  * way navigation apps do (SMOOTH-NAV-PLAN Phase 3).
  *
  * Everything [TrackRenderer] is not:

@@ -1,7 +1,7 @@
 package com.devstree.traker.integrity
 
 import com.devstree.traker.SecurityConfig
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,13 +16,13 @@ import kotlinx.coroutines.flow.asStateFlow
  * ingest path, which runs once a second in navigation mode. So the ingest path reads
  * [flags], a plain `Int` field, and never probes.
  *
- * [TrakerEvent.IntegrityChange] is emitted on a change of the flag set, not on every
+ * [TrackerEvent.IntegrityChange] is emitted on a change of the flag set, not on every
  * evaluation: a host collecting it sees transitions, matching how `BatteryMonitor` and
  * `ProviderStateMonitor` behave.
  */
 internal class IntegrityMonitor(
     private val evaluator: IntegrityEvaluator,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val feed: IntegrityFeed,
 ) {
 
@@ -59,7 +59,7 @@ internal class IntegrityMonitor(
         flags = report.flags
 
         if (previous.flags != report.flags || previous.waived != report.waived) {
-            events.tryEmit(TrakerEvent.IntegrityChange(report))
+            events.tryEmit(TrackerEvent.IntegrityChange(report))
         }
     }
 }

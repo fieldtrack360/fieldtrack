@@ -20,9 +20,9 @@ Findings from research pass (sources at end):
 
 ## 2. Current-state audit
 
-What Traker already has (verified against source, do **not** rebuild):
+What Tracker already has (verified against source, do **not** rebuild):
 
-| Google technique | Traker equivalent | Status |
+| Google technique | Tracker equivalent | Status |
 |---|---|---|
 | CV Kalman + gating | `KalmanFilter.kt` + 7-stage `AcceptancePipeline.kt` (3σ gate, forced-reset un-wedge) | Done, field-tuned |
 | Duplicate/near-duplicate suppression | 500 ms burst gate, 40/80 m wobble guard, anchor R-penalty, net-displacement persistence, `Consolidation.kt` stop collapse | Done |
@@ -71,20 +71,20 @@ From PLAN.md §0 / EDGE-CASES.md — unchanged:
 
 The pipeline cannot animate what it does not receive. Fastest current tier is turn-burst 4 s.
 
-1. `TrakerConfig.GeolocationConfig`: add `navigationMode: Boolean` (or a `CadenceProfile` enum) →
+1. `TrackerConfig.GeolocationConfig`: add `navigationMode: Boolean` (or a `CadenceProfile` enum) →
    - `intervalMs = 1000`, `fastestIntervalMs = 500`
    - `maxUpdateDelayMs = 0` (no batching while navigating; batching stays for background tiers)
    - keep `minUpdateDistanceMeters = 0`, `waitForAccurateLocation = true`
    - `validate()`: navigation profile only meaningful with `foregroundService = true`; warn otherwise.
 2. `FixMapper`/`TrackFix`: capture `speedAccuracyMetersPerSecond` and `bearingAccuracyDegrees` (nullable, additive schema change → Room migration v5). Downstream weighting of Doppler becomes possible; no behaviour change yet.
-3. `IngestContext`: add `cadenceTierMs` hint so cadence-sensitive gates can scale (constants themselves stay in `TrakerConstants.kt`). First consumer: departure ladder counts.
+3. `IngestContext`: add `cadenceTierMs` hint so cadence-sensitive gates can scale (constants themselves stay in `TrackerConstants.kt`). First consumer: departure ladder counts.
 4. `Haversine.kt`: add `Bearing.signedDifference` (−180..180]. Needed by Phase 3 bearing slerp and any future curvature logic. Additive; existing `difference` untouched.
 
 Acceptance: navigation profile delivers ≥ 0.9 fixes/s to `FixIngestor` on a reference device with screen on; existing fixture replay byte-identical (no pipeline behaviour change).
 
 ### Phase 2 — Live track surface (fieldtrack-core; the missing push path)
 
-1. New API: `Traker.liveTrack(): Flow<LiveTrackUpdate>`, fed from the accepted-point path in `FixIngestor` (same place `TrakerEvent.Location` is emitted today).
+1. New API: `Tracker.liveTrack(): Flow<LiveTrackUpdate>`, fed from the accepted-point path in `FixIngestor` (same place `TrackerEvent.Location` is emitted today).
 2. `LiveTrackUpdate` =
    - `frozenTail`: encoded polyline of all points except the last N (computed incrementally, never re-smoothed),
    - `liveHead`: last ~2 spline spans as plain points, re-smoothed per fix,
@@ -149,7 +149,7 @@ Acceptance: fixture replay updated goldens reviewed hand-by-hand (geometry inten
 3. Parse `tracepoints` to recover input-index ↔ matched-geometry correspondence, enabling timestamp re-attachment to snapped geometry (unblocks time-parameterised interpolation along roads for the live head).
 4. If the host app has a planned route: **snap-to-route** — project the puck onto the active route polyline, tolerance 2–3 × accuracy, fall back to raw when persistently off-route. Fully offline; delivers most of Google's "glued to road" effect. New optional input on the live surface, not a pipeline change.
 
-   *Implementation note:* shipped as `RouteSnap` (geo) plus `Traker.setActiveRoute` /
+   *Implementation note:* shipped as `RouteSnap` (geo) plus `Tracker.setActiveRoute` /
    `isOffRoute`. Two decisions worth recording. **Only the puck is snapped** — stored
    points and `buildTrack` are untouched, because the route is the host's claim about
    intent and the track is the SDK's record of evidence. And **drawing and deciding are

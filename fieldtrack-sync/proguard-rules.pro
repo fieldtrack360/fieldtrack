@@ -1,4 +1,4 @@
-# Traker sync — build-time R8 configuration for the published release AAR.
+# Tracker sync — build-time R8 configuration for the published release AAR.
 #
 # See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation.
@@ -7,11 +7,11 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# The public surface: TrakerSync, SyncConfig, SyncTransport and its request/response
+# The public surface: TrackerSync, SyncConfig, SyncTransport and its request/response
 # family, SyncQueue.Result, OkHttpSyncTransport. A host implementing SyncTransport
 # compiles against these names.
--keep public class com.devstree.traker.sync.TrakerSync { public protected *; }
--keep public class com.devstree.traker.sync.TrakerSync$* { public protected *; }
+-keep public class com.devstree.traker.sync.TrackerSync { public protected *; }
+-keep public class com.devstree.traker.sync.TrackerSync$* { public protected *; }
 -keep public class com.devstree.traker.sync.SyncConfig { public protected *; }
 -keep public class com.devstree.traker.sync.SyncConfig$Builder { public protected *; }
 -keep public class com.devstree.traker.sync.SyncConfig$Companion { public protected *; }

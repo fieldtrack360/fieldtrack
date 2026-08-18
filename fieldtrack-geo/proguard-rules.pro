@@ -1,6 +1,6 @@
-# Traker geo build-time R8 rules.
+# Tracker geo build-time R8 rules.
 #
-# Only types used by the sample or another independently published Traker module retain
+# Only types used by the sample or another independently published Tracker module retain
 # their integration names. Other public declarations remain but may be renamed. Internal
 # implementation is shrunk, optimized, and repackaged under `tr.dev.geo`.
 
@@ -60,8 +60,8 @@
 -keep public class com.devstree.traker.geo.filter.AcceptancePipeline { public protected *; }
 -keep public class com.devstree.traker.geo.filter.ClockGuard { public protected *; }
 -keep public class com.devstree.traker.geo.filter.ClockGuard$Step { public protected *; }
--keep public class com.devstree.traker.geo.filter.TrakerConstants { public protected *; }
--keep public class com.devstree.traker.geo.filter.TrakerConstants$Companion { public protected *; }
+-keep public class com.devstree.traker.geo.filter.TrackerConstants { public protected *; }
+-keep public class com.devstree.traker.geo.filter.TrackerConstants$Companion { public protected *; }
 -keep public class com.devstree.traker.geo.math.Bearing { public protected *; }
 -keep public class com.devstree.traker.geo.math.Geodesy { public protected *; }
 -keep public class com.devstree.traker.geo.math.Geodesy$Projection { public protected *; }

@@ -20,7 +20,7 @@ subprojects {
 
 tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
     group = "verification"
-    description = "Builds and audits every Traker release artifact for obfuscation leaks."
+    description = "Builds and audits every Tracker release artifact for obfuscation leaks."
     repositoryRoot.set(layout.projectDirectory)
 
     dependsOn(

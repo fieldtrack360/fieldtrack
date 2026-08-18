@@ -3,9 +3,9 @@ package com.devstree.traker.service
 import android.content.Context
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.sdkLog
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.domain.repository.SessionRepository
 import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.model.MotionState
@@ -44,7 +44,7 @@ HealthLoop(
     private val context: Context,
     private val sessions: SessionRepository,
     private val clock: Clock,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val watchdog: Watchdog,
     private val motionController: MotionController,
     private val providerState: ProviderStateMonitor,
@@ -59,7 +59,7 @@ HealthLoop(
     /** Monotonic timestamp of the last integrity evaluation; `0` = not evaluated in this loop. */
     private var lastIntegrityCheckNanos: Long = 0
 
-    fun start(scope: CoroutineScope, config: TrakerConfig, onSessionClosed: () -> Unit) {
+    fun start(scope: CoroutineScope, config: TrackerConfig, onSessionClosed: () -> Unit) {
         job?.cancel()
         job = scope.launch {
             while (isActive) {
@@ -75,7 +75,7 @@ HealthLoop(
         lastIntegrityCheckNanos = 0
     }
 
-    private suspend fun runCheck(config: TrakerConfig, onSessionClosed: () -> Unit) {
+    private suspend fun runCheck(config: TrackerConfig, onSessionClosed: () -> Unit) {
         val session = sessions.current()
         if (session == null) {
             // No session but the service is alive — stop rather than burn battery.
@@ -112,7 +112,7 @@ HealthLoop(
         syncScheduler.onSupervisionTick()
 
         // Health is judged first; the heartbeat then records that the loop is alive.
-        events.tryEmit(TrakerEvent.Heartbeat(clock.wallTimeMs()))
+        events.tryEmit(TrackerEvent.Heartbeat(clock.wallTimeMs()))
     }
 
     /**
@@ -124,7 +124,7 @@ HealthLoop(
      * SDK leaves a half-live capture stack behind on exactly the device it just decided
      * not to trust.
      */
-    private suspend fun integrityBlocked(config: TrakerConfig): Boolean {
+    private suspend fun integrityBlocked(config: TrackerConfig): Boolean {
         val interval = config.security.recheckIntervalMs
         if (interval <= 0L) return false
 
@@ -141,7 +141,7 @@ HealthLoop(
 
         val message = "Device integrity check failed mid-session: ${report.describeBlocking()}"
         sdkLog { logger.w(TAG, message) }
-        events.tryEmit(TrakerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
+        events.tryEmit(TrackerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
         stopTracking()
         return true
     }
@@ -151,7 +151,7 @@ HealthLoop(
      * never run again — silent, and the backstop is precisely the thing you rely on
      * when the stream has already failed. Re-enqueue it (EC-71).
      */
-    private suspend fun ensureBackstopAlive(config: TrakerConfig) {
+    private suspend fun ensureBackstopAlive(config: TrackerConfig) {
         // Flow variant so no ListenableFuture/Guava bridge is pulled into the AAR.
         val infos = runCatching {
             WorkManager.getInstance(context)

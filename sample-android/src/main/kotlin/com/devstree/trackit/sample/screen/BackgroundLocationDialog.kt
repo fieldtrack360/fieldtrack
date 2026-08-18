@@ -76,7 +76,7 @@ private data class BackgroundGuide(
 )
 
 private const val WHY =
-    "Traker records your route while the app is closed or the screen is off. " +
+    "Tracker records your route while the app is closed or the screen is off. " +
         "Right now it can only record while the app is open, so any movement after you " +
         "leave the app is lost."
 
@@ -88,12 +88,12 @@ private fun guideFor(step: TrackItViewModel.BackgroundStep): BackgroundGuide = w
         reason = "$WHY\n\nAndroid 11 and later will not ask for this in a pop-up. " +
             "It can only be turned on in Settings:",
         steps = listOf(
-            "Tap \"Open settings\" below — this opens Traker's App info page.",
+            "Tap \"Open settings\" below — this opens Tracker's App info page.",
             "Tap \"Permissions\".",
             "Tap \"Location\".",
             "Select \"Allow all the time\".",
             "Turn on \"Use precise location\" if it is shown.",
-            "Press Back to return to Traker.",
+            "Press Back to return to Tracker.",
         ),
         note = "Manufacturers word this differently. On the Location screen, pick " +
             "whichever option means all the time — not \"Only while using the app\".",

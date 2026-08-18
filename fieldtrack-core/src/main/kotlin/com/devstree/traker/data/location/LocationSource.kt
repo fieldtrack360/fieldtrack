@@ -55,7 +55,7 @@ internal object LocationRequests {
             )
             .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
             .setWaitForAccurateLocation(true)
-            // EC-119 — 0 by contract. Validated in TrakerConfig, restated here.
+            // EC-119 — 0 by contract. Validated in TrackerConfig, restated here.
             .setMinUpdateDistanceMeters(config.distanceFilterM)
             // Clamped to the tier: a floor slower than the interval it governs would
             // throttle the tier back to the value it was meant to accelerate past.

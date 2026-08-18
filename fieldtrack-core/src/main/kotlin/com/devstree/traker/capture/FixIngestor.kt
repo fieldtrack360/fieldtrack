@@ -2,11 +2,11 @@ package com.devstree.traker.capture
 
 import com.devstree.traker.data.platform.BatteryReader
 import com.devstree.traker.data.repository.RoomPointStore
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.domain.model.TrackSession
 import com.devstree.traker.geo.filter.AcceptancePipeline
 import com.devstree.traker.geo.filter.ClockGuard
-import com.devstree.traker.geo.filter.TrakerConstants
+import com.devstree.traker.geo.filter.TrackerConstants
 import com.devstree.traker.geo.model.FilterState
 import com.devstree.traker.geo.model.IngestContext
 import com.devstree.traker.geo.model.MockPolicy
@@ -45,10 +45,10 @@ internal class FixIngestor(
     private val store: RoomPointStore,
     private var pipeline: AcceptancePipeline,
     private var turnDetector: TurnDetector,
-    private var constants: TrakerConstants,
+    private var constants: TrackerConstants,
     private val clock: Clock,
     private val watchdog: Watchdog,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val liveTrack: LiveTrackFeed,
     private val battery: BatteryReader,
     private val integrityFeed: IntegrityFeed,
@@ -152,7 +152,7 @@ internal class FixIngestor(
      * caller and does exactly that; retuning mid-session would judge the second half of a
      * track by a different bar than the first, with nothing in the decision log to say so.
      */
-    fun retune(constants: TrakerConstants) {
+    fun retune(constants: TrackerConstants) {
         if (this.constants == constants) return
         this.constants = constants
         pipeline = AcceptancePipeline(constants)
@@ -228,7 +228,7 @@ internal class FixIngestor(
                 // EC-42), and it is this guard that makes that true. Drop it and keep the
                 // held timestamp, which is the newer of the two.
                 outOfOrderRun++
-                events.emit(TrakerEvent.Diagnostic(Reasons.OUT_OF_ORDER))
+                events.emit(TrackerEvent.Diagnostic(Reasons.OUT_OF_ORDER))
                 return
             }
 
@@ -256,7 +256,7 @@ internal class FixIngestor(
                 turnState = turnDetector.reset()
                 outOfOrderRun = 0
                 lastElapsedNanos = fix.elapsedRealtimeNanos
-                events.emit(TrakerEvent.Diagnostic(Reasons.REBOOT_BOUNDARY))
+                events.emit(TrackerEvent.Diagnostic(Reasons.REBOOT_BOUNDARY))
             }
 
             ClockGuard.Step.FORWARD -> {
@@ -291,9 +291,9 @@ internal class FixIngestor(
             store.insert(point)
             past = point
             onAcceptedPoint?.invoke(point)
-            events.emit(TrakerEvent.Location(point))
+            events.emit(TrackerEvent.Location(point))
         } else {
-            events.emit(TrakerEvent.LocationRejected(result.decision))
+            events.emit(TrackerEvent.LocationRejected(result.decision))
         }
     }
 

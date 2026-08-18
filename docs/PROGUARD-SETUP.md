@@ -1,8 +1,8 @@
-# Traker ProGuard and R8 Setup
+# Tracker ProGuard and R8 Setup
 
 ## Purpose
 
-Traker publishes minified release AARs so an app receives a usable SDK API without receiving readable implementation class names, package structure, debug logs, or source archives. This raises the cost of reverse engineering; it does not encrypt bytecode, hide runtime constants, or make client-side secrets safe.
+Tracker publishes minified release AARs so an app receives a usable SDK API without receiving readable implementation class names, package structure, debug logs, or source archives. This raises the cost of reverse engineering; it does not encrypt bytecode, hide runtime constants, or make client-side secrets safe.
 
 ## Release Artifacts
 
@@ -21,7 +21,7 @@ Traker publishes minified release AARs so an app receives a usable SDK API witho
 
 Each code-bearing module has two distinct rule files:
 
-- `proguard-rules.pro` runs while Traker builds its own release AAR. It protects the supported API, preserves reflection entry points, strips logs, and repackages implementation.
+- `proguard-rules.pro` runs while Tracker builds its own release AAR. It protects the supported API, preserves reflection entry points, strips logs, and repackages implementation.
 - `consumer-rules.pro` is embedded in the AAR and merged into a consuming application's R8 pass. It must contain only rules required for runtime correctness in the host.
 
 Do not put broad rules such as `-keep class com.devstree.traker.** { *; }` in consumer rules. That would disable shrinking and obfuscation for the complete SDK inside every host app.
@@ -31,13 +31,13 @@ Do not put broad rules such as `-keep class com.devstree.traker.** { *; }` in co
 Names remain unchanged when at least one of these is true:
 
 - The Android sample imports the type or calls the member.
-- Another independently published Traker module references the binary name.
+- Another independently published Tracker module references the binary name.
 - Android, Room, WorkManager, or serialization constructs the type by name or generated contract.
 - The type is a documented host extension seam, such as `TrackLogger`, `RoadSnapProvider`, or `SyncTransport`.
 
 Everything else may be optimized, shortened, repackaged, or removed. When adding a supported sample API, update the module's build-time rules and the required API list in `VerifyReleaseObfuscationTask` in the root [build.gradle.kts](../build.gradle.kts).
 
-Some names must remain visible for runtime loading. In core these include manifest components, `ListenableWorker` subclasses, `TrakerDatabase`, and `TrakerDatabase_Impl`. Hiding those names without also rewriting the host's merged manifest or reflective lookup would break the SDK.
+Some names must remain visible for runtime loading. In core these include manifest components, `ListenableWorker` subclasses, `TrackerDatabase`, and `TrackerDatabase_Impl`. Hiding those names without also rewriting the host's merged manifest or reflective lookup would break the SDK.
 
 If you inspect the release AAR in an IDE, you will still see the kept API and framework seams
 under `com.devstree.traker.*`. That is expected. The obfuscated implementation classes and
@@ -76,7 +76,7 @@ All SDK logger calls are inside lazy `sdkLog` blocks. During release optimizatio
 
 Do not add a direct `logger.d`, `logger.w`, `Log.*`, `println`, or `printStackTrace` call. Use the module's `sdkLog` wrapper and add a forbidden marker to the verifier when introducing a new logging vocabulary.
 
-Structured host-facing events such as `TrakerEvent.Error` are API, not logs. Their documented error codes and messages remain available at runtime.
+Structured host-facing events such as `TrackerEvent.Error` are API, not logs. Their documented error codes and messages remain available at runtime.
 
 ## Publishing Security
 

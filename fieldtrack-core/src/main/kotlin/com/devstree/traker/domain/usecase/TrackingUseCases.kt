@@ -2,7 +2,7 @@ package com.devstree.traker.domain.usecase
 
 import android.content.Context
 import com.devstree.traker.LocationProviderType
-import com.devstree.traker.TrakerConfig
+import com.devstree.traker.TrackerConfig
 import com.devstree.traker.TrackingMode
 import com.devstree.traker.capture.FixIngestor
 import com.devstree.traker.capture.LocationStreamController
@@ -12,8 +12,8 @@ import com.devstree.traker.data.repository.ConfigStore
 import com.devstree.traker.domain.model.ErrorCode
 import com.devstree.traker.domain.model.LocationAccuracy
 import com.devstree.traker.domain.model.PermissionTier
-import com.devstree.traker.domain.model.TrakerEvent
-import com.devstree.traker.domain.model.TrakerResult
+import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.domain.model.TrackerResult
 import com.devstree.traker.domain.model.TrackSession
 import com.devstree.traker.domain.repository.ConfigRepository
 import com.devstree.traker.domain.repository.SessionRepository
@@ -59,7 +59,7 @@ public class StartTrackingUseCase internal constructor(
     private val watchdog: Watchdog,
     private val syncScheduler: SyncScheduler,
     private val context: Context,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
     private val scope: CoroutineScope,
     /**
      * Applies the parts of the config that are wired rather than passed: the provider
@@ -71,26 +71,26 @@ public class StartTrackingUseCase internal constructor(
      * about the provider the host chose, and answering it about the previous one is how a
      * GPS-only host on a Play-Services-free device gets told to install Play Services.
      */
-    private val applyConfig: (TrakerConfig) -> Unit,
+    private val applyConfig: (TrackerConfig) -> Unit,
 ) {
 
     public suspend operator fun invoke(
-        config: TrakerConfig,
+        config: TrackerConfig,
         tag: String? = null,
-    ): TrakerResult<TrackSession> {
+    ): TrackerResult<TrackSession> {
         applyConfig(config)
 
         // EC-01: no permission means a typed error, never a SecurityException and never
         // a service that starts and silently produces nothing.
         when (permissions.tier()) {
             PermissionTier.NONE ->
-                return TrakerResult.Error(ErrorCode.PERMISSION_DENIED, "Location permission not granted")
+                return TrackerResult.Error(ErrorCode.PERMISSION_DENIED, "Location permission not granted")
 
             PermissionTier.FOREGROUND_ONLY -> {
                 // Degrade rather than refuse (A16, EC-03). The session opens and tracks
                 // while the app is visible; the host is told why background is missing.
                 events.tryEmit(
-                    TrakerEvent.Error(
+                    TrackerEvent.Error(
                         ErrorCode.BACKGROUND_PERMISSION_MISSING,
                         "Tracking foreground-only; grant \"Allow all the time\" for background",
                     ),
@@ -104,7 +104,7 @@ public class StartTrackingUseCase internal constructor(
         if (permissions.accuracy() == LocationAccuracy.APPROXIMATE &&
             config.geolocation.trackingMode != TrackingMode.MOTION_ONLY
         ) {
-            return TrakerResult.Error(
+            return TrackerResult.Error(
                 ErrorCode.COARSE_ONLY,
                 "Approximate location cannot support ${config.geolocation.trackingMode}",
             )
@@ -123,8 +123,8 @@ public class StartTrackingUseCase internal constructor(
                 else ->
                     "${config.geolocation.providerType} provider is not present on this device"
             }
-            events.tryEmit(TrakerEvent.Error(ErrorCode.PLAY_SERVICES_UNAVAILABLE, message))
-            return TrakerResult.Error(ErrorCode.PLAY_SERVICES_UNAVAILABLE, message)
+            events.tryEmit(TrackerEvent.Error(ErrorCode.PLAY_SERVICES_UNAVAILABLE, message))
+            return TrackerResult.Error(ErrorCode.PLAY_SERVICES_UNAVAILABLE, message)
         }
 
         // A start() while the pipeline is already live is idempotent — `sessions.open()`
@@ -183,8 +183,8 @@ public class StartTrackingUseCase internal constructor(
 
         TrackingService.start(context, config.service)
 
-        events.tryEmit(TrakerEvent.EnabledChange(enabled = true))
-        return TrakerResult.Ok(session)
+        events.tryEmit(TrackerEvent.EnabledChange(enabled = true))
+        return TrackerResult.Ok(session)
     }
 }
 
@@ -199,10 +199,10 @@ public class StopTrackingUseCase internal constructor(
     private val significantMotion: SignificantMotionWake,
     private val watchdog: Watchdog,
     private val context: Context,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
 ) {
-    public suspend operator fun invoke(): TrakerResult<TrackSession?> {
-        val current = sessions.current() ?: return TrakerResult.Ok(null)
+    public suspend operator fun invoke(): TrackerResult<TrackSession?> {
+        val current = sessions.current() ?: return TrackerResult.Ok(null)
 
         // Order matters: stop feeding the channel, then close the session, so no point
         // is written after the session it belongs to has ended (EC-73).
@@ -223,8 +223,8 @@ public class StopTrackingUseCase internal constructor(
 
         val closed = sessions.close(current.id)
 
-        events.tryEmit(TrakerEvent.EnabledChange(enabled = false))
-        return TrakerResult.Ok(closed)
+        events.tryEmit(TrackerEvent.EnabledChange(enabled = false))
+        return TrackerResult.Ok(closed)
     }
 }
 
@@ -239,9 +239,9 @@ public class StopTrackingUseCase internal constructor(
 public class ResolveConfigUseCase internal constructor(
     private val repository: ConfigRepository,
     private val sensorProbe: SensorProbe,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
 ) {
-    public suspend operator fun invoke(supplied: TrakerConfig): Result {
+    public suspend operator fun invoke(supplied: TrackerConfig): Result {
         val persisted = repository.load()
         val resolved = when {
             supplied.reset -> supplied
@@ -260,7 +260,7 @@ public class ResolveConfigUseCase internal constructor(
             resolved.geolocation.trackingMode != TrackingMode.CONTINUOUS
         ) {
             events.tryEmit(
-                TrakerEvent.Error(
+                TrackerEvent.Error(
                     ErrorCode.MOTION_DETECTION_DEGRADED,
                     "motionQuality=POOR (accelerometer=${sensors.accelerometer}, " +
                         "gyroscope=${sensors.gyroscope}, significantMotion=${sensors.significantMotion}, " +
@@ -299,7 +299,7 @@ public class ResolveConfigUseCase internal constructor(
     }
 
     public data class Result(
-        val config: TrakerConfig,
+        val config: TrackerConfig,
         val validationErrors: List<String>,
         val source: ConfigSource,
         val sensors: DeviceSensors?,

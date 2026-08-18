@@ -30,7 +30,7 @@ import kotlin.math.sqrt
  * @property movingMode latched once a real departure is confirmed; exited only after
  *   [settleCount] consecutive settled fixes (EC-60).
  * @property recoveryPending a held post-gap candidate awaiting confirmation by a
- *   second fix within [TrakerConstants.recoveryConfirmNear] metres (EC-40).
+ *   second fix within [TrackerConstants.recoveryConfirmNear] metres (EC-40).
  * @property lastFixElapsedNanos burst gate anchor, keyed on **fix** time rather than
  *   delivery time. Keying it on delivery time is what made the reference reject whole
  *   batches, since batched fixes arrive milliseconds apart (SOURCE-AUDIT A5, EC-30).

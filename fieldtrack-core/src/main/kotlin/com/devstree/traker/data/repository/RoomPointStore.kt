@@ -11,7 +11,7 @@ import com.devstree.traker.data.db.rawPointEntity
 import com.devstree.traker.data.db.toDomain
 import com.devstree.traker.data.db.toEntity
 import com.devstree.traker.domain.model.ErrorCode
-import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrackerEvent
 import com.devstree.traker.geo.model.FilterState
 import com.devstree.traker.geo.model.FixDecision
 import com.devstree.traker.geo.model.IngestContext
@@ -35,7 +35,7 @@ internal class RoomPointStore(
     private val decisions: FixDecisionDao,
     private val rawFixes: RawFixDao,
     private val rawPoints: RawPointDao,
-    private val events: MutableSharedFlow<TrakerEvent>,
+    private val events: MutableSharedFlow<TrackerEvent>,
 ) : PointStore {
 
     @Volatile
@@ -51,7 +51,7 @@ internal class RoomPointStore(
         points.insert(point.toEntity())
     } catch (e: SQLiteFullException) {
         // EC-78: a full disk must not crash the host or silently swallow the fix.
-        events.tryEmit(TrakerEvent.Error(ErrorCode.STORAGE_FULL, e.message.orEmpty()))
+        events.tryEmit(TrackerEvent.Error(ErrorCode.STORAGE_FULL, e.message.orEmpty()))
         -1L
     }
 
@@ -59,7 +59,7 @@ internal class RoomPointStore(
 
     override suspend fun saveFilterState(state: FilterState) {
         runCatching { filterState.save(state.toEntity()) }
-            .onFailure { events.tryEmit(TrakerEvent.Error(ErrorCode.STORAGE_FULL, it.message.orEmpty())) }
+            .onFailure { events.tryEmit(TrackerEvent.Error(ErrorCode.STORAGE_FULL, it.message.orEmpty())) }
     }
 
     /** Debug ring buffer; trimmed on every write so it cannot grow without bound. */
@@ -88,7 +88,7 @@ internal class RoomPointStore(
             // table with no event on failure meant `persistRawFixes = true` could look
             // correctly wired and still leave the table empty, with nothing in the event
             // stream to say why.
-        }.onFailure { events.tryEmit(TrakerEvent.Diagnostic("recordRawFix failed: ${it.message}")) }
+        }.onFailure { events.tryEmit(TrackerEvent.Diagnostic("recordRawFix failed: ${it.message}")) }
     }
 
     /**
@@ -124,7 +124,7 @@ internal class RoomPointStore(
         }.onFailure {
             // Same contract as `saveFilterState`: a full disk is reported, never thrown.
             // This layer is diagnostics — losing a row here must not cost a real point.
-            events.tryEmit(TrakerEvent.Error(ErrorCode.STORAGE_FULL, it.message.orEmpty()))
+            events.tryEmit(TrackerEvent.Error(ErrorCode.STORAGE_FULL, it.message.orEmpty()))
         }
     }
 
