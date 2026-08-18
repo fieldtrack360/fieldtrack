@@ -4,10 +4,10 @@ import android.content.Context
 import android.provider.Settings
 import android.telephony.TelephonyManager
 import com.devstree.traker.SecurityConfig
-import com.devstree.traker.integrity.IntegrityFeed
-import com.devstree.traker.integrity.IntegrityObservation
-import com.devstree.traker.integrity.IntegrityProbe
 import com.devstree.traker.integrity.IntegritySignal
+import com.devstree.traker.integrity.internal.IntegrityFeed
+import com.devstree.traker.integrity.internal.IntegrityObservation
+import com.devstree.traker.integrity.internal.IntegrityProbe
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs

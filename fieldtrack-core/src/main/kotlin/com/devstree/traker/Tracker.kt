@@ -46,7 +46,7 @@ import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.port.RoadSnapProvider
 import com.devstree.traker.geo.port.SnapFix
 import com.devstree.traker.geo.port.SnapRequest
-import com.devstree.traker.integrity.IntegrityMonitor
+import com.devstree.traker.integrity.internal.IntegrityMonitor
 import com.devstree.traker.integrity.IntegrityReport
 import com.devstree.traker.motion.DeviceSensors
 import com.devstree.traker.motion.SensorProbe

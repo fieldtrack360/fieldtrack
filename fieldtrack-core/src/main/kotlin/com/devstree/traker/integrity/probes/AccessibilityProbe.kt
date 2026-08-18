@@ -6,11 +6,11 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
 import com.devstree.traker.SecurityConfig
-import com.devstree.traker.integrity.IntegrityEnvironment
 import com.devstree.traker.integrity.IntegrityFinding
-import com.devstree.traker.integrity.IntegrityObservation
-import com.devstree.traker.integrity.IntegrityProbe
 import com.devstree.traker.integrity.IntegritySignal
+import com.devstree.traker.integrity.internal.IntegrityEnvironment
+import com.devstree.traker.integrity.internal.IntegrityObservation
+import com.devstree.traker.integrity.internal.IntegrityProbe
 
 /**
  * Non-system accessibility services that are currently enabled.

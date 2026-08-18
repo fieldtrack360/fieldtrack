@@ -15,7 +15,7 @@ import com.devstree.traker.geo.model.TrackFix
 import com.devstree.traker.geo.model.TrackPoint
 import com.devstree.traker.geo.motion.TurnDetector
 import com.devstree.traker.geo.port.Clock
-import com.devstree.traker.integrity.IntegrityFeed
+import com.devstree.traker.integrity.internal.IntegrityFeed
 import com.devstree.traker.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

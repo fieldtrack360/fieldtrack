@@ -1,7 +1,11 @@
-package com.devstree.traker.integrity
+package com.devstree.traker.integrity.internal
 
 import com.devstree.traker.SecurityConfig
 import com.devstree.traker.geo.port.Clock
+import com.devstree.traker.integrity.IntegrityFinding
+import com.devstree.traker.integrity.IntegrityPolicy
+import com.devstree.traker.integrity.IntegrityReport
+import com.devstree.traker.integrity.IntegritySignal
 
 /**
  * Runs the probes, applies policy, produces one [IntegrityReport].

@@ -1,8 +1,10 @@
-package com.devstree.traker.integrity
+package com.devstree.traker.integrity.internal
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import com.devstree.traker.SecurityConfig
+import com.devstree.traker.integrity.IntegrityFinding
+import com.devstree.traker.integrity.IntegritySignal
 import com.devstree.traker.license.LicenseEnvironment
 
 /**

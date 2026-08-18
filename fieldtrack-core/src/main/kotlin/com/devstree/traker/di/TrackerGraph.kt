@@ -49,10 +49,10 @@ import com.devstree.traker.geo.motion.TurnDetector
 import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.port.PointStore
 import com.devstree.traker.geo.port.TrackLogger
-import com.devstree.traker.integrity.IntegrityEnvironment
-import com.devstree.traker.integrity.IntegrityEvaluator
-import com.devstree.traker.integrity.IntegrityFeed
-import com.devstree.traker.integrity.IntegrityMonitor
+import com.devstree.traker.integrity.internal.IntegrityEnvironment
+import com.devstree.traker.integrity.internal.IntegrityEvaluator
+import com.devstree.traker.integrity.internal.IntegrityFeed
+import com.devstree.traker.integrity.internal.IntegrityMonitor
 import com.devstree.traker.integrity.probes.AccessibilityProbe
 import com.devstree.traker.integrity.probes.ClockIntegrityProbe
 import com.devstree.traker.integrity.probes.DeveloperModeProbe

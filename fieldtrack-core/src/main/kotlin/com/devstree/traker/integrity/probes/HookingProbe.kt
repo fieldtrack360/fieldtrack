@@ -4,12 +4,12 @@ import android.os.Build
 import android.os.Debug
 import com.devstree.traker.SecurityConfig
 import com.devstree.traker.integrity.IntegrityFinding
-import com.devstree.traker.integrity.IntegrityObservation
-import com.devstree.traker.integrity.IntegrityProbe
 import com.devstree.traker.integrity.IntegritySignal
-import com.devstree.traker.integrity.LoopbackProbe
-import com.devstree.traker.integrity.ProcDirLister
-import com.devstree.traker.integrity.ProcReader
+import com.devstree.traker.integrity.internal.IntegrityObservation
+import com.devstree.traker.integrity.internal.IntegrityProbe
+import com.devstree.traker.integrity.internal.LoopbackProbe
+import com.devstree.traker.integrity.internal.ProcDirLister
+import com.devstree.traker.integrity.internal.ProcReader
 
 /**
  * Frida, Xposed and attached debuggers.

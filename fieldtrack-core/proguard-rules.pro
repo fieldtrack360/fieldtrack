@@ -69,6 +69,12 @@
 # The device-integrity model, and ONLY the model. The probes, the evaluator and the
 # monitor are internal and stay renamed and repackaged — an anti-tamper layer whose class
 # names survive obfuscation is a map for the person it exists to stop.
+#
+# Those internals live in `integrity.internal`, not in this package, and must stay there:
+# R8 renames but refuses to REPACKAGE a class that shares a package with a pinned class
+# and is reachable from a pinned member's signature (Tracker's constructor takes the
+# monitor). The result was `com/devstree/traker/integrity/a.class` shipping in the API
+# package, which verifyReleaseObfuscation rejects.
 -keep public class com.devstree.traker.integrity.IntegritySignal { public protected *; }
 -keep public class com.devstree.traker.integrity.IntegrityPolicy { public protected *; }
 -keep public class com.devstree.traker.integrity.IntegrityFinding { public protected *; }

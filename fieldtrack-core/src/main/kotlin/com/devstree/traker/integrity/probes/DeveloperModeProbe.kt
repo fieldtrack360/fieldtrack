@@ -3,9 +3,9 @@ package com.devstree.traker.integrity.probes
 import android.content.Context
 import android.provider.Settings
 import com.devstree.traker.SecurityConfig
-import com.devstree.traker.integrity.IntegrityObservation
-import com.devstree.traker.integrity.IntegrityProbe
 import com.devstree.traker.integrity.IntegritySignal
+import com.devstree.traker.integrity.internal.IntegrityObservation
+import com.devstree.traker.integrity.internal.IntegrityProbe
 
 /**
  * Developer options and USB debugging.

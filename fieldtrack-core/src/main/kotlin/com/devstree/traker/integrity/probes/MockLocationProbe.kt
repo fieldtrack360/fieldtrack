@@ -6,12 +6,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import com.devstree.traker.SecurityConfig
-import com.devstree.traker.integrity.IntegrityEnvironment
-import com.devstree.traker.integrity.IntegrityFeed
 import com.devstree.traker.integrity.IntegrityFinding
-import com.devstree.traker.integrity.IntegrityObservation
-import com.devstree.traker.integrity.IntegrityProbe
 import com.devstree.traker.integrity.IntegritySignal
+import com.devstree.traker.integrity.internal.IntegrityEnvironment
+import com.devstree.traker.integrity.internal.IntegrityFeed
+import com.devstree.traker.integrity.internal.IntegrityObservation
+import com.devstree.traker.integrity.internal.IntegrityProbe
 
 /**
  * Fake-GPS apps, from two directions.

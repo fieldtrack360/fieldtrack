@@ -12,7 +12,7 @@ import com.devstree.traker.geo.model.MotionState
 import com.devstree.traker.geo.port.TrackLogger
 import com.devstree.traker.domain.model.ErrorCode
 import com.devstree.traker.domain.usecase.StopTrackingUseCase
-import com.devstree.traker.integrity.IntegrityMonitor
+import com.devstree.traker.integrity.internal.IntegrityMonitor
 import com.devstree.traker.motion.MotionController
 import com.devstree.traker.permission.ProviderStateMonitor
 import com.devstree.traker.work.BackstopWorker

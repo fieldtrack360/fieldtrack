@@ -1,4 +1,4 @@
-package com.devstree.traker.integrity
+package com.devstree.traker.integrity.internal
 
 import com.devstree.traker.geo.model.TrackFix
 import com.devstree.traker.geo.port.Clock

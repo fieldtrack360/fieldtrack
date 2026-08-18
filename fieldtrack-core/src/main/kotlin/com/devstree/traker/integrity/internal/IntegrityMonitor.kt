@@ -1,7 +1,8 @@
-package com.devstree.traker.integrity
+package com.devstree.traker.integrity.internal
 
 import com.devstree.traker.SecurityConfig
 import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.integrity.IntegrityReport
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
