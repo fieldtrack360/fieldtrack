@@ -6,24 +6,24 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.devstree.trackit.RawFix
-import com.devstree.trackit.TrackIt
-import com.devstree.trackit.domain.model.ErrorCode
-import com.devstree.trackit.domain.model.PermissionTier
-import com.devstree.trackit.domain.model.PointQuery
-import com.devstree.trackit.domain.model.TrackItEvent
-import com.devstree.trackit.domain.model.TrackItGeofence
-import com.devstree.trackit.domain.model.TrackItResult
-import com.devstree.trackit.domain.model.TrackSession
-import com.devstree.trackit.geo.model.FixDecision
-import com.devstree.trackit.geo.math.Geodesy
-import com.devstree.trackit.geo.model.GeoPoint
-import com.devstree.trackit.geo.model.MotionState
-import com.devstree.trackit.domain.model.ProviderState
-import com.devstree.trackit.geo.model.TrackPoint
-import com.devstree.trackit.geo.plot.model.Track
-import com.devstree.trackit.geo.plot.model.TrackOptions
-import com.devstree.trackit.permission.PermissionManager
+import com.devstree.traker.RawFix
+import com.devstree.traker.Traker
+import com.devstree.traker.domain.model.ErrorCode
+import com.devstree.traker.domain.model.PermissionTier
+import com.devstree.traker.domain.model.PointQuery
+import com.devstree.traker.domain.model.ProviderState
+import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.domain.model.TrakerGeofence
+import com.devstree.traker.domain.model.TrakerResult
+import com.devstree.traker.domain.model.TrackSession
+import com.devstree.traker.geo.math.Geodesy
+import com.devstree.traker.geo.model.FixDecision
+import com.devstree.traker.geo.model.GeoPoint
+import com.devstree.traker.geo.model.MotionState
+import com.devstree.traker.geo.model.TrackPoint
+import com.devstree.traker.geo.plot.model.Track
+import com.devstree.traker.geo.plot.model.TrackOptions
+import com.devstree.traker.permission.PermissionManager
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,11 +40,11 @@ import kotlin.math.sin
 /**
  * One view model over the whole SDK surface.
  *
- * Deliberately thin: the sample exists to exercise `TrackIt`, not to demonstrate app
+ * Deliberately thin: the sample exists to exercise `Traker`, not to demonstrate app
  * architecture. Everything interesting lives behind the SDK boundary.
  */
 class TrackItViewModel(
-    private val trackIt: TrackIt,
+    private val traker: Traker,
     private val captureLog: CaptureLog,
 ) : ViewModel() {
 
@@ -105,7 +105,7 @@ class TrackItViewModel(
         val apiCheckRunning: Boolean = false,
         val registeredGeofenceCount: Int = 0,
         val geofenceEventCount: Int = 0,
-        val geofences: List<TrackItGeofence> = emptyList(),
+        val geofences: List<TrakerGeofence> = emptyList(),
     )
 
     private val _state = MutableStateFlow(UiState())
@@ -137,10 +137,10 @@ class TrackItViewModel(
         viewModelScope.launch {
             // Application-scoped in the SDK, lifecycle-scoped here: the collector dies
             // with the view model and native state stays the truth (EC-113).
-            trackIt.events.collect { event -> onEvent(event) }
+            traker.events.collect { event -> onEvent(event) }
         }
         viewModelScope.launch {
-            trackIt.state.collect { sdk ->
+            traker.state.collect { sdk ->
                 _state.update {
                     it.copy(
                         isTracking = sdk.isTracking,
@@ -160,10 +160,10 @@ class TrackItViewModel(
      */
     private fun writeRunHeader() {
         captureLog.runHeader(
-            sensors = runCatching { trackIt.getSensors() }.getOrNull(),
-            tier = trackIt.permissionTier(),
-            accuracy = trackIt.permissions().accuracy(),
-            provider = runCatching { trackIt.providerState().value }.getOrNull(),
+            sensors = runCatching { traker.getSensors() }.getOrNull(),
+            tier = traker.permissionTier(),
+            accuracy = traker.permissions().accuracy(),
+            provider = runCatching { traker.providerState().value }.getOrNull(),
             mapsKeyPresent = BuildConfig.MAPS_API_KEY.isNotEmpty(),
             licensePresent = BuildConfig.TRACKIT_LICENSE.isNotEmpty(),
         )
@@ -189,37 +189,39 @@ class TrackItViewModel(
         refreshLogStats()
     }
 
-    private fun onEvent(event: TrackItEvent) {
+    private fun onEvent(event: TrakerEvent) {
         // Every capture goes to the file first, before any UI-shaped summarising. The
         // in-memory `log` below is capped at LOG_LIMIT lines for the screen; the file is
         // the complete record.
         captureLog.event(event)
 
         val line = when (event) {
-            is TrackItEvent.Location ->
+            is TrakerEvent.Location ->
                 "ACCEPT  ${event.point.acceptReason}  acc=${"%.0f".format(event.point.accuracy)}m"
-            is TrackItEvent.LocationRejected ->
+            is TrakerEvent.LocationRejected ->
                 "${verdictOf(event.decision)}  ${event.decision.reason}"
-            is TrackItEvent.MotionChange -> "MOTION  ${event.state}"
-            is TrackItEvent.ActivityChange -> "ACTIVITY ${event.activity}"
-            is TrackItEvent.ProviderChange -> "PROVIDER gps=${event.state.gpsEnabled} tier=${event.state.permission}"
-            is TrackItEvent.Error -> "ERROR   ${event.code}: ${event.message}"
-            is TrackItEvent.Diagnostic -> "DIAG    ${event.message}"
-            is TrackItEvent.SessionInterrupted -> "SESSION interrupted ${event.session.id.take(8)}"
-            is TrackItEvent.EnabledChange -> "ENABLED ${event.enabled}"
-            is TrackItEvent.PowerSaveChange -> "POWER   saver=${event.enabled}"
-            is TrackItEvent.GeofenceAdded -> "GEOFENCE added ${event.geofence.id}"
-            is TrackItEvent.GeofenceRemoved -> "GEOFENCE removed ${event.geofenceId}"
-            is TrackItEvent.GeofenceEntered -> "GEOFENCE enter ${event.geofence.id}"
-            is TrackItEvent.GeofenceExited -> "GEOFENCE exit ${event.geofence.id}"
-            is TrackItEvent.Heartbeat -> "HEARTBEAT ${event.atMs}"
+            is TrakerEvent.MotionChange -> "MOTION  ${event.state}"
+            is TrakerEvent.ActivityChange -> "ACTIVITY ${event.activity}"
+            is TrakerEvent.ProviderChange -> "PROVIDER gps=${event.state.gpsEnabled} tier=${event.state.permission}"
+            is TrakerEvent.Error -> "ERROR   ${event.code}: ${event.message}"
+            is TrakerEvent.Diagnostic -> "DIAG    ${event.message}"
+            is TrakerEvent.SessionInterrupted -> "SESSION interrupted ${event.session.id.take(8)}"
+            is TrakerEvent.EnabledChange -> "ENABLED ${event.enabled}"
+            is TrakerEvent.PowerSaveChange -> "POWER   saver=${event.enabled}"
+            is TrakerEvent.BatteryChange ->
+                "BATTERY ${event.battery.percent ?: "unknown"}% charging=${event.battery.isCharging ?: "unknown"}"
+            is TrakerEvent.GeofenceAdded -> "GEOFENCE added ${event.geofence.id}"
+            is TrakerEvent.GeofenceRemoved -> "GEOFENCE removed ${event.geofenceId}"
+            is TrakerEvent.GeofenceEntered -> "GEOFENCE enter ${event.geofence.id}"
+            is TrakerEvent.GeofenceExited -> "GEOFENCE exit ${event.geofence.id}"
+            is TrakerEvent.Heartbeat -> "HEARTBEAT ${event.atMs}"
         }
 
-        if (event is TrackItEvent.Location) onPointCollected(event.point)
-        if (event is TrackItEvent.GeofenceAdded ||
-            event is TrackItEvent.GeofenceRemoved ||
-            event is TrackItEvent.GeofenceEntered ||
-            event is TrackItEvent.GeofenceExited
+        if (event is TrakerEvent.Location) onPointCollected(event.point)
+        if (event is TrakerEvent.GeofenceAdded ||
+            event is TrakerEvent.GeofenceRemoved ||
+            event is TrakerEvent.GeofenceEntered ||
+            event is TrakerEvent.GeofenceExited
         ) {
             refreshGeofenceCounts()
         }
@@ -227,9 +229,9 @@ class TrackItViewModel(
         _state.update { current ->
             current.copy(
                 lastEvent = line,
-                lastHeartbeatAtMs = (event as? TrackItEvent.Heartbeat)?.atMs ?: current.lastHeartbeatAtMs,
-                error = (event as? TrackItEvent.Error)?.let { "${it.code}: ${it.message}" } ?: current.error,
-                pointCount = current.pointCount + if (event is TrackItEvent.Location) 1 else 0,
+                lastHeartbeatAtMs = (event as? TrakerEvent.Heartbeat)?.atMs ?: current.lastHeartbeatAtMs,
+                error = (event as? TrakerEvent.Error)?.let { "${it.code}: ${it.message}" } ?: current.error,
+                pointCount = current.pointCount + if (event is TrakerEvent.Location) 1 else 0,
                 log = (listOf(line) + current.log).take(LOG_LIMIT),
             )
         }
@@ -238,7 +240,7 @@ class TrackItViewModel(
         // arrives as a non-fatal event on start() and again if the grant is revoked
         // mid-session. An error string alone is useless here — from Android 11 there is
         // no prompt the user could have missed, so the steps have to be shown.
-        if (event is TrackItEvent.Error && event.code == ErrorCode.BACKGROUND_PERMISSION_MISSING) {
+        if (event is TrakerEvent.Error && event.code == ErrorCode.BACKGROUND_PERMISSION_MISSING) {
             showBackgroundRationale()
         }
     }
@@ -272,9 +274,9 @@ class TrackItViewModel(
     }
 
     fun start() = viewModelScope.launch {
-        captureLog.note("START", "requested tag=sample tier=${trackIt.permissionTier()}")
-        when (val result = trackIt.start(tag = "sample")) {
-            is TrackItResult.Ok -> {
+        captureLog.note("START", "requested tag=sample tier=${traker.permissionTier()}")
+        when (val result = traker.start(tag = "sample")) {
+            is TrakerResult.Ok -> {
                 captureLog.note("START", "ok session=${result.value.id}")
                 // A new session means new counters. Carrying the previous run's totals
                 // over is how a "why does it say 400 points" question starts.
@@ -293,7 +295,7 @@ class TrackItViewModel(
                     )
                 }
             }
-            is TrackItResult.Error -> {
+            is TrakerResult.Error -> {
                 captureLog.note("START", "failed code=${result.code} message=${result.message}")
                 _state.update { it.copy(error = "${result.code}: ${result.message}") }
             }
@@ -303,8 +305,8 @@ class TrackItViewModel(
 
     fun stop() = viewModelScope.launch {
         // Capture the id before stopping — afterwards there is no current session to ask.
-        val sessionId = trackIt.currentSession()?.id ?: _state.value.sessionId
-        trackIt.stop()
+        val sessionId = traker.currentSession()?.id ?: _state.value.sessionId
+        traker.stop()
         captureLog.note("STOP", "session=${sessionId ?: "-"}")
         dumpSession(sessionId)
         loadSessions()
@@ -313,24 +315,24 @@ class TrackItViewModel(
 
     /** Requests a snapshot without starting or modifying a tracking session. */
     fun testCurrentLocation() = runApiCheck("CURRENT") {
-        when (val result = trackIt.getCurrentLocation()) {
-            is TrackItResult.Ok -> {
+        when (val result = traker.getCurrentLocation()) {
+            is TrakerResult.Ok -> {
                 val fix = result.value
                 "OK lat=${"%.6f".format(fix.latitude)} lng=${"%.6f".format(fix.longitude)} " +
                     "acc=${"%.1f".format(fix.accuracy)}m provider=${fix.provider}"
             }
-            is TrackItResult.Error -> "FAILED ${result.code}: ${result.message}"
+            is TrakerResult.Error -> "FAILED ${result.code}: ${result.message}"
         }
     }
 
     /** Requests a snapshot and registers/replaces a stable test fence at that position. */
     fun addTestGeofence() = runApiCheck("GEOFENCE_ADD") {
-        when (val location = trackIt.getCurrentLocation()) {
-            is TrackItResult.Error ->
+        when (val location = traker.getCurrentLocation()) {
+            is TrakerResult.Error ->
                 "FAILED location ${location.code}: ${location.message}"
-            is TrackItResult.Ok -> {
+            is TrakerResult.Ok -> {
                 val fix = location.value
-                val fence = TrackItGeofence(
+                val fence = TrakerGeofence(
                     id = TEST_GEOFENCE_ID,
                     latitude = fix.latitude,
                     longitude = fix.longitude,
@@ -338,12 +340,12 @@ class TrackItViewModel(
                     onEnterEvent = "sample_test_enter",
                     onExitEvent = "sample_test_exit",
                 )
-                when (val added = trackIt.addGeofence(fence)) {
-                    is TrackItResult.Ok -> {
+                when (val added = traker.addGeofence(fence)) {
+                    is TrakerResult.Ok -> {
                         refreshGeofenceCounts()
                         "OK id=${added.value.id} radius=${added.value.radiusM}m"
                     }
-                    is TrackItResult.Error -> "FAILED ${added.code}: ${added.message}"
+                    is TrakerResult.Error -> "FAILED ${added.code}: ${added.message}"
                 }
             }
         }
@@ -351,10 +353,10 @@ class TrackItViewModel(
 
     /** Registers ten stable test fences in a ring around one current-location fix. */
     fun addTenTestGeofences() = runApiCheck("GEOFENCE_ADD_10") {
-        when (val location = trackIt.getCurrentLocation()) {
-            is TrackItResult.Error ->
+        when (val location = traker.getCurrentLocation()) {
+            is TrakerResult.Error ->
                 "FAILED location ${location.code}: ${location.message}"
-            is TrackItResult.Ok -> {
+            is TrakerResult.Ok -> {
                 val origin = GeoPoint(location.value.latitude, location.value.longitude)
                 var addedCount = 0
                 var firstFailure: String? = null
@@ -367,8 +369,8 @@ class TrackItViewModel(
                     )
                     val id = "$TEST_GEOFENCE_BATCH_PREFIX${index + 1}"
                     when (
-                        val result = trackIt.addGeofence(
-                            TrackItGeofence(
+                        val result = traker.addGeofence(
+                            TrakerGeofence(
                                 id = id,
                                 latitude = center.latitude,
                                 longitude = center.longitude,
@@ -378,8 +380,8 @@ class TrackItViewModel(
                             ),
                         )
                     ) {
-                        is TrackItResult.Ok -> addedCount++
-                        is TrackItResult.Error -> if (firstFailure == null) {
+                        is TrakerResult.Ok -> addedCount++
+                        is TrakerResult.Error -> if (firstFailure == null) {
                             firstFailure = "${result.code}: ${result.message}"
                         }
                     }
@@ -395,7 +397,7 @@ class TrackItViewModel(
     }
 
     fun listTestGeofences() = runApiCheck("GEOFENCE_LIST") {
-        val fences = trackIt.getGeofences()
+        val fences = traker.getGeofences()
         refreshGeofenceCounts()
         if (fences.isEmpty()) "OK no registered geofences" else {
             "OK count=${fences.size} ids=${fences.joinToString { it.id }}"
@@ -403,7 +405,7 @@ class TrackItViewModel(
     }
 
     fun getTestGeofence() = runApiCheck("GEOFENCE_GET") {
-        val fence = trackIt.getGeofence(TEST_GEOFENCE_ID)
+        val fence = traker.getGeofence(TEST_GEOFENCE_ID)
         if (fence == null) "OK test fence not registered" else {
             "OK id=${fence.id} lat=${"%.6f".format(fence.latitude)} " +
                 "lng=${"%.6f".format(fence.longitude)} radius=${fence.radiusM}m"
@@ -411,27 +413,27 @@ class TrackItViewModel(
     }
 
     fun removeTestGeofence() = runApiCheck("GEOFENCE_REMOVE") {
-        when (val result = trackIt.removeGeofence(TEST_GEOFENCE_ID)) {
-            is TrackItResult.Ok -> {
+        when (val result = traker.removeGeofence(TEST_GEOFENCE_ID)) {
+            is TrakerResult.Ok -> {
                 refreshGeofenceCounts()
                 "OK removed=${result.value}"
             }
-            is TrackItResult.Error -> "FAILED ${result.code}: ${result.message}"
+            is TrakerResult.Error -> "FAILED ${result.code}: ${result.message}"
         }
     }
 
     fun removeAllTestGeofences() = runApiCheck("GEOFENCE_REMOVE_ALL") {
-        when (val result = trackIt.removeAllGeofences()) {
-            is TrackItResult.Ok -> {
+        when (val result = traker.removeAllGeofences()) {
+            is TrakerResult.Ok -> {
                 refreshGeofenceCounts()
                 "OK removed=${result.value}"
             }
-            is TrackItResult.Error -> "FAILED ${result.code}: ${result.message}"
+            is TrakerResult.Error -> "FAILED ${result.code}: ${result.message}"
         }
     }
 
     fun readTestGeofenceHistory() = runApiCheck("GEOFENCE_HISTORY") {
-        val events = trackIt.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS)
+        val events = traker.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS)
         refreshGeofenceCounts()
         val latest = events.firstOrNull()
         if (latest == null) "OK no crossing events" else {
@@ -440,7 +442,7 @@ class TrackItViewModel(
     }
 
     fun clearTestGeofenceHistory() = runApiCheck("GEOFENCE_HISTORY_CLEAR") {
-        val deleted = trackIt.deleteGeofenceEvents()
+        val deleted = traker.deleteGeofenceEvents()
         refreshGeofenceCounts()
         "OK deleted=$deleted"
     }
@@ -464,11 +466,11 @@ class TrackItViewModel(
     }
 
     private fun refreshGeofenceCounts() {
-        val geofences = trackIt.getGeofences()
+        val geofences = traker.getGeofences()
         _state.update {
             it.copy(
                 registeredGeofenceCount = geofences.size,
-                geofenceEventCount = trackIt.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS).size,
+                geofenceEventCount = traker.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS).size,
                 geofences = geofences,
             )
         }
@@ -482,20 +484,20 @@ class TrackItViewModel(
      */
     private suspend fun dumpSession(sessionId: String?) {
         val query = PointQuery(sessionId = sessionId, limit = MAX_POINTS)
-        val raw = sessionId?.let { runCatching { trackIt.getRawFixes(it) }.getOrDefault(emptyList()) }
+        val raw = sessionId?.let { runCatching { traker.getRawFixes(it) }.getOrDefault(emptyList()) }
             ?: emptyList()
         captureLog.sessionDump(
             sessionId = sessionId,
             rawFixes = raw,
-            decisions = trackIt.getDecisions(sessionId, limit = MAX_DECISIONS),
-            points = trackIt.getPoints(query),
+            decisions = traker.getDecisions(sessionId, limit = MAX_DECISIONS),
+            points = traker.getPoints(query),
         )
         refreshLogStats()
     }
 
     /** Every session ever recorded, newest first. */
     fun loadSessions() = viewModelScope.launch {
-        val all = trackIt.getSessions().sortedByDescending { it.startedAtMs }
+        val all = traker.getSessions().sortedByDescending { it.startedAtMs }
         _state.update { it.copy(sessions = all) }
     }
 
@@ -508,10 +510,10 @@ class TrackItViewModel(
      */
     fun openSession(sessionId: String) = viewModelScope.launch {
         val query = PointQuery(sessionId = sessionId, limit = MAX_POINTS)
-        val points = trackIt.getPoints(query)
-        val track = trackIt.buildTrack(query, trackOptions())
-        val decisions = trackIt.getDecisions(sessionId, limit = MAX_DECISIONS)
-        val raw = runCatching { trackIt.getRawFixes(sessionId) }.getOrDefault(emptyList())
+        val points = traker.getPoints(query)
+        val track = traker.buildTrack(query, trackOptions())
+        val decisions = traker.getDecisions(sessionId, limit = MAX_DECISIONS)
+        val raw = runCatching { traker.getRawFixes(sessionId) }.getOrDefault(emptyList())
 
         captureLog.note("OPEN", "session=$sessionId points=${points.size} segments=${track.segments.size}")
         // Dump on open, not only on stop. Diagnosing a drive means looking at it *after*
@@ -554,16 +556,16 @@ class TrackItViewModel(
         // A session picked from the Home list wins: without this, switching tabs while
         // viewing an old session would silently snap back to the live one.
         val sessionId = _state.value.selectedSessionId
-            ?: trackIt.currentSession()?.id
+            ?: traker.currentSession()?.id
             ?: _state.value.sessionId
         val query = PointQuery(sessionId = sessionId, limit = MAX_POINTS)
 
-        val points = trackIt.getPoints(query)
-        val decisions = trackIt.getDecisions(sessionId, limit = MAX_DECISIONS)
-        val raw = sessionId?.let { runCatching { trackIt.getRawFixes(it) }.getOrDefault(emptyList()) }
+        val points = traker.getPoints(query)
+        val decisions = traker.getDecisions(sessionId, limit = MAX_DECISIONS)
+        val raw = sessionId?.let { runCatching { traker.getRawFixes(it) }.getOrDefault(emptyList()) }
             ?: emptyList()
-        val track = trackIt.buildTrack(query, trackOptions())
-        val geofences = trackIt.getGeofences()
+        val track = traker.buildTrack(query, trackOptions())
+        val geofences = traker.getGeofences()
 
         _state.update {
             it.copy(
@@ -577,7 +579,7 @@ class TrackItViewModel(
                 logSizeBytes = captureLog.sizeBytes(),
                 geofences = geofences,
                 registeredGeofenceCount = geofences.size,
-                geofenceEventCount = trackIt.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS).size,
+                geofenceEventCount = traker.getGeofenceEvents(limit = MAX_GEOFENCE_EVENTS).size,
             )
         }
     }
@@ -588,7 +590,7 @@ class TrackItViewModel(
      * point of the background step (EC-05).
      */
     fun refreshPermissions() {
-        val step = when (trackIt.permissions().backgroundRequest()) {
+        val step = when (traker.permissions().backgroundRequest()) {
             PermissionManager.BackgroundRequest.AlreadyGranted -> BackgroundStep.GRANTED
             PermissionManager.BackgroundRequest.NotApplicable -> BackgroundStep.NOT_APPLICABLE
             PermissionManager.BackgroundRequest.NeedsForegroundFirst -> BackgroundStep.NEEDS_FOREGROUND_FIRST
@@ -597,7 +599,7 @@ class TrackItViewModel(
         }
         _state.update {
             it.copy(
-                permissionTier = trackIt.permissionTier(),
+                permissionTier = traker.permissionTier(),
                 backgroundStep = step,
                 // Granted while we were away — close the dialog instead of asking again.
                 showBackgroundDialog = it.showBackgroundDialog && step.isActionable(),
@@ -619,7 +621,7 @@ class TrackItViewModel(
         // Attempt cap: a "Don't ask again" user must never be prompt-looped, so once the
         // runtime prompt is spent the Settings route is all that is offered (EC-14).
         val step = if (current.backgroundStep == BackgroundStep.PROMPT &&
-            trackIt.permissions().shouldStopAsking(current.backgroundAttempts)
+            traker.permissions().shouldStopAsking(current.backgroundAttempts)
         ) {
             BackgroundStep.SETTINGS
         } else {
@@ -659,7 +661,7 @@ class TrackItViewModel(
             initializer {
                 val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
                     as SampleApplication
-                TrackItViewModel(app.trackIt, app.captureLog)
+                TrackItViewModel(app.traker, app.captureLog)
             }
         }
 
@@ -674,8 +676,8 @@ class TrackItViewModel(
         private const val TEST_GEOFENCE_RING_RADIUS_M = 400.0
         private const val VERDICT_WIDTH = 7
 
-        /** Matches the SDK's own `TrackIt/<tag>` logcat convention, so one grep finds both. */
-        private const val TAG = "TrackIt/Sample"
+        /** Matches the SDK's own `Traker/<tag>` logcat convention, so one grep finds both. */
+        private const val TAG = "Traker/Sample"
         private const val SHORT_ID = 8
         private const val TOAST_BUFFER = 4
 

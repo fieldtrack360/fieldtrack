@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.domain.model.TrackSession
+import com.devstree.traker.domain.model.TrackSession
 import com.devstree.trackit.sample.TrackItViewModel
 
 @Composable

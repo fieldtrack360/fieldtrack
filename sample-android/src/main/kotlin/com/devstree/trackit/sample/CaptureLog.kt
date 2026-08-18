@@ -2,16 +2,16 @@ package com.devstree.trackit.sample
 
 import android.content.Context
 import android.os.Build
-import com.devstree.trackit.RawFix
-import com.devstree.trackit.domain.model.LocationAccuracy
-import com.devstree.trackit.domain.model.PermissionTier
-import com.devstree.trackit.domain.model.ProviderState
-import com.devstree.trackit.domain.model.TrackItEvent
-import com.devstree.trackit.geo.model.FixDecision
-import com.devstree.trackit.geo.model.TrackFix
-import com.devstree.trackit.geo.model.TrackPoint
-import com.devstree.trackit.geo.plot.model.Track
-import com.devstree.trackit.motion.DeviceSensors
+import com.devstree.traker.RawFix
+import com.devstree.traker.domain.model.LocationAccuracy
+import com.devstree.traker.domain.model.PermissionTier
+import com.devstree.traker.domain.model.ProviderState
+import com.devstree.traker.domain.model.TrakerEvent
+import com.devstree.traker.geo.model.FixDecision
+import com.devstree.traker.geo.model.TrackFix
+import com.devstree.traker.geo.model.TrackPoint
+import com.devstree.traker.geo.plot.model.Track
+import com.devstree.traker.motion.DeviceSensors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,7 +37,7 @@ import java.util.Locale
  * Design constraints that shaped it:
  *  - **Never blocks the caller.** Lines go into a [Channel] and a single writer coroutine
  *    drains them. A slow SD card must not suspend the event collector, because
- *    `TrackIt.events` is a `SharedFlow` and a suspended collector loses events.
+ *    `traker.events` is a `SharedFlow` and a suspended collector loses events.
  *  - **Flushes every line.** A tracking process gets killed by the OEM, by a crash, or by
  *    the user. A buffered tail that never reached disk is exactly the data you needed.
  *  - **One file, appended forever.** Runs are separated by a banner. Rotating files is
@@ -111,7 +111,7 @@ class CaptureLog(context: Context) {
         raw("# columns: <wall clock> | <kind> | key=value ...")
         raw("#")
         raw("# HOW TO READ THIS FILE")
-        raw("# Produced by the TrackIt sample app. Line kinds:")
+        raw("# Produced by the Traker sample app. Line kinds:")
         raw("#   RAWFIX   a fix as the OS delivered it, before any filtering")
         raw("#   DECISION what the acceptance pipeline decided about one fix, and why")
         raw("#   POINT    a fix that survived and was stored — these draw the polyline")
@@ -128,37 +128,43 @@ class CaptureLog(context: Context) {
     }
 
     /** One line per event. Every field of every payload — nothing summarised away. */
-    fun event(event: TrackItEvent) {
+    fun event(event: TrakerEvent) {
         val now = System.currentTimeMillis()
         when (event) {
-            is TrackItEvent.Location -> line(now, "ACCEPT", point(event.point))
-            is TrackItEvent.LocationRejected -> line(now, verdictKind(event.decision), decision(event.decision))
-            is TrackItEvent.MotionChange ->
+            is TrakerEvent.Location -> line(now, "ACCEPT", point(event.point))
+            is TrakerEvent.LocationRejected -> line(now, verdictKind(event.decision), decision(event.decision))
+            is TrakerEvent.MotionChange ->
                 line(now, "MOTION", "state=${event.state} atPoint=${event.point?.uuid ?: "-"}")
-            is TrackItEvent.ActivityChange ->
+            is TrakerEvent.ActivityChange ->
                 line(now, "ACTIVITY", "type=${event.activity} confidence=${event.confidence}")
-            is TrackItEvent.EnabledChange -> line(now, "ENABLED", "enabled=${event.enabled}")
-            is TrackItEvent.ProviderChange -> line(
+            is TrakerEvent.EnabledChange -> line(now, "ENABLED", "enabled=${event.enabled}")
+            is TrakerEvent.ProviderChange -> line(
                 now,
                 "PROVIDER",
                 "gps=${event.state.gpsEnabled} network=${event.state.networkEnabled} " +
                     "fused=${event.state.fusedAvailable} powerSave=${event.state.powerSaveMode} " +
                     "tier=${event.state.permission} accuracy=${event.state.accuracyAuthorization}",
             )
-            is TrackItEvent.Heartbeat -> line(now, "HEARTBEAT", "atMs=${event.atMs} at=${stamp(event.atMs)}")
-            is TrackItEvent.PowerSaveChange -> line(now, "POWERSAVE", "enabled=${event.enabled}")
-            is TrackItEvent.GeofenceAdded ->
+            is TrakerEvent.Heartbeat -> line(now, "HEARTBEAT", "atMs=${event.atMs} at=${stamp(event.atMs)}")
+            is TrakerEvent.PowerSaveChange -> line(now, "POWERSAVE", "enabled=${event.enabled}")
+            is TrakerEvent.BatteryChange -> line(
+                now,
+                "BATTERY",
+                "percent=${event.battery.percent ?: "unknown"} charging=${event.battery.isCharging ?: "unknown"} " +
+                    "source=${event.battery.powerSource}",
+            )
+            is TrakerEvent.GeofenceAdded ->
                 line(now, "GEOFENCE", "added id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.GeofenceRemoved ->
+            is TrakerEvent.GeofenceRemoved ->
                 line(now, "GEOFENCE", "removed id=${event.geofenceId}")
-            is TrackItEvent.GeofenceEntered ->
+            is TrakerEvent.GeofenceEntered ->
                 line(now, "GEOFENCE", "enter id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.GeofenceExited ->
+            is TrakerEvent.GeofenceExited ->
                 line(now, "GEOFENCE", "exit id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.SessionInterrupted ->
+            is TrakerEvent.SessionInterrupted ->
                 line(now, "INTERRUPT", "session=${event.session.id} tag=${event.session.tag ?: "-"}")
-            is TrackItEvent.Diagnostic -> line(now, "DIAG", "message=${event.message}")
-            is TrackItEvent.Error -> line(now, "ERROR", "code=${event.code} message=${event.message}")
+            is TrakerEvent.Diagnostic -> line(now, "DIAG", "message=${event.message}")
+            is TrakerEvent.Error -> line(now, "ERROR", "code=${event.code} message=${event.message}")
         }
     }
 
@@ -429,7 +435,7 @@ class CaptureLog(context: Context) {
     }
 
     private companion object {
-        const val FILE_NAME = "trackit-capture.txt"
+        const val FILE_NAME = "Traker-capture.txt"
         const val BUFFERED_LINES = 4096
         const val KIND_WIDTH = 9
 
