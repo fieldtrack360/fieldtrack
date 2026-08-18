@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import android.util.Log
 import androidx.compose.foundation.layout.Box

@@ -2,16 +2,17 @@ package com.devstree.fieldtrack.sample
 
 import android.content.Context
 import android.os.Build
-import com.devstree.trackit.RawFix
-import com.devstree.trackit.domain.model.LocationAccuracy
-import com.devstree.trackit.domain.model.PermissionTier
-import com.devstree.trackit.domain.model.ProviderState
-import com.devstree.trackit.domain.model.TrackItEvent
-import com.devstree.trackit.geo.model.FixDecision
-import com.devstree.trackit.geo.model.TrackFix
-import com.devstree.trackit.geo.model.TrackPoint
-import com.devstree.trackit.geo.plot.model.Track
-import com.devstree.trackit.motion.DeviceSensors
+import com.devstree.fieldtrack.sample.BuildConfig
+import com.devstree.traker.RawFix
+import com.devstree.traker.domain.model.LocationAccuracy
+import com.devstree.traker.domain.model.PermissionTier
+import com.devstree.traker.domain.model.ProviderState
+import com.devstree.traker.domain.model.TrackerEvent
+import com.devstree.traker.geo.model.FixDecision
+import com.devstree.traker.geo.model.TrackFix
+import com.devstree.traker.geo.model.TrackPoint
+import com.devstree.traker.geo.plot.model.Track
+import com.devstree.traker.motion.DeviceSensors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +25,12 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.sqrt
+import kotlin.text.get
 
 /**
  * Every capture, every rejection and every state change, appended to one plain-text file.
@@ -37,7 +44,7 @@ import java.util.Locale
  * Design constraints that shaped it:
  *  - **Never blocks the caller.** Lines go into a [Channel] and a single writer coroutine
  *    drains them. A slow SD card must not suspend the event collector, because
- *    `TrackIt.events` is a `SharedFlow` and a suspended collector loses events.
+ *    `Tracker.events` is a `SharedFlow` and a suspended collector loses events.
  *  - **Flushes every line.** A tracking process gets killed by the OEM, by a crash, or by
  *    the user. A buffered tail that never reached disk is exactly the data you needed.
  *  - **One file, appended forever.** Runs are separated by a banner. Rotating files is
@@ -111,7 +118,7 @@ class CaptureLog(context: Context) {
         raw("# columns: <wall clock> | <kind> | key=value ...")
         raw("#")
         raw("# HOW TO READ THIS FILE")
-        raw("# Produced by the TrackIt sample app. Line kinds:")
+        raw("# Produced by the Tracker sample app. Line kinds:")
         raw("#   RAWFIX   a fix as the OS delivered it, before any filtering")
         raw("#   DECISION what the acceptance pipeline decided about one fix, and why")
         raw("#   POINT    a fix that survived and was stored — these draw the polyline")
@@ -128,37 +135,53 @@ class CaptureLog(context: Context) {
     }
 
     /** One line per event. Every field of every payload — nothing summarised away. */
-    fun event(event: TrackItEvent) {
+    fun event(event: TrackerEvent) {
         val now = System.currentTimeMillis()
         when (event) {
-            is TrackItEvent.Location -> line(now, "ACCEPT", point(event.point))
-            is TrackItEvent.LocationRejected -> line(now, verdictKind(event.decision), decision(event.decision))
-            is TrackItEvent.MotionChange ->
+            is TrackerEvent.Location -> line(now, "ACCEPT", point(event.point))
+            is TrackerEvent.LocationRejected -> line(now, verdictKind(event.decision), decision(event.decision))
+            is TrackerEvent.MotionChange ->
                 line(now, "MOTION", "state=${event.state} atPoint=${event.point?.uuid ?: "-"}")
-            is TrackItEvent.ActivityChange ->
+            is TrackerEvent.ActivityChange ->
                 line(now, "ACTIVITY", "type=${event.activity} confidence=${event.confidence}")
-            is TrackItEvent.EnabledChange -> line(now, "ENABLED", "enabled=${event.enabled}")
-            is TrackItEvent.ProviderChange -> line(
+            is TrackerEvent.EnabledChange -> line(now, "ENABLED", "enabled=${event.enabled}")
+            is TrackerEvent.ProviderChange -> line(
                 now,
                 "PROVIDER",
                 "gps=${event.state.gpsEnabled} network=${event.state.networkEnabled} " +
                     "fused=${event.state.fusedAvailable} powerSave=${event.state.powerSaveMode} " +
                     "tier=${event.state.permission} accuracy=${event.state.accuracyAuthorization}",
             )
-            is TrackItEvent.Heartbeat -> line(now, "HEARTBEAT", "atMs=${event.atMs} at=${stamp(event.atMs)}")
-            is TrackItEvent.PowerSaveChange -> line(now, "POWERSAVE", "enabled=${event.enabled}")
-            is TrackItEvent.GeofenceAdded ->
+            is TrackerEvent.Heartbeat -> line(now, "HEARTBEAT", "atMs=${event.atMs} at=${stamp(event.atMs)}")
+            is TrackerEvent.PowerSaveChange -> line(now, "POWERSAVE", "enabled=${event.enabled}")
+            is TrackerEvent.GeofenceAdded ->
                 line(now, "GEOFENCE", "added id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.GeofenceRemoved ->
+            is TrackerEvent.GeofenceRemoved ->
                 line(now, "GEOFENCE", "removed id=${event.geofenceId}")
-            is TrackItEvent.GeofenceEntered ->
+            is TrackerEvent.GeofenceEntered ->
                 line(now, "GEOFENCE", "enter id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.GeofenceExited ->
+            is TrackerEvent.GeofenceExited ->
                 line(now, "GEOFENCE", "exit id=${event.geofence.id} radius=${event.geofence.radiusM}")
-            is TrackItEvent.SessionInterrupted ->
+            is TrackerEvent.SessionInterrupted ->
                 line(now, "INTERRUPT", "session=${event.session.id} tag=${event.session.tag ?: "-"}")
-            is TrackItEvent.Diagnostic -> line(now, "DIAG", "message=${event.message}")
-            is TrackItEvent.Error -> line(now, "ERROR", "code=${event.code} message=${event.message}")
+            is TrackerEvent.BatteryChange -> line(
+                now,
+                "BATTERY",
+                "percent=${event.battery.percent} charging=${event.battery.isCharging} " +
+                    "source=${event.battery.powerSource}",
+            )
+            // Every signal, not just the blocking ones: a capture taken on a device that
+            // was merely warned about is exactly the file you want to read afterwards.
+            is TrackerEvent.IntegrityChange -> line(
+                now,
+                "INTEGRITY",
+                "waived=${event.report.waived} flags=${event.report.flags} " +
+                    "signals=${event.report.findings.joinToString("|") {
+                        "${it.signal}@${it.policy}(${it.confidence})"
+                    }.ifEmpty { "-" }}",
+            )
+            is TrackerEvent.Diagnostic -> line(now, "DIAG", "message=${event.message}")
+            is TrackerEvent.Error -> line(now, "ERROR", "code=${event.code} message=${event.message}")
         }
     }
 
@@ -306,10 +329,10 @@ class CaptureLog(context: Context) {
     private fun haversine(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
         val dLat = Math.toRadians(lat2 - lat1)
         val dLng = Math.toRadians(lng2 - lng1)
-        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
-            kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
-            kotlin.math.sin(dLng / 2) * kotlin.math.sin(dLng / 2)
-        return 2 * EARTH_RADIUS_M * kotlin.math.asin(kotlin.math.min(1.0, kotlin.math.sqrt(a)))
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+                sin(dLng / 2) * sin(dLng / 2)
+        return 2 * EARTH_RADIUS_M * asin(min(1.0, sqrt(a)))
     }
 
     /**

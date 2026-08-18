@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.devstree.traker.geo.model.FixDecision
 import com.devstree.traker.geo.model.Verdict
-import com.devstree.trackit.sample.TrackItViewModel
+import com.devstree.fieldtrack.sample.TrackerViewModel
 
 /**
  * The decision log — a queryable table, not a log file.
@@ -36,7 +36,7 @@ import com.devstree.trackit.sample.TrackItViewModel
  */
 @Composable
 fun DecisionLogScreen(
-    state: TrackItViewModel.UiState,
+    state: TrackerViewModel.UiState,
     onOpenSession: (String) -> Unit = {},
 ) {
     var showAccept by remember { mutableStateOf(true) }

@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -33,18 +33,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
 import com.devstree.fieldtrack.sample.BuildConfig
-import com.devstree.trackit.sample.screen.SessionPicker
-import com.devstree.trackit.RawFix
-import com.devstree.trackit.domain.model.TrackItGeofence
-import com.devstree.trackit.geo.math.Bearing
-import com.devstree.trackit.geo.math.Geodesy
-import com.devstree.trackit.geo.math.Haversine
-import com.devstree.trackit.geo.model.GeoPoint
-import com.devstree.trackit.geo.plot.PolylineCodec
-import com.devstree.trackit.geo.plot.TrackBuilder.WARNING_SNAP_UNAVAILABLE
-import com.devstree.trackit.geo.plot.model.SegmentType
-import com.devstree.trackit.geo.plot.model.Track
-import com.devstree.trackit.sample.TrackItViewModel
+import com.devstree.fieldtrack.sample.screen.SessionPicker
+import com.devstree.traker.RawFix
+import com.devstree.traker.domain.model.TrackerGeofence
+import com.devstree.traker.geo.math.Bearing
+import com.devstree.traker.geo.math.Geodesy
+import com.devstree.traker.geo.math.Haversine
+import com.devstree.traker.geo.model.GeoPoint
+import com.devstree.traker.geo.plot.PolylineCodec
+import com.devstree.traker.geo.plot.TrackBuilder.WARNING_SNAP_UNAVAILABLE
+import com.devstree.traker.geo.plot.model.SegmentType
+import com.devstree.traker.geo.plot.model.Track
+import com.devstree.fieldtrack.sample.TrackerViewModel
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -87,7 +87,7 @@ import android.graphics.Color as AndroidColor
  */
 @Composable
 fun TrackScreen(
-    state: TrackItViewModel.UiState,
+    state: TrackerViewModel.UiState,
     onOpenSession: (String) -> Unit = {},
     onSnapToRoad: (Boolean) -> Unit = {},
 ) {
@@ -188,7 +188,7 @@ fun TrackScreen(
 private fun TrackMap(
     track: Track?,
     rawFixes: List<RawFix>,
-    geofences: List<TrackItGeofence>,
+    geofences: List<TrackerGeofence>,
     modifier: Modifier,
 ) {
     val camera = rememberCameraPositionState {
@@ -506,7 +506,7 @@ private fun clockTime(atMs: Long): String =
     CLOCK.format(Instant.ofEpochMilli(atMs).atZone(ZoneId.systemDefault()))
 
 /** Bounds include each fence's radius, not only its centre marker. */
-private fun mapBounds(track: Track?, geofences: List<TrackItGeofence>): LatLngBounds? {
+private fun mapBounds(track: Track?, geofences: List<TrackerGeofence>): LatLngBounds? {
     val points = buildList {
         track?.bounds?.let { bounds ->
             add(LatLng(bounds.south, bounds.west))

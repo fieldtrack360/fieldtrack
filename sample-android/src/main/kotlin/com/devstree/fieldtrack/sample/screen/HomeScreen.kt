@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,11 +18,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.sample.TrackItViewModel
+import com.devstree.fieldtrack.sample.TrackerViewModel
 
 @Composable
 fun HomeScreen(
-    state: TrackItViewModel.UiState,
+    state: TrackerViewModel.UiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onRequestPermissions: () -> Unit,
@@ -40,8 +40,8 @@ fun HomeScreen(
     onReadGeofenceHistory: () -> Unit = {},
     onClearGeofenceHistory: () -> Unit = {},
 ) {
-    val backgroundActionable = state.backgroundStep != TrackItViewModel.BackgroundStep.GRANTED &&
-        state.backgroundStep != TrackItViewModel.BackgroundStep.NOT_APPLICABLE
+    val backgroundActionable = state.backgroundStep != TrackerViewModel.BackgroundStep.GRANTED &&
+        state.backgroundStep != TrackerViewModel.BackgroundStep.NOT_APPLICABLE
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(16.dp),
@@ -195,7 +195,7 @@ fun HomeScreen(
 @Preview(showBackground = true)
 fun HomeScreenPreview() {
     HomeScreen(
-        state = TrackItViewModel.UiState(
+        state = TrackerViewModel.UiState(
             isTracking = true,
             pointCount = 10,
             licenseStatus = "debug installs waived",

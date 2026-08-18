@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,7 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.devstree.fieldtrack.sample.BuildConfig
-import com.devstree.trackit.sample.TrackItViewModel
+import com.devstree.fieldtrack.sample.TrackerViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.Circle
@@ -44,7 +44,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
  */
 @Composable
 fun DebugOverlayScreen(
-    state: TrackItViewModel.UiState,
+    state: TrackerViewModel.UiState,
     onOpenSession: (String) -> Unit = {},
 ) {
     var showRaw by remember { mutableStateOf(true) }
@@ -107,7 +107,7 @@ fun DebugOverlayScreen(
 
 @Composable
 private fun ColumnScope.DebugMap(
-    state: TrackItViewModel.UiState,
+    state: TrackerViewModel.UiState,
     showRaw: Boolean,
     showFilter: Boolean,
     showStored: Boolean,

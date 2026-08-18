@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample.screen
+package com.devstree.fieldtrack.sample.screen
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +12,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.sample.TrackItViewModel
+import com.devstree.fieldtrack.sample.TrackerViewModel
 
 /**
  * What the user sees when `BACKGROUND_PERMISSION_MISSING` fires, or when they ask for
@@ -28,7 +28,7 @@ import com.devstree.trackit.sample.TrackItViewModel
  */
 @Composable
 fun BackgroundLocationDialog(
-    step: TrackItViewModel.BackgroundStep,
+    step: TrackerViewModel.BackgroundStep,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
@@ -80,10 +80,10 @@ private const val WHY =
         "Right now it can only record while the app is open, so any movement after you " +
         "leave the app is lost."
 
-private fun guideFor(step: TrackItViewModel.BackgroundStep): BackgroundGuide = when (step) {
+private fun guideFor(step: TrackerViewModel.BackgroundStep): BackgroundGuide = when (step) {
 
     // Android 11+. There is no prompt to show — Settings is the only route (EC-05).
-    TrackItViewModel.BackgroundStep.SETTINGS -> BackgroundGuide(
+    TrackerViewModel.BackgroundStep.SETTINGS -> BackgroundGuide(
         title = "Allow location all the time",
         reason = "$WHY\n\nAndroid 11 and later will not ask for this in a pop-up. " +
             "It can only be turned on in Settings:",
@@ -101,7 +101,7 @@ private fun guideFor(step: TrackItViewModel.BackgroundStep): BackgroundGuide = w
     )
 
     // API 29 — the runtime prompt still exists and still includes the option.
-    TrackItViewModel.BackgroundStep.PROMPT -> BackgroundGuide(
+    TrackerViewModel.BackgroundStep.PROMPT -> BackgroundGuide(
         title = "Allow location all the time",
         reason = "$WHY\n\nAndroid will ask you now:",
         steps = listOf(
@@ -115,7 +115,7 @@ private fun guideFor(step: TrackItViewModel.BackgroundStep): BackgroundGuide = w
 
     // Background is not grantable before fine is granted — asking first is a silent
     // denial, so the ladder has to be climbed one rung at a time (EC-04).
-    TrackItViewModel.BackgroundStep.NEEDS_FOREGROUND_FIRST -> BackgroundGuide(
+    TrackerViewModel.BackgroundStep.NEEDS_FOREGROUND_FIRST -> BackgroundGuide(
         title = "Grant location first",
         reason = "$WHY\n\nAndroid only offers all-the-time access after basic location " +
             "access is granted, so this takes two steps:",

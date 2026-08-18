@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample
+package com.devstree.fieldtrack.sample
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -31,11 +31,11 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.devstree.trackit.sample.screen.BackgroundLocationDialog
-import com.devstree.trackit.sample.screen.DebugOverlayScreen
-import com.devstree.trackit.sample.screen.DecisionLogScreen
-import com.devstree.trackit.sample.screen.HomeScreen
-import com.devstree.trackit.sample.screen.TrackScreen
+import com.devstree.fieldtrack.sample.screen.BackgroundLocationDialog
+import com.devstree.fieldtrack.sample.screen.DebugOverlayScreen
+import com.devstree.fieldtrack.sample.screen.DecisionLogScreen
+import com.devstree.fieldtrack.sample.screen.HomeScreen
+import com.devstree.fieldtrack.sample.screen.TrackScreen
 import java.io.File
 
 class MainActivity : ComponentActivity() {
@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
                         onPermissionResult = { callback() }
                         requestBackgroundLocation()
                     },
-                    onOpenSettings = { startActivity(trackItSettingsIntent()) },
+                    onOpenSettings = { startActivity(trackerSettingsIntent()) },
                     onShareLog = ::shareLog,
                 )
             }
@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Reached only when the view model reports [TrackItViewModel.BackgroundStep.PROMPT],
+     * Reached only when the view model reports [TrackerViewModel.BackgroundStep.PROMPT],
      * which it produces on API 29 alone — from API 30 a runtime request for background
      * location silently does nothing and the answer is SETTINGS instead (EC-05).
      *
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
         requestPermissions.launch(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION))
     }
 
-    private fun trackItSettingsIntent() =
+    private fun trackerSettingsIntent() =
         Intent(
             Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
             Uri.fromParts("package", packageName, null),
@@ -135,7 +135,7 @@ private fun SampleApp(
     onOpenSettings: () -> Unit,
     onShareLog: (String) -> Unit,
 ) {
-    val viewModel: TrackItViewModel = viewModel(factory = TrackItViewModel.Factory)
+    val viewModel: TrackerViewModel = viewModel(factory = TrackerViewModel.Factory)
     val state by viewModel.state.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf(Tab.HOME) }
     val context = LocalContext.current
@@ -162,12 +162,12 @@ private fun SampleApp(
             onConfirm = {
                 viewModel.onBackgroundRationaleConfirmed()
                 when (state.backgroundStep) {
-                    TrackItViewModel.BackgroundStep.SETTINGS -> onOpenSettings()
-                    TrackItViewModel.BackgroundStep.PROMPT ->
+                    TrackerViewModel.BackgroundStep.SETTINGS -> onOpenSettings()
+                    TrackerViewModel.BackgroundStep.PROMPT ->
                         onRequestBackground(viewModel::refreshPermissions)
                     // Fine is not granted yet, so background is not grantable. Climb one
                     // rung, then re-open this dialog on the way back.
-                    TrackItViewModel.BackgroundStep.NEEDS_FOREGROUND_FIRST ->
+                    TrackerViewModel.BackgroundStep.NEEDS_FOREGROUND_FIRST ->
                         onRequestForeground { viewModel.showBackgroundRationale() }
                     else -> Unit
                 }

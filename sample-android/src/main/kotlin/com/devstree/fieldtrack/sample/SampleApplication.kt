@@ -1,13 +1,12 @@
-package com.devstree.trackit.sample
+package com.devstree.fieldtrack.sample
 
 import android.app.Application
 import com.devstree.fieldtrack.sample.BuildConfig
-import com.devstree.fieldtrack.sample.CaptureLog
-import com.devstree.trackit.AccuracyProfile
-import com.devstree.trackit.LocationProviderType
-import com.devstree.trackit.TrackIt
-import com.devstree.trackit.TrackItConfig
-import com.devstree.trackit.snap.OsrmSnapProvider
+import com.devstree.traker.AccuracyProfile
+import com.devstree.traker.LocationProviderType
+import com.devstree.traker.Tracker
+import com.devstree.traker.TrackerConfig
+import com.devstree.traker.snap.OsrmSnapProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -18,9 +17,9 @@ import java.time.Duration
 /**
  * A plain `Application` — no DI framework, no annotations, nothing the SDK requires.
  *
- * That is the point of the sample: `TrackIt.getInstance(this)` is the entire integration.
+ * That is the point of the sample: `Tracker.getInstance(this)` is the entire integration.
  * An earlier revision had to be `@HiltAndroidApp` because Hilt shipped inside the SDK;
- * it no longer does (see `TrackIt`'s KDoc).
+ * it no longer does (see `Tracker`'s KDoc).
  *
  * `ready()` is called once here rather than from an Activity: it restores persisted
  * filter state and reports an interrupted session, and both should happen before any
@@ -28,7 +27,7 @@ import java.time.Duration
  */
 class SampleApplication : Application() {
 
-    val trackIt: TrackIt by lazy { TrackIt.getInstance(this) }
+    val tracker: Tracker by lazy { Tracker.getInstance(this) }
 
     val captureLog: CaptureLog by lazy { CaptureLog(this) }
 
@@ -41,10 +40,10 @@ class SampleApplication : Application() {
             // reset = true (the default) during development, so edited config actually
             // takes effect. Flipping it to false is the classic "my config changes do
             // nothing" bug (SDK-COMPARISON §5).
-            trackIt.ready(
+            tracker.ready(
                 // The builder rather than the constructor here on purpose: it is the
                 // surface a Java host has, so the sample exercises it.
-                TrackItConfig.builder()
+                TrackerConfig.builder()
                     .license(BuildConfig.TRACKIT_LICENSE.takeIf { it.isNotBlank() })
                     // Fused by default. Switch to GPS_ONLY on a device with no Play
                     // Services, or when a Wi-Fi centroid must never reach the record.
@@ -81,7 +80,7 @@ class SampleApplication : Application() {
         val baseUrl = BuildConfig.OSRM_BASE_URL
         if (baseUrl.isBlank()) return
 
-        trackIt.setRoadSnapProvider(
+        tracker.setRoadSnapProvider(
             OsrmSnapProvider(
                 baseUrl = baseUrl,
                 client = OkHttpClient.Builder()

@@ -41,7 +41,7 @@ val mapsApiKey: String = localProperties.getProperty("MAPS_API_KEY", "")
 val osrmBaseUrl: String = localProperties.getProperty("OSRM_BASE_URL", "")
 
 /**
- * Optional TrackIt release license token, from `local.properties` — e.g.
+ * Optional Tracker release license token, from `local.properties` — e.g.
  * `TRACKIT_LICENSE=TRACKIT-...`.
  *
  * Blank is a valid development state because debuggable installs are waived by the SDK.
@@ -112,11 +112,7 @@ kotlin {
 dependencies {
     // Linked as a project dependency for local development and JitPack builds.
     // Transitive dependencies are resolved via the sub-project's definitions.
-//    implementation(project(":fieldtrack"))
-//    implementation(libs.fieldtrack)
-
-    //local maven
-    implementation(libs.fieldtrack.sdk)
+    implementation(project(":fieldtrack"))
 
 
     // OkHttp is compileOnly inside fieldtrack-snap, so the host that wants the shipped
