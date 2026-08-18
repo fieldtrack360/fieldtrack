@@ -30,7 +30,7 @@ import java.util.Locale
  *
  * This is a **testing instrument**, not a product feature, and it lives in the sample for
  * the same reason the permission dialogs do: the SDK does no I/O the host did not ask for.
- * `TrackLogger` inside `trackit-core` writes to logcat, which is ring-buffered and gone
+ * `TrackLogger` inside `fieldtrack-core` writes to logcat, which is ring-buffered and gone
  * after a long drive — the whole point here is a file that survives the drive, the app
  * being killed, and the phone being plugged into a laptop hours later.
  *

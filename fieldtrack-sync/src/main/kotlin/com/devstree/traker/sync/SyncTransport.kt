@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  * Pluggable on purpose. Most apps already have an HTTP client configured with their own
  * auth interceptors, certificate pinning, retry policy and logging; forcing a second one
  * on them is exactly the version-conflict problem that keeps Retrofit and OkHttp out of
- * `trackit-core` (EKF-DESIGN-REVIEW §S5).
+ * `fieldtrack-core` (EKF-DESIGN-REVIEW §S5).
  *
  * The default [OkHttpSyncTransport] exists for convenience, and OkHttp is `compileOnly`
  * here — supply your own transport and you never pull it in.

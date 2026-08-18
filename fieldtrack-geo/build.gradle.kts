@@ -6,7 +6,7 @@ plugins {
 }
 
 /**
- * PLAN.md §3 invariant 2: no platform types inside `trackit-geo`. The source remains
+ * PLAN.md §3 invariant 2: no platform types inside `fieldtrack-geo`. The source remains
  * pure Kotlin; Android library packaging is used so R8 can protect the published code.
  */
 android {

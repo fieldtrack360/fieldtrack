@@ -57,7 +57,7 @@ Part C was added 2026-08-10 and produced the most consequential single finding i
 | [G-26](#g-26) | Build | MISSING | `trackit-bridge` does not exist; the React Native package cannot compile |
 | [G-27](#g-27) | Build | MISSING | No tests exist, in the tree or in history |
 | [G-28](#g-28) | Sample | MISSING | `installRoadSnapping()` is an empty stub |
-| [G-29](#g-29) | Publishing | **EXPOSURE** | **`trackit-geo` ships completely unobfuscated. R8 never runs on it** |
+| [G-29](#g-29) | Publishing | **EXPOSURE** | **`fieldtrack-geo` ships completely unobfuscated. R8 never runs on it** |
 | [G-30](#g-30) | Publishing | EXPOSURE | Kotlin `@Metadata` hands over the API and its default values without decompilation |
 | [G-31](#g-31) | Publishing | EXPOSURE | `TrakerConstants` is `public`, so its defaults *are* the shipped tuning table |
 | [G-32](#g-32) | Publishing | MISSING | The R8 `mapping.txt` is not archived per release, so field crashes cannot be retraced |
@@ -78,7 +78,7 @@ The pattern is identical in all four: the value has a field on `IngestContext`, 
 
 **Verdict: BROKEN CHAIN.** §10 requires that "at store time, the point gets `detected_activity_type` (the segment label active at fix time) and `detected_activity_start_time`", and §21 builds the whole labelling model on those fields.
 
-`FixIngestor.contextFor()` (`trackit-core/.../capture/FixIngestor.kt:294-307`) constructs `IngestContext` with eight arguments and omits `detectedActivity` and `activityStartTimeMs`. Both take their defaults — `null` and `0`.
+`FixIngestor.contextFor()` (`fieldtrack-core/.../capture/FixIngestor.kt:294-307`) constructs `IngestContext` with eight arguments and omits `detectedActivity` and `activityStartTimeMs`. Both take their defaults — `null` and `0`.
 
 Everything downstream is correct and carries the nulls faithfully: `AcceptancePipeline.kt:940-941` copies them onto the `TrackPoint`, `RoomPointStore.kt:112-113` onto the raw-point row, `Mappers.kt:43-44` back out again.
 
@@ -97,7 +97,7 @@ The system is not wrong, it is *blind*: it produces plausible labels from speed 
 ### G-2 — Battery and charging state are never captured {#g-2}
 
 **Verdict: FIXED, 17 Aug 2026.** See `CHANGES-2026-08-17-ANDROID-SYNC.md` §7. `AndroidBatteryProbe`
-(`trackit-core/.../data/platform/BatteryProbe.kt`) now produces both values behind a
+(`fieldtrack-core/.../data/platform/BatteryProbe.kt`) now produces both values behind a
 one-minute cache, and `FixIngestor.contextFor()` stamps them on every fix. `FixtureReplay`
 still leaves them null, deliberately — a replay must stay byte-deterministic.
 
@@ -107,7 +107,7 @@ The original finding follows, unchanged.
 
 **Verdict was: BROKEN CHAIN.** §11.1 lists `batteryPercentage` as a per-point diagnostic. Same root cause as G-1: `contextFor()` omits `batteryPct` and `isCharging`.
 
-`TrackPoint.batteryPct` is therefore always `null`, and `trackit-sync` ships `"battery_percentage": null` on every uploaded point (`SyncTransport.kt`, `SyncPoint.battery_percentage`).
+`TrackPoint.batteryPct` is therefore always `null`, and `fieldtrack-sync` ships `"battery_percentage": null` on every uploaded point (`SyncTransport.kt`, `SyncPoint.battery_percentage`).
 
 Cost is diagnostic, not functional — but this is the field that answers "did the tracker die because the OEM killed it, or because the phone was at 3 %", which is the first question asked of every field gap.
 
@@ -123,7 +123,7 @@ Without segments there is no "activity active at fix time" to stamp, which is wh
 
 ### G-12 — `travelStartMs` is computed and then dropped {#g-12}
 
-**Verdict: BROKEN CHAIN.** §19's phantom-leg carry-forward — bound implied travel to `clamp(max(dist, net) / 5.0 m/s, 60 s, 300 s)` so a signal blackout while driving does not attribute the whole silence to travel — is implemented correctly. `Clusters.carryForwardStart()` computes it and `Clusters.Segment.travelStartMs` carries it (`trackit-geo/.../plot/Clusters.kt:40, 97`).
+**Verdict: BROKEN CHAIN.** §19's phantom-leg carry-forward — bound implied travel to `clamp(max(dist, net) / 5.0 m/s, 60 s, 300 s)` so a signal blackout while driving does not attribute the whole silence to travel — is implemented correctly. `Clusters.carryForwardStart()` computes it and `Clusters.Segment.travelStartMs` carries it (`fieldtrack-geo/.../plot/Clusters.kt:40, 97`).
 
 `TrackSegment` — the serialised type that leaves the engine — **has no such field** (`plot/model/Track.kt:89-110`). The value is computed on every build and discarded at the boundary.
 
@@ -136,9 +136,9 @@ So §24's end-node dual window ("render the drive window `travelStart → arriva
 ### G-4 — Nothing ever triggers an upload {#g-4}
 
 **Verdict: FIXED, 17 Aug 2026.** See `CHANGES-2026-08-17-ANDROID-SYNC.md` §6. Core now owns a
-`SyncScheduler` (`trackit-core/.../work/SyncScheduler.kt`) driven from three places — the
+`SyncScheduler` (`fieldtrack-core/.../work/SyncScheduler.kt`) driven from three places — the
 accepted-point callback, the health loop, and the periodic backstop — and calls out through a
-new `SyncTrigger` seam that `trackit-sync` registers when `SyncConfig.autoSync` is on. Core
+new `SyncTrigger` seam that `fieldtrack-sync` registers when `SyncConfig.autoSync` is on. Core
 still opens no socket and links no network code.
 
 The original finding follows, unchanged.
@@ -150,9 +150,9 @@ Two separate places in the spec require the SDK to drive its own sync:
 - §3.4, health loop step 3 — "Is the newest stored row unsynced (`syncTime == 0`) or last sync ≥ 16 min old? → run the sync queue."
 - §12.2, watchdog check 3 — "Newest stored row unsynced → run the sync queue."
 
-`HealthLoop.runCheck()` (`trackit-core/.../service/HealthLoop.kt:60-83`) checks the open session and the backstop worker's `WorkInfo`, and stops. `Watchdog.tick()` returns `RestoreService` or `ReportDead` and has no sync action in its vocabulary.
+`HealthLoop.runCheck()` (`fieldtrack-core/.../service/HealthLoop.kt:60-83`) checks the open session and the backstop worker's `WorkInfo`, and stops. `Watchdog.tick()` returns `RestoreService` or `ReportDead` and has no sync action in its vocabulary.
 
-`SyncConfig.autoSync` (`trackit-sync/.../TrakerSync.kt:26`) — documented as "upload as points arrive" — is read nowhere. Repo-wide, the only references to `autoSync` are its own declaration and KDoc.
+`SyncConfig.autoSync` (`fieldtrack-sync/.../TrakerSync.kt:26`) — documented as "upload as points arrive" — is read nowhere. Repo-wide, the only references to `autoSync` are its own declaration and KDoc.
 
 Nothing outside `TrakerSync` itself calls `requestSync()` or `syncNow()`. **A host that configures sync and never calls `syncNow()` accumulates rows forever.** The queue, batching, backoff and 401 teardown all work; nothing pulls the trigger.
 
@@ -176,7 +176,7 @@ Low-confidence transitions therefore reach `MotionController` and can move the s
 
 **Verdict: MISSING.** §12.2 check 5: "Background soft-wake: 20 s partial wake lock to let the pipeline breathe on aggressive OEM battery managers." §26.2 names the 60 s watchdog plus this wake lock as *the pattern* that keeps the pipeline alive on such devices.
 
-Repo-wide there is no `WakeLock`, no `newWakeLock`, no `PARTIAL_WAKE_LOCK`. `ServiceConfig.wakeLockMs = 20_000` is declared and unread. The `WAKE_LOCK` permission is in the manifest (`trackit-core/src/main/AndroidManifest.xml:17`) and nothing uses it.
+Repo-wide there is no `WakeLock`, no `newWakeLock`, no `PARTIAL_WAKE_LOCK`. `ServiceConfig.wakeLockMs = 20_000` is declared and unread. The `WAKE_LOCK` permission is in the manifest (`fieldtrack-core/src/main/AndroidManifest.xml:17`) and nothing uses it.
 
 Half the OEM survival pattern ships; the half that does the waking does not.
 
@@ -184,7 +184,7 @@ Half the OEM survival pattern ships; the half that does the waking does not.
 
 **Verdict: MISSING.** §9: "Significant stop detection (used for 'should this point show a pin'): stationary when points stay within a **60 m radius for ≥ 10 min** with speed **< 15 km/h**", stored per point as `isShowPin`.
 
-No such field exists on any entity, and no capture-side stop detector exists. `Consolidation` applies an equivalent rule at plot time, which covers the rendering need — but the *stored* point no longer carries the judgement that was made when the evidence was freshest, and a consumer reading rows directly (via `trackit-sync`) has no way to recover it.
+No such field exists on any entity, and no capture-side stop detector exists. `Consolidation` applies an equivalent rule at plot time, which covers the rendering need — but the *stored* point no longer carries the judgement that was made when the evidence was freshest, and a consumer reading rows directly (via `fieldtrack-sync`) has no way to recover it.
 
 ### G-11 — `mobileServiceStatusFlag` {#g-11}
 
@@ -200,7 +200,7 @@ Effect: a cluster that qualified as travel on the sustained-excursion test but n
 
 ### G-15 · G-16 · G-17 · G-18 — Renderer shortfalls {#g-15}
 
-All four are `trackit-maps` against §23. None is load-bearing; together they are the difference between "draws the track" and "draws the track the spec describes".
+All four are `fieldtrack-maps` against §23. None is load-bearing; together they are the difference between "draws the track" and "draws the track the spec describes".
 
 | # | §  | Spec | Implementation |
 |---|---|---|---|
@@ -344,13 +344,13 @@ The RN bridge surface itself is well designed and complete as source — 26 meth
 
 ### G-27 — No tests exist {#g-27}
 
-**Verdict: MISSING — blocking.** There is no `src/test` or `src/androidTest` anywhere in the repository, and none has ever been added (`git log --all --diff-filter=A` matches zero such paths). `trackit-geo/src` contains only `main`.
+**Verdict: MISSING — blocking.** There is no `src/test` or `src/androidTest` anywhere in the repository, and none has ever been added (`git log --all --diff-filter=A` matches zero such paths). `fieldtrack-geo/src` contains only `main`.
 
 Test dependencies are declared in every module. Named test classes are cited as evidence throughout the docs — `TrakerGraphTest` (PLAN §0, `TrakerGraph` KDoc), `MixedModeTraceTest` (PLAN §9, EDGE-CASES acceptance criterion 3a), `GoldenWireTest` (`TrakerModule` KDoc) — and none of them exists.
 
 This is the load-bearing one. PLAN §9's entire risk mitigation is "fixture-first: phase 1 ends with golden files before any Android code exists. Any constant change that flips a golden verdict fails CI." The `FixtureReplay` harness is built and correct; **no fixture corpus is committed and nothing replays it.** Every acceptance criterion in EDGE-CASES ("steady 2 hours ⇒ exactly one stored point", "same fixture replayed twice ⇒ byte-identical decision sequence") is currently unverified.
 
-Related: `trackit-core/schemas/` contains only `1.json` while the database is at version 6 with five migrations, so even a `MigrationTestHelper` test could not be written against the shipped schemas.
+Related: `fieldtrack-core/schemas/` contains only `1.json` while the database is at version 6 with five migrations, so even a `MigrationTestHelper` test could not be written against the shipped schemas.
 
 ### G-28 — `installRoadSnapping()` is an empty stub {#g-28}
 
@@ -366,40 +366,40 @@ private fun installRoadSnapping() {
 
 The KDoc above it describes the intended behaviour in full, including why it must run before `ready()`. The body ends after the guard. `trackIt.setRoadSnapProvider(...)` is never called.
 
-So the sample's `:trackit-snap` and `okhttp` dependencies are dead, the "Snap" chip on the Track tab is inert regardless of `OSRM_BASE_URL`, and `OsrmSnapProvider` — the whole optional artifact — has no exercise anywhere in the repository.
+So the sample's `:fieldtrack-snap` and `okhttp` dependencies are dead, the "Snap" chip on the Track tab is inert regardless of `OSRM_BASE_URL`, and `OsrmSnapProvider` — the whole optional artifact — has no exercise anywhere in the repository.
 
 ---
 
 # Part C — Source protection
 
-The published artifacts are meant to expose the public contract and nothing else. `trackit-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.devstree.traker.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
+The published artifacts are meant to expose the public contract and nothing else. `fieldtrack-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.devstree.traker.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
 
-The publishing script is equally careful: **no sources jar anywhere**, with the reasoning recorded — and specifically for the engine, *"trackit-geo is the algorithm module, and a -sources.jar IS the algorithm. This is the artifact with the most to lose from a sources jar."*
+The publishing script is equally careful: **no sources jar anywhere**, with the reasoning recorded — and specifically for the engine, *"fieldtrack-geo is the algorithm module, and a -sources.jar IS the algorithm. This is the artifact with the most to lose from a sources jar."*
 
 All of that is correct. And it protects the wrong module.
 
-### G-29 — `trackit-geo` ships completely unobfuscated {#g-29}
+### G-29 — `fieldtrack-geo` ships completely unobfuscated {#g-29}
 
 **Verdict: EXPOSURE. The most consequential finding in this document.**
 
 `isMinifyEnabled` is an Android Gradle Plugin build-type property. It exists only for `com.android.application` and `com.android.library` modules.
 
-`trackit-geo/build.gradle.kts:3-6` applies `kotlin.jvm` and `kotlin.serialization`. **It is a plain JVM module.** It produces a JAR, it has no `buildTypes` block, it has no `proguard-rules.pro` (`ls trackit-geo/*.pro` → no matches), and **R8 never runs on it in any configuration.**
+`fieldtrack-geo/build.gradle.kts:3-6` applies `kotlin.jvm` and `kotlin.serialization`. **It is a plain JVM module.** It produces a JAR, it has no `buildTypes` block, it has no `proguard-rules.pro` (`ls fieldtrack-geo/*.pro` → no matches), and **R8 never runs on it in any configuration.**
 
 Four modules are minified — core, maps, snap, sync. The fifth is not, and it is the one that matters:
 
 | Ships obfuscated | Ships in the clear |
 |---|---|
-| `trackit-core` — service plumbing, DI graph, Room wiring, permission checks | **`AcceptancePipeline`** — 1074 lines, all seven stages, every gate |
-| `trackit-maps` — bitmap drawing, polyline calls | **`KalmanFilter`** — the constant-velocity model and its covariance propagation |
-| `trackit-snap` — HTTP and chunking | **`TrakerConstants`** — all 60-odd field-tuned values |
-| `trackit-sync` — queue and retry | **The whole plotting plane** — consolidation, clusters, snapper, spline, arrows |
+| `fieldtrack-core` — service plumbing, DI graph, Room wiring, permission checks | **`AcceptancePipeline`** — 1074 lines, all seven stages, every gate |
+| `fieldtrack-maps` — bitmap drawing, polyline calls | **`KalmanFilter`** — the constant-velocity model and its covariance propagation |
+| `fieldtrack-snap` — HTTP and chunking | **`TrakerConstants`** — all 60-odd field-tuned values |
+| `fieldtrack-sync` — queue and retry | **The whole plotting plane** — consolidation, clusters, snapper, spline, arrows |
 
 The Android plumbing — reimplementable by any competent Android developer from the public docs — is flattened into `com.devstree.traker.internal`. The engine, which is the accumulated output of three generations of field work, ships with original class names, original method names, original field names and original package structure.
 
 **It is worse than plain Java bytecode**, for the reason in [G-30](#g-30).
 
-And it reaches every consumer: `trackit-core/build.gradle.kts:79` declares `api(project(":trackit-geo"))`, so the JAR is on the compile *and* runtime classpath of every host, transitively, whether or not they ever name it.
+And it reaches every consumer: `fieldtrack-core/build.gradle.kts:79` declares `api(project(":fieldtrack-geo"))`, so the JAR is on the compile *and* runtime classpath of every host, transitively, whether or not they ever name it.
 
 **BUILD.md §5.6 mentions that geo is a plain JAR** — but only to explain that it cannot carry *consumer* rules, and it routes those keeps into core's file. The IP consequence is never stated. The one place the engine's value is explicitly recognised — the publish script's sources-jar comment — is about a jar that is correctly withheld, next to a jar that is shipped and decompiles to nearly the same thing.
 
@@ -409,7 +409,7 @@ And it reaches every consumer: `trackit-core/build.gradle.kts:79` declares `api(
 
 **Verdict: EXPOSURE.** Compounds G-29.
 
-Every Kotlin class carries a `@kotlin.Metadata` annotation holding a protobuf description of the *source-level* declaration: package, class and member names, full generic signatures, nullability, property vs. field, default-argument presence, and the shape of data classes. It exists so that a Kotlin consumer gets named arguments, default values and null-safety across module boundaries — the same reason `trackit-core/proguard-rules.pro` deliberately keeps `*Annotation*`, and it is right to.
+Every Kotlin class carries a `@kotlin.Metadata` annotation holding a protobuf description of the *source-level* declaration: package, class and member names, full generic signatures, nullability, property vs. field, default-argument presence, and the shape of data classes. It exists so that a Kotlin consumer gets named arguments, default values and null-safety across module boundaries — the same reason `fieldtrack-core/proguard-rules.pro` deliberately keeps `*Annotation*`, and it is right to.
 
 The consequence for an unobfuscated JAR is that reading it needs no decompiler. `kotlinx-metadata-jvm` parses the annotation directly and reconstructs the declaration list. For `TrakerConstants` — a `data class` whose entire content is constructor parameters with default values — that recovers the parameter names, and the defaults are plain constants in the synthetic `<init>$default` bytecode.
 
@@ -427,7 +427,7 @@ It is also the single most valuable artifact in the repository. Each value has a
 
 The sweep requirement does **not** require `public`. It requires visibility from the test source set, which in Gradle is the same compilation unit — Kotlin `internal` is visible to `src/test` of the same module. `internal` would satisfy the harness and remove the type from the published surface.
 
-Blocked in practice by G-29 and G-36: `internal` in Kotlin compiles to public bytecode with mangled *function* names only, and it does not span Gradle modules — `trackit-core` needs `TrakerConstants` and is a different module, so it must stay `public` today.
+Blocked in practice by G-29 and G-36: `internal` in Kotlin compiles to public bytecode with mangled *function* names only, and it does not span Gradle modules — `fieldtrack-core` needs `TrakerConstants` and is a different module, so it must stay `public` today.
 
 Worth contrasting with the iOS port, where this is solved cleanly: Swift's `package` access level spans targets within one package while staying absent from the distributed module interface. Kotlin has no equivalent. That is a genuine platform difference, not an oversight in either design.
 
@@ -498,21 +498,21 @@ All of it is public API. The engine is behind `trackit-bridge`. **Accept and rec
 
 G-29 has no cheap fix, and the reason is worth stating precisely rather than discovering during a release.
 
-**R8 in library mode obfuscates one module in isolation.** `trackit-core` is compiled against `trackit-geo`'s original names. Rename geo after core is built and core's references break. So geo cannot simply be obfuscated where it stands.
+**R8 in library mode obfuscates one module in isolation.** `fieldtrack-core` is compiled against `fieldtrack-geo`'s original names. Rename geo after core is built and core's references break. So geo cannot simply be obfuscated where it stands.
 
 Three properties are in tension, and the current design has the first two:
 
 1. **JVM testability** — geo is a plain JVM module so `android.location.Location` is not on the classpath, which is what makes the whole engine testable with no emulator (PLAN.md §3 invariant 2).
-2. **Module optionality** — `trackit-snap` depends on geo *only*, so a host wanting map-matching does not drag in the capture stack.
+2. **Module optionality** — `fieldtrack-snap` depends on geo *only*, so a host wanting map-matching does not drag in the capture stack.
 3. **Obfuscation** — requires geo's classes to be renamed together with everything that references them.
 
 Options, with what each costs:
 
 | Option | Gets | Costs |
 |---|---|---|
-| **A. Fat core AAR** — embed geo's classes into `trackit-core` at publish time, run R8 over both, stop publishing geo standalone | Full obfuscation of the engine | Breaks (2): maps and snap would depend on core. Duplicate classes if they keep their own copy |
+| **A. Fat core AAR** — embed geo's classes into `fieldtrack-core` at publish time, run R8 over both, stop publishing geo standalone | Full obfuscation of the engine | Breaks (2): maps and snap would depend on core. Duplicate classes if they keep their own copy |
 | **B. Standalone R8 pass over the geo JAR, published as an obfuscated JAR, with core/maps/snap compiled against the obfuscated output** | Full obfuscation, keeps (1) and (2) | Build-order complexity: geo must be R8'd before the modules that consume it compile. Keep rules must cover every cross-module reference, and a missed one is a link error at host-build time |
-| **C. Move the algorithms into `trackit-core`, leave geo as models + math** | Obfuscation via the existing core pass | Destroys (1) for the pipeline, which is the part that most needs fixture testing. **Not recommended** |
+| **C. Move the algorithms into `fieldtrack-core`, leave geo as models + math** | Obfuscation via the existing core pass | Destroys (1) for the pipeline, which is the part that most needs fixture testing. **Not recommended** |
 | **D. Accept the exposure; protect by licence** | Zero engineering | The engine is readable. Legitimate if the commercial model does not depend on secrecy |
 
 **Recommendation: B, or D consciously.** What is not acceptable is the current state — an elaborate, well-argued obfuscation setup that a reader would reasonably assume covers the engine, and does not.
@@ -521,7 +521,7 @@ Whichever is chosen, record it in BUILD.md §5.6 next to the existing "geo is a 
 
 ### What obfuscation does not buy, restated
 
-`trackit-core/proguard-rules.pro` says this in its own header and it is worth repeating where the whole picture is visible: renaming is not encryption. Strings survive (`Reasons` is API and must). Tuning constants survive — they have to exist at runtime. Control flow survives. A determined reader with a decompiler sees the algorithm's shape in *any* of these modules.
+`fieldtrack-core/proguard-rules.pro` says this in its own header and it is worth repeating where the whole picture is visible: renaming is not encryption. Strings survive (`Reasons` is API and must). Tuning constants survive — they have to exist at runtime. Control flow survives. A determined reader with a decompiler sees the algorithm's shape in *any* of these modules.
 
 Obfuscation raises the effort. The durable protections are the licence, the fixture corpus (which is not committed at all — [G-27](#g-27) — and is arguably the most valuable asset because it is what lets you *re*-derive the constants), and the field learning encoded in the KDoc, which does not ship because no sources jar does.
 

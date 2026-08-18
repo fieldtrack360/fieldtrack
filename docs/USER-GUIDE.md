@@ -46,16 +46,16 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-core:0.1.1-alpha01")   // required
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-geo:0.1.1-alpha01")    // pulled in transitively; declare if you use the types directly
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-core:0.1.1-alpha01")   // required
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-geo:0.1.1-alpha01")    // pulled in transitively; declare if you use the types directly
 
     // Optional, add only what you use:
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-maps:0.1.1-alpha01")   // Google Maps rendering
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-sync:0.1.1-alpha01")   // HTTP upload queue
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-snap:0.1.1-alpha01")   // OSRM map-matching
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-maps:0.1.1-alpha01")   // Google Maps rendering
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-sync:0.1.1-alpha01")   // HTTP upload queue
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-snap:0.1.1-alpha01")   // OSRM map-matching
     implementation("com.github.fieldtrack360.fieldtrack:trackit-bridge:0.1.1-alpha01") // Java + JSON facades
 
-    // trackit-sync and trackit-snap declare OkHttp as compileOnly — supply your own:
+    // fieldtrack-sync and fieldtrack-snap declare OkHttp as compileOnly — supply your own:
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
 }
 ```
@@ -309,7 +309,7 @@ val config = TrakerConfig.builder()
     .useStepCorroboration(true)
     .notification("Recording your route", "Tap to open")
     .maxDaysToPersist(7)
-    .baseUrl("https://api.example.com")   // for trackit-sync; core never reads it
+    .baseUrl("https://api.example.com")   // for fieldtrack-sync; core never reads it
     .build()
 
 trackIt.ready(config)
@@ -743,7 +743,7 @@ val polylineJson: String = trackIt.exportPolylineJson(query, options)  // POLYLI
 val geoJson: String = trackIt.exportGeoJson(query, options)            // RFC 7946, [lng, lat]
 ```
 
-### Drawing it with `trackit-maps`
+### Drawing it with `fieldtrack-maps`
 
 ```kotlin
 val renderer = TrackRenderer(googleMap, TrackRenderer.RendererOptions(
@@ -832,7 +832,7 @@ construction.
 
 When `headingDeg` is `null`, hold your last rotation — never snap to a fabricated 0°.
 
-With `trackit-maps`:
+With `fieldtrack-maps`:
 
 ```kotlin
 val live = LiveTrackRenderer(googleMap)
@@ -1003,9 +1003,9 @@ Judged by exactly the same gates as a live fix — you cannot inject an unvalida
 
 ## 11. Optional modules
 
-### `trackit-sync` — HTTP upload
+### `fieldtrack-sync` — HTTP upload
 
-`trackit-core` never opens a socket. This artifact does; an app that does not depend on it
+`fieldtrack-core` never opens a socket. This artifact does; an app that does not depend on it
 gets an offline-first SDK with no network code linked at all.
 
 **Store-then-sync, never sync-then-store.** A point is durable in Room before anything is
@@ -1302,11 +1302,11 @@ exception cannot distinguish a dead credential from a dropped tunnel. `SyncReque
 carries `gzip` and `timeouts` so a custom transport can honour the host's config — ignoring
 them is correct behaviour, not a bug.
 
-### `trackit-snap` — OSRM map-matching
+### `fieldtrack-snap` — OSRM map-matching
 
-See [§7](#7-plotting). Depends on `trackit-geo` only; OkHttp is `compileOnly`.
+See [§7](#7-plotting). Depends on `fieldtrack-geo` only; OkHttp is `compileOnly`.
 
-### `trackit-maps` — Google Maps rendering
+### `fieldtrack-maps` — Google Maps rendering
 
 `TrackRenderer`, `LiveTrackRenderer`, `ArrowIcons`. Not a view and not thread-safe:
 construct where the map lives, call `render`, call `clear` when it goes away.
@@ -1456,7 +1456,7 @@ Stated rather than discovered:
   `deletePoints()`, `requestPermission()` or `exportFixture()` on `Traker`.** Use
   `getCurrentLocation()` for a fresh non-persisted snapshot. The other names remain
   target-surface entries in `API.md` §10 and are not implemented.
-- **`trackit-maps` has no tests.**
+- **`fieldtrack-maps` has no tests.**
 - **No committed field fixtures.** The replay harness exists and is used in tests, but
   constant tuning against real drives has not happened.
 - **No OEM field matrix.** The survival stack is unit-tested, not device-tested across

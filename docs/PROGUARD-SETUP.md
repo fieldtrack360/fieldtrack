@@ -8,14 +8,14 @@ Traker publishes minified release AARs so an app receives a usable SDK API witho
 
 | Module | Published form | Stable integration package | Obfuscated implementation package |
 |---|---|---|---|
-| `trackit-geo` | R8-minified AAR | `com.devstree.traker.geo.*` for supported types | `tr.dev.geo` |
-| `trackit-core` | R8-minified AAR | `com.devstree.traker.*` supported API | `tr.dev.core` |
-| `trackit-maps` | R8-minified AAR | Three renderer entry points and option types | Private methods obfuscated; all helper classes optimized away |
-| `trackit-snap` | R8-minified AAR | `OsrmSnapProvider` | `tr.dev.snap` |
-| `trackit-sync` | R8-minified AAR | Sync configuration, transport, queue, and facade types | `tr.dev.sync` |
+| `fieldtrack-geo` | R8-minified AAR | `com.devstree.traker.geo.*` for supported types | `tr.dev.geo` |
+| `fieldtrack-core` | R8-minified AAR | `com.devstree.traker.*` supported API | `tr.dev.core` |
+| `fieldtrack-maps` | R8-minified AAR | Three renderer entry points and option types | Private methods obfuscated; all helper classes optimized away |
+| `fieldtrack-snap` | R8-minified AAR | `OsrmSnapProvider` | `tr.dev.snap` |
+| `fieldtrack-sync` | R8-minified AAR | Sync configuration, transport, queue, and facade types | `tr.dev.sync` |
 | `traker-all` | Empty umbrella AAR | No classes | Not applicable |
 
-`trackit-geo` still contains pure Kotlin source with no Android imports. Android library packaging is used only so AGP can run R8 and include consumer rules in the published artifact.
+`fieldtrack-geo` still contains pure Kotlin source with no Android imports. Android library packaging is used only so AGP can run R8 and include consumer rules in the published artifact.
 
 ## Rule Types
 
@@ -51,7 +51,7 @@ Supported model packages retain public class and member names so Kotlin/Java con
 That also means the track-planning model graph stays readable: `Track`, `TrackOptions`,
 `TrackSegment`, `TrackStats`, `TrackJsonPoint`, `StopNode`, `ArrowAnchor`,
 `LiveTrackUpdate`, `PuckState`, `SegmentType`, and `Smoothing` remain named because the
-sample, `trackit-core`, and `trackit-maps` all compile against them.
+sample, `fieldtrack-core`, and `fieldtrack-maps` all compile against them.
 
 Kotlin serialization generates descriptors containing wire keys. R8 may rename a Kotlin property without changing the serialized JSON key. Enum constants are separately preserved because persisted rows and some wire values use `name`/`valueOf`; renaming those constants would silently change data semantics.
 

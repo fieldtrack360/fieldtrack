@@ -88,7 +88,7 @@ internal interface TrackPointDao {
     )
     suspend fun prune(cutoffMs: Long): Int
 
-    // ── upload queue (used only by the optional trackit-sync artifact) ──────
+    // ── upload queue (used only by the optional fieldtrack-sync artifact) ──────
     @Query("SELECT * FROM track_point WHERE syncState = 0 ORDER BY elapsedRealtimeNanos LIMIT :limit")
     suspend fun pendingUpload(limit: Int): List<TrackPointEntity>
 

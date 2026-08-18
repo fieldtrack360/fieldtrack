@@ -164,7 +164,7 @@ Stage 1.5 rejects a fix when `!hasSpeed && !hasBearing` (`LocationUtil.kt:218`).
 
 The first runs on initial draw, the second on the zoom-change path (`MapOverlayUtils.kt:464-492`), so arrow density visibly changes after the first pinch even when returning to the original zoom. Arrow half-length also differs (`±0.01 m` vs `±0.1 m`, lines 418-419 vs 546-547).
 
-**Traker fix.** One pure `Arrows.place(path, zoom, options): List<ArrowAnchor>` in `trackit-geo`, unit-tested, and it is the same function that produces the `arrows[]` array in the exported JSON. Renderers cannot diverge from the export because there is one implementation.
+**Traker fix.** One pure `Arrows.place(path, zoom, options): List<ArrowAnchor>` in `fieldtrack-geo`, unit-tested, and it is the same function that produces the `arrows[]` array in the exported JSON. Renderers cannot diverge from the export because there is one implementation.
 
 ---
 
@@ -176,7 +176,7 @@ The first runs on initial draw, the second on the zoom-change path (`MapOverlayU
 
 Re-running the pipeline on the same list therefore produces different output the second time — snapped coordinates get re-snapped, node numbers get reassigned. It also makes `activityStatus` do double duty as both a captured field (`"gps@moving"`) and a render tag (`"snapped_to_road"`, `"raw_punch"`, `"rounded_curve"`).
 
-**Traker fix.** `trackit-geo` is pure: every stage takes `List<TrackPoint>` and returns a new list. Render tags live in a separate `RenderTag` enum on the output type, never on the stored point.
+**Traker fix.** `fieldtrack-geo` is pure: every stage takes `List<TrackPoint>` and returns a new list. Render tags live in a separate `RenderTag` enum on the output type, never on the stored point.
 
 ---
 
@@ -323,7 +323,7 @@ One consequence for hosts: a `stop` segment carries no geometry, so **the drawn 
 | A3, A6 | Single-consumer `FixIngestor` actor. Immutable `FilterState`. No `@Volatile`, no statics. |
 | A4, A5 | Iterate `locationResult.locations`; dedupe and burst-gate on fix time. |
 | A8 | `hasSpeed`/`hasBearing` default `false`. |
-| A9, A10, A11 | All geometry pure and in `trackit-geo`; one arrow implementation shared by renderer and JSON export. |
+| A9, A10, A11 | All geometry pure and in `fieldtrack-geo`; one arrow implementation shared by renderer and JSON export. |
 | A12, A13, A14 | In-process force-capture; snapshot watchdog; `START_STICKY`. |
 | A16 | Three-tier permission degradation instead of a hard gate. |
 | A17 | Mock-location policy in v1. |

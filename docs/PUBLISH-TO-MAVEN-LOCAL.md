@@ -111,7 +111,7 @@ dependencies {
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:v0.1.1-alpha01")
     
     // Or individual modules
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-core:v0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-core:v0.1.1-alpha01")
 }
 ```
 

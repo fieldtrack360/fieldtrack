@@ -22,7 +22,7 @@ out/
 
 # What must STAY tracked, in case a future rule gets careless:
 #   trackit-*/consumer-rules.pro   — shipped with the AAR
-#   trackit-core/schemas/          — Room schemas; migrations are real (EC-83)
+#   fieldtrack-core/schemas/          — Room schemas; migrations are real (EC-83)
 
 # IDE
 .idea/

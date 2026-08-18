@@ -24,10 +24,10 @@
 
 | Decision | Choice | Consequence |
 |---|---|---|
-| Platform scope | **Android only; Kotlin, Java and React Native hosts** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. React Native **was** in this row and was moved out: it is a transport for the one engine, not another engine, and `trackit-bridge` carries it (CROSS-PLATFORM.md). `trackit-geo` is a plain Kotlin module with no Android dependencies, which keeps the engine 100 % JVM-unit-testable; that is still the reason it stays separate, and it does not become KMP. |
-| Server sync | **Offline-first, sync optional** | `trackit-core` never touches the network. `trackit-sync` is a separate optional artifact. |
+| Platform scope | **Android only; Kotlin, Java and React Native hosts** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. React Native **was** in this row and was moved out: it is a transport for the one engine, not another engine, and `trackit-bridge` carries it (CROSS-PLATFORM.md). `fieldtrack-geo` is a plain Kotlin module with no Android dependencies, which keeps the engine 100 % JVM-unit-testable; that is still the reason it stays separate, and it does not become KMP. |
+| Server sync | **Offline-first, sync optional** | `fieldtrack-core` never touches the network. `fieldtrack-sync` is a separate optional artifact. |
 | Distribution | **Private Maven + npm + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six artifacts under `com.devstree.traker`, plus `@devstree/react-native-traker` on npm at the same version, enforced by a build check. BUILD.md §5.5. |
-| Name | **Traker** / `com.devstree.traker` | Artifacts: `trackit-geo`, `trackit-core`, `trackit-maps`, `trackit-sync`, `trackit-snap`, `trackit-bridge`. |
+| Name | **Traker** / `com.devstree.traker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `trackit-bridge`. |
 | Dependency injection | **None — the graph is wired by hand** | Clean-architecture layering (`domain` / `data` / `service`) stands; it is assembled in one `internal` file, `di/TrakerGraph.kt`, reached through `Traker.getInstance(context)`. A host applies no Gradle plugin, annotates no `Application`, and runs no annotation processor. **This reverted an earlier decision to ship Hilt inside the SDK**, which had forced every consumer to adopt Hilt — unacceptable for a host whose `Application` class is not its own to annotate, and a hard blocker for the React Native package (CROSS-PLATFORM.md B-1). The position argued in [reference/EKF-DESIGN-REVIEW.md](reference/EKF-DESIGN-REVIEW.md) §S5 stands after all. Cost, accepted knowingly: no compile-time graph verification — `TrakerGraphTest` constructs every member instead. |
 
 **Single user.** One device, one user, explicit `start()` / `stop()`. Every company / employee / branch / punch / attendance / branch-WiFi / floor-detection concept is stripped — see §5 for the exact list.
@@ -72,11 +72,11 @@ v1 assumed the reference implementation was correct and the job was "port it, st
 
 **iOS · Flutter — permanently, not deferred.**
 
-**React Native was reversed.** This section originally put it in the same sentence as iOS and Flutter, and that was wrong for a reason worth recording: iOS is a *second implementation* of the engine, and React Native is a *transport* for the one that exists. The distinction is the whole argument. `trackit-bridge` carries it, `trackit-geo` is untouched, and every acceptance decision still happens in exactly one place. See [CROSS-PLATFORM.md](CROSS-PLATFORM.md), which supersedes this paragraph.
+**React Native was reversed.** This section originally put it in the same sentence as iOS and Flutter, and that was wrong for a reason worth recording: iOS is a *second implementation* of the engine, and React Native is a *transport* for the one that exists. The distinction is the whole argument. `trackit-bridge` carries it, `fieldtrack-geo` is untouched, and every acceptance decision still happens in exactly one place. See [CROSS-PLATFORM.md](CROSS-PLATFORM.md), which supersedes this paragraph.
 
 Also out: reverse geocoding (optional module, off by default) · anything server-side.
 
-**Road snapping shipped after all, in the shape this section originally reserved.** The geometry is pure and in-tree (`geo/plot/Snapper.kt`); the network call is a `RoadSnapProvider` a host installs, with one implementation in the optional `trackit-snap` artifact. Core still carries no HTTP client and no API key, and a track with no provider installed still renders offline from Bézier-rounded raw geometry — so the default posture is unchanged and the promise above still holds.
+**Road snapping shipped after all, in the shape this section originally reserved.** The geometry is pure and in-tree (`geo/plot/Snapper.kt`); the network call is a `RoadSnapProvider` a host installs, with one implementation in the optional `fieldtrack-snap` artifact. Core still carries no HTTP client and no API key, and a track with no provider installed still renders offline from Bézier-rounded raw geometry — so the default posture is unchanged and the promise above still holds.
 
 ---
 
@@ -84,10 +84,10 @@ Also out: reverse geocoding (optional module, off by default) · anything server
 
 Every decision lives in exactly one place. Two invariants, each enforced in CI, not by convention:
 
-1. **No algorithm above `trackit-geo`.** A Konsist rule fails the build if `trackit-core` contains a numeric literal inside a decision expression, or imports `kotlin.math` outside `provider/FixMapper`. Every constant lives in one `TrakerConstants` data class.
-2. **No platform types inside `trackit-geo`.** `android.location.Location` never appears, so the entire engine runs and is tested on the JVM with no emulator. Conversion happens once, in `FixMapper`, which is also the only place validity rules live.
+1. **No algorithm above `fieldtrack-geo`.** A Konsist rule fails the build if `fieldtrack-core` contains a numeric literal inside a decision expression, or imports `kotlin.math` outside `provider/FixMapper`. Every constant lives in one `TrakerConstants` data class.
+2. **No platform types inside `fieldtrack-geo`.** `android.location.Location` never appears, so the entire engine runs and is tested on the JVM with no emulator. Conversion happens once, in `FixMapper`, which is also the only place validity rules live.
 
-The practical test: a behaviour change is a one-file change in `trackit-geo`, and the fixture suite proves it on the JVM before any device sees it.
+The practical test: a behaviour change is a one-file change in `fieldtrack-geo`, and the fixture suite proves it on the JVM before any device sees it.
 
 The same rule produces the arrow guarantee — `Arrows.place()` feeds both the Google Maps renderer and the JSON export, so the drawn track and the exported track cannot disagree. The reference has two divergent arrow ladders precisely because that rule did not exist ([A9](SOURCE-AUDIT.md)).
 
@@ -97,7 +97,7 @@ The same rule produces the arrow guarantee — `Arrows.place()` feeds both the G
 
 ```
                           ┌─────────────────────────────┐
-                          │ trackit-geo  (pure Kotlin)  │  no Android, no I/O
+                          │ fieldtrack-geo  (pure Kotlin)  │  no Android, no I/O
                           │  · KalmanFilter             │  100 % unit-testable
                           │  · AcceptancePipeline (7)   │
                           │  · MotionStateMachine       │
@@ -108,7 +108,7 @@ The same rule produces the arrow guarantee — `Arrows.place()` feeds both the G
                           │  · ports: PointStore, Clock │
                           └──────────────┬──────────────┘
                           ┌──────────────▼──────────────┐
-                          │  trackit-core  (Android)    │
+                          │  fieldtrack-core  (Android)    │
                           │  Traker API · FixIngestor  │
                           │  FusedLocation · FGS        │
                           │  WorkManager · Watchdog     │
@@ -116,7 +116,7 @@ The same rule produces the arrow guarantee — `Arrows.place()` feeds both the G
                           │  Permissions · TrakerJava  │
                           └────────┬───────────┬────────┘
                     ┌──────────────▼───┐  ┌────▼─────────┐
-                    │ trackit-maps     │  │ trackit-sync │
+                    │ fieldtrack-maps     │  │ fieldtrack-sync │
                     │ (GoogleMap draw) │  │ (optional)   │
                     └──────────────────┘  └──────────────┘
                                 sample-android
@@ -165,11 +165,11 @@ The hybrid is the point: motion-gated shutdown layered **on top of** the nine-ga
 | `service/AttendanceLoggerService.kt` (1055 lines) | `core/service/TrackingService.kt` | **Rewrite.** Keep: FGS promotion + the dual-exception catch (`:925-954`), the 2-min health loop, the `AppOpsManager` revocation watcher (`:877-892`), notification lifecycle. Drop: WiFi/branch verification, floor detection, attendance approval gates, company notification data, `ACTION_AUTO_ATTEND_MEETING`. Target ≤ 350 lines. |
 | `utility/location/LocationTrackingManager.kt` | `core/Traker.kt`, `core/session/SessionManager.kt`, `core/work/Watchdog.kt` | **Rewrite.** Entirely company-coupled. Keep the watchdog logic in `isLocationHeartBeatActive()` (`:341-395`) and the raw-fix liveness clock. Drop the full-screen-intent nudge — the SDK emits an event, the host owns UI. |
 | `activityrecognition/ActivityTransitionManager.kt` + receiver | `core/motion/ActivityRecognizer.kt` | Port the transition set, the `FLAG_MUTABLE` + `setPackage` PendingIntent, segment open/close, 24 h auto-close. **Fix**: add a 30 s watchdog that cancels the snapshot subscription unconditionally ([A12](SOURCE-AUDIT.md)); force-capture over an in-process `SharedFlow`, not `startForegroundService` from a receiver ([A13](SOURCE-AUDIT.md)). ObjectBox → Room. |
-| `network/worker/UpdateLocationWorker.kt` | `core/work/BackstopWorker.kt` | Keep the 15-min periodic capture, 30 s timeout, linear backoff, and the `WorkInfo` state inspection. Drop the upload half (→ `trackit-sync`). **Fix**: feed the shared ingestor instead of deriving its own `past` ([A3](SOURCE-AUDIT.md)). |
+| `network/worker/UpdateLocationWorker.kt` | `core/work/BackstopWorker.kt` | Keep the 15-min periodic capture, 30 s timeout, linear backoff, and the `WorkInfo` state inspection. Drop the upload half (→ `fieldtrack-sync`). **Fix**: feed the shared ingestor instead of deriving its own `past` ([A3](SOURCE-AUDIT.md)). |
 | `ui/company/.../EmployeeLocationHistoryViewModel.kt` (1446 lines) | `geo/plot/*` | **Mine, don't port.** Extract `filterLocationForStopsAndPunches` (`:664-738`), `generateSegmentNodes` (`:764-900`), `buildNodeSegment` (`:902-1159`), `calculateSegmentMotion` (`:1247-1297`), `durationWeightedPercentile` (`:1304-1330`), `buildActivityTimeline` (`:1334-1390`), `findDominantOverlap` (`:1404-1424`). Make all of them **pure** ([A10](SOURCE-AUDIT.md)). Drop device attribution, punch bookends, verified-office logic, networking, `LiveData`. |
-| `routing/processing/RoadSnapperV2.kt` | `geo/plot/Snapper.kt` + `geo/plot/BezierRounding.kt` + `trackit-snap/OsrmSnapProvider.kt` | Split: geometry → `geo` (pure, no mutation, index-based sub-path — [A10](SOURCE-AUDIT.md), [A11](SOURCE-AUDIT.md)); the HTTP call goes behind a `RoadSnapProvider` interface in an optional artifact, so no vendor lock and no API key in core. **Shipped against OSRM, not ORS:** ORS has no matching endpoint, and its `/directions` service re-*routes* between coordinates — it invents a plausible path rather than reporting the one that was driven, and would quietly straighten out any detour the user actually took. OSRM's `/match` is a real Hidden Markov matcher, self-hostable, and testable against a `MockWebServer`. `RoadSnapProvider` is one function, so a host wanting Google Roads writes that function instead of taking this artifact. |
+| `routing/processing/RoadSnapperV2.kt` | `geo/plot/Snapper.kt` + `geo/plot/BezierRounding.kt` + `fieldtrack-snap/OsrmSnapProvider.kt` | Split: geometry → `geo` (pure, no mutation, index-based sub-path — [A10](SOURCE-AUDIT.md), [A11](SOURCE-AUDIT.md)); the HTTP call goes behind a `RoadSnapProvider` interface in an optional artifact, so no vendor lock and no API key in core. **Shipped against OSRM, not ORS:** ORS has no matching endpoint, and its `/directions` service re-*routes* between coordinates — it invents a plausible path rather than reporting the one that was driven, and would quietly straighten out any detour the user actually took. OSRM's `/match` is a real Hidden Markov matcher, self-hostable, and testable against a `MockWebServer`. `RoadSnapProvider` is one function, so a host wanting Google Roads writes that function instead of taking this artifact. |
 | `routing/processing/RoadSnapper.kt` (V1), `RoadSnapperHybrid.kt`, `RTSSmoother.kt` | — | **Drop.** Superseded / disabled experiment / never wired. |
-| `utility/googleMap/MapOverlayUtils.kt` (778 lines) | `geo/plot/Arrows.kt` + `maps/TrackRenderer.kt` | Split: arrow **placement maths** and speed→band → `geo` (one ladder, [A9](SOURCE-AUDIT.md)); bitmap generation, `CustomCap`, `GoogleMap` calls → `trackit-maps`. |
+| `utility/googleMap/MapOverlayUtils.kt` (778 lines) | `geo/plot/Arrows.kt` + `maps/TrackRenderer.kt` | Split: arrow **placement maths** and speed→band → `geo` (one ladder, [A9](SOURCE-AUDIT.md)); bitmap generation, `CustomCap`, `GoogleMap` calls → `fieldtrack-maps`. |
 | `database/model/ClusterRecord.kt` | `geo/plot/model/TrackSegment.kt` | Redesign as an immutable data class; drop `BaseObservable`/`@Bindable`/`DiffUtil`. |
 | `database/dao/Location.kt` | `core/db/TrackPointEntity.kt` | Reshape. **Strip** `companyId`, `companyBranchId`, `companyEmployeeId`, `isLocationMatch`, `isAppLocation`, `wifiName/wifiId/wifiStatusFlag`, `checkIn`, `checkOut`, `placeId`, `deleted`, `locationName`, `LocationParser`. **Add** `uuid`, `sessionId`, `elapsedRealtimeNanos`, `isMock`, `bearingDeg`, `altitude`, `odometerMeters`, `isCharging`, `acceptReason`, `extras`. **Fix**: `hasSpeed`/`hasBearing` default `false` ([A8](SOURCE-AUDIT.md)). |
 | `utility/location/LatLng.kt` | `geo/model/TrackFix.kt`, `TrackPoint.kt` | **Rewrite.** The reference type carries Places SDK objects, static-map URLs, UI flags and a construction-time clock ([A1](SOURCE-AUDIT.md)). New types carry three explicit clocks and nothing else. |
@@ -183,7 +183,7 @@ Every ported file gets a header citing its provenance and the spec section it im
 
 | Tier | Scope | Runs on |
 |---|---|---|
-| **T1** | `trackit-geo`: fixture replay with golden verdict files; all plotting maths | Pure JVM, no emulator, in CI on every push |
+| **T1** | `fieldtrack-geo`: fixture replay with golden verdict files; all plotting maths | Pure JVM, no emulator, in CI on every push |
 | **T2** | Room DAOs, migrations, TTL pruning, config validation, state machine with fake clock + fake location source | Robolectric |
 | **T3** | FGS promotion and refusal, boot receiver, WorkManager backstop, permission ladder, process-death → filter reseed | Instrumented |
 | **T4** | Field matrix, ≥ 4 OEMs | Manual, exports fixtures that join T1 |
@@ -207,7 +207,7 @@ Fixture corpus (grows from every T4 run): `steady-indoors-2h` · `urban-drive-30
 ```
 traker/
 ├─ settings.gradle.kts · build.gradle.kts · gradle/libs.versions.toml
-├─ trackit-geo/          # plain Kotlin/JVM library — no Android dependency
+├─ fieldtrack-geo/          # plain Kotlin/JVM library — no Android dependency
 │  └─ main/kotlin/com/devstree/traker/geo/
 │     ├─ model/   TrackFix, TrackPoint, FilterState, Verdict, FixDecision
 │     ├─ filter/  KalmanFilter, AcceptancePipeline, Validation, TrakerConstants
@@ -217,7 +217,7 @@ traker/
 │     ├─ export/  TrackJson, GeoJson, Fixture
 │     ├─ math/    Haversine, Bearing, Geometry
 │     └─ port/    PointStore, Clock, TrackLogger, RoadSnapProvider
-├─ trackit-core/         # Android library — the public SDK. Clean architecture, hand-wired graph.
+├─ fieldtrack-core/         # Android library — the public SDK. Clean architecture, hand-wired graph.
 │  └─ main/kotlin/com/devstree/traker/
 │     ├─ Traker.kt · TrakerConfig.kt          # public surface
 │     ├─ domain/     model/ (TrackSession, TrakerEvent, ProviderState, TrakerResult)
@@ -233,8 +233,8 @@ traker/
 │     ├─ work/       BackstopWorker, RestoreWorker, PruneWorker, Watchdog
 │     ├─ permission/ PermissionManager, ProviderStateMonitor
 │     └─ di/         TrakerModule, TrakerBindings, RepositoryModule
-├─ trackit-maps/ · trackit-sync/
-├─ trackit-snap/        # optional artifact — OsrmSnapProvider. Depends on trackit-geo
+├─ fieldtrack-maps/ · fieldtrack-sync/
+├─ fieldtrack-snap/        # optional artifact — OsrmSnapProvider. Depends on fieldtrack-geo
 │                       # ONLY (its port), never on core: it turns a list of coordinates
 │                       # into a list of coordinates and knows nothing else.
 ├─ sample-android/
@@ -248,12 +248,12 @@ traker/
 | # | Phase | Deliverable | Est. |
 |---|---|---|---|
 | **0** | Scaffold | Repo, version catalog, convention plugins, CI (build + T1 + the two architecture rules from §3), publishing config | 4 d |
-| **1** | Geo engine | `trackit-geo` complete: Kalman, all 7 stages, motion machine, validation, constants, fixture harness, first 6 fixtures + golden files. **All T1 green before any Android code is written.** | 10 d |
+| **1** | Geo engine | `fieldtrack-geo` complete: Kalman, all 7 stages, motion machine, validation, constants, fixture harness, first 6 fixtures + golden files. **All T1 green before any Android code is written.** | 10 d |
 | **2** | Android capture | Config + DataStore + validation, Room + DAOs + `filter_state` + migrations, `FixMapper`, `LocationSource` (fused + platform fallback), `StreamProvider` with batch ingestion, `FixIngestor` actor, AR, motion controller, `SensorProbe` + significant-motion wake + step corroboration, events, `start()`/`stop()` | 16 d |
 | **3** | Permissions & resilience | Permission ladder + tier degradation, `ProviderStateMonitor`, FGS with the dual-exception path, health loop, watchdog, backstop, restore, boot receiver, stationary fence, prune worker, `motionQuality` degradation. T2 + T3 | 9 d |
 | **4** | Plotting | consolidate → nodes → clusters → speed stats → labels → Bézier → arrows → `Track` → polyline JSON + GeoJSON + fixture export/replay. T1 plotting suite | 10 d |
 | **5** | Sample app | 7 screens incl. 3-layer debug overlay, decision log, replay, export. First field runs → fixture corpus grows | 7 d |
-| **6** | Optional modules | `trackit-maps` renderer (consuming `Arrows.place()`); `trackit-sync` HTTP upload with retry queue + 401 teardown | 5 d |
+| **6** | Optional modules | `fieldtrack-maps` renderer (consuming `Arrows.place()`); `fieldtrack-sync` HTTP upload with retry queue + 401 teardown | 5 d |
 | **7** | Harden & ship | Field matrix on ≥ 4 OEMs, constant tuning against fixtures, Dokka + guides, private Maven publish, versioning policy | 10 d |
 
 **≈ 71 working days (~14 weeks) for one developer.** The audit added the ingestor rework, the clock migration, `filter_state`, batch handling, the permission-tier model and a much larger test surface; the incumbent comparison added the sensor layer (§6 of SDK-COMPARISON.md). Dropping the cross-platform bridges removed 12 days. With two developers ≈ 9 weeks (phases 4–5 parallelise with 2–3).
@@ -270,7 +270,7 @@ traker/
 | The clock migration (wall → monotonic) subtly changes behaviour | Recorded fixtures carry **both** clocks, so the same fixture can be replayed under either and the diff inspected. |
 | OEM battery managers kill the service anyway | Full survival stack ([PERMISSIONS.md](PERMISSIONS.md) §7) plus a liveness event so the host can nudge. A mitigation, not a cure — no Android SDK solves this, including Transistor's. |
 | Android 15/16/17 FGS tightening | `compileSdk 37`; the FGS-refusal path is a tested code path, not an exception handler. |
-| No routing API ⇒ weaker turn geometry than the reference manager view | **Retired.** Four layers now, three of them offline: bearing-change capture and the turn-burst cadence tier recover geometry *at capture time*; Bézier rounds what is left; and `RoadSnapProvider` is wired end to end, with `trackit-snap` shipping an OSRM implementation. A host with no provider is exactly where this row left it, which is why the offline layers came first. |
+| No routing API ⇒ weaker turn geometry than the reference manager view | **Retired.** Four layers now, three of them offline: bearing-change capture and the turn-burst cadence tier recover geometry *at capture time*; Bézier rounds what is left; and `RoadSnapProvider` is wired end to end, with `fieldtrack-snap` shipping an OSRM implementation. A host with no provider is exactly where this row left it, which is why the offline layers came first. |
 | A routing service is slow, rate-limited or offline at render time | Every provider failure degrades to raw geometry plus a `snap_unavailable` warning and a `SNAP_UNAVAILABLE` event — never an exception, never a lost track (EC-100). `OsrmSnapProvider` degrades **per chunk**, so a five-request trace losing one to a 429 keeps the other four. |
 | Snapping puts the user on the wrong street | The 80 m off-road guard (EC-101) and the both-endpoints-on-road rule are the whole point of keeping the merge pure and in-tree: a parallel service road or a tunnel exit returns geometry that *looks* plausible, and the guard is the only thing between it and a confidently wrong track. |
 | Room migrations in a library | `exportSchema = true`, schemas committed, never `fallbackToDestructiveMigration()`. **Migration *tests* are still outstanding** — the database is at v4 with three hand-written additive migrations and none has a `MigrationTestHelper` test, because the schema directory cannot be added to androidTest assets under AGP 9 ([BUILD.md](BUILD.md) §7). |
@@ -288,13 +288,13 @@ traker/
 
 ## 11. Next step
 
-Phases 0 and 1 carry the whole technical risk. Once `trackit-geo` replays a recorded steady-indoors hour and emits exactly one point — with the decision sequence matching a golden file byte for byte — the rest is well-understood Android plumbing.
+Phases 0 and 1 carry the whole technical risk. Once `fieldtrack-geo` replays a recorded steady-indoors hour and emits exactly one point — with the decision sequence matching a golden file byte for byte — the rest is well-understood Android plumbing.
 
 Scaffold on approval:
 
 ```
 traker/
   settings.gradle.kts · build.gradle.kts · gradle/libs.versions.toml
-  trackit-geo/   KalmanFilter + FilterState + fixture harness + first golden test
+  fieldtrack-geo/   KalmanFilter + FilterState + fixture harness + first golden test
   .github/workflows/ci.yml   build + T1 + architecture rules
 ```

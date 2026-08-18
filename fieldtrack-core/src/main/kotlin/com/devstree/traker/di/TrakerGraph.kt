@@ -73,7 +73,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 /**
  * The SDK's object graph, wired by hand.
  *
- * This replaces Hilt, and the reversal is deliberate. Hilt inside `trackit-core` forced
+ * This replaces Hilt, and the reversal is deliberate. Hilt inside `fieldtrack-core` forced
  * every consuming app to apply the Hilt Gradle plugin and annotate its `Application`
  * with `@HiltAndroidApp` — an integration tax on every host, and a hard blocker for any
  * host whose `Application` class is not its own to annotate (a React Native template's
@@ -131,7 +131,7 @@ internal class TrakerGraph private constructor(
 
     /**
      * Every decision constant lives in this one object, which is what makes PLAN.md §3
-     * invariant 1 ("no algorithm above trackit-geo") mechanically checkable.
+     * invariant 1 ("no algorithm above fieldtrack-geo") mechanically checkable.
      */
     val constants: TrakerConstants by lazy { TrakerConstants.Default }
     val pipeline: AcceptancePipeline by lazy { AcceptancePipeline(constants) }
@@ -164,7 +164,7 @@ internal class TrakerGraph private constructor(
     val decisions: DecisionRepository by lazy { DecisionRepositoryImpl(decisionDao) }
     val config: ConfigRepository by lazy { ConfigRepositoryImpl(configStore) }
 
-    /** The one public door trackit-sync uploads through. */
+    /** The one public door fieldtrack-sync uploads through. */
     val pendingUploads: PendingUploadStore by lazy { PendingUploadStoreImpl(pointDao) }
 
     /** The door in the other direction: core asking for a drain (G-4). */

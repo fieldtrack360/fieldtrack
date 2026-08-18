@@ -13,7 +13,7 @@ Important context:
 
 ## 1. Licensing gate
 
-New target area: `trackit-core/src/main/kotlin/com/devstree/traker/license/`.
+New target area: `fieldtrack-core/src/main/kotlin/com/devstree/traker/license/`.
 
 ### New types
 
@@ -61,7 +61,7 @@ New target area: `trackit-core/src/main/kotlin/com/devstree/traker/license/`.
 
 ### Tests
 
-- `trackit-core/src/test/kotlin/com/devstree/traker/license/LicenseTokenTest.kt`
+- `fieldtrack-core/src/test/kotlin/com/devstree/traker/license/LicenseTokenTest.kt`
   - confirms `TrakerConfig.license` is not persisted
   - checks the token shape parser
   - checks version rejection
@@ -102,7 +102,7 @@ So unlike the iOS change review, there was no broad motion/config port to make h
 
 ## 4. Verification
 
-- `./gradlew :trackit-core:testDebugUnitTest`
+- `./gradlew :fieldtrack-core:testDebugUnitTest`
 
 ---
 

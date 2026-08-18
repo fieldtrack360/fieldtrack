@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit
  * would put every host's production traffic on somebody else's free instance without
  * anyone deciding to. Point this at your own deployment.
  *
- * OkHttp is `compileOnly` in this module, exactly as in `trackit-sync`: it is linked only
+ * OkHttp is `compileOnly` in this module, exactly as in `fieldtrack-sync`: it is linked only
  * if the host already has it or adds it.
  */
 public class OsrmSnapProvider(

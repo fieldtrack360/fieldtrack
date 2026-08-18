@@ -10,7 +10,7 @@ import kotlin.math.sqrt
  * Great-circle interpolation and small metric offsets — the math under the animated
  * puck (SMOOTH-NAV-PLAN Phase 3).
  *
- * Lives here, not in `trackit-maps`, for the same reason every other algorithm does:
+ * Lives here, not in `fieldtrack-maps`, for the same reason every other algorithm does:
  * geometry is engine business, renderers only wire it to platform APIs (PLAN.md §3).
  */
 public object Geodesy {

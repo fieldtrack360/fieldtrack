@@ -11,7 +11,7 @@ import com.devstree.traker.geo.model.TrackFix
  * out-of-range coordinate poisons Haversine and therefore every gate downstream
  * (EC-23 … EC-28).
  *
- * `FixMapper` in `trackit-core` applies the same rules at the platform boundary so
+ * `FixMapper` in `fieldtrack-core` applies the same rules at the platform boundary so
  * junk never even becomes a [TrackFix]; this is the engine-side guarantee for fixes
  * that arrive from a fixture replay or a host `insertPoint()` call (EC-86).
  *

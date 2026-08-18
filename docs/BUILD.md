@@ -59,12 +59,12 @@ traker/
 ├─ build.gradle.kts           # declares plugins with `apply false` only
 ├─ gradle.properties          # JVM args, parallel, caching, configuration cache
 ├─ gradle/libs.versions.toml  # THE version catalog — single source of truth
-├─ trackit-geo/               # pure-Kotlin engine, published as a minified AAR
-├─ trackit-core/              # Android library — the public SDK
-├─ trackit-maps/              # Android library — Maps rendering
+├─ fieldtrack-geo/               # pure-Kotlin engine, published as a minified AAR
+├─ fieldtrack-core/              # Android library — the public SDK
+├─ fieldtrack-maps/              # Android library — Maps rendering
 ├─ traker-all/               # empty umbrella AAR — re-exports all SDK modules
-├─ trackit-sync/              # Android library — optional upload
-├─ trackit-snap/              # Android library — optional road snapping (OSRM)
+├─ fieldtrack-sync/              # Android library — optional upload
+├─ fieldtrack-snap/              # Android library — optional road snapping (OSRM)
 └─ sample-android/            # Android application — the demo app
 ```
 
@@ -72,13 +72,13 @@ Dependency direction — nothing points backwards:
 
 ```
 sample-android ──┐
-trackit-sync ────┼─> trackit-core ──> trackit-geo
+fieldtrack-sync ────┼─> fieldtrack-core ──> fieldtrack-geo
                                            ^
-trackit-maps ─────────────────────────────┤
-trackit-snap ─────────────────────────────┘
+fieldtrack-maps ─────────────────────────────┤
+fieldtrack-snap ─────────────────────────────┘
 ```
 
-`trackit-snap` depends on `trackit-geo` **only**, not on core. It implements one port
+`fieldtrack-snap` depends on `fieldtrack-geo` **only**, not on core. It implements one port
 (`RoadSnapProvider`) and turns a list of coordinates into a list of coordinates; it has
 no business knowing about capture, storage or Android location.
 
@@ -115,7 +115,7 @@ module instead, the modules drift and nothing will tell you.
 
 Copy the block that matches the kind of module you are adding.
 
-### 4.1 Android library (`trackit-core`, `trackit-maps`, `trackit-sync`, `trackit-snap`)
+### 4.1 Android library (`fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`)
 
 ```kotlin
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -168,7 +168,7 @@ An `Android library` module also needs a `consumer-rules.pro` file next to its
 `build.gradle.kts` — even an empty one — because `consumerProguardFiles` references it.
 What belongs in it, and what does not, is §5.6.
 
-### 4.2 Pure-Kotlin Android library (`trackit-geo`)
+### 4.2 Pure-Kotlin Android library (`fieldtrack-geo`)
 
 ```kotlin
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -205,7 +205,7 @@ dependencies {
 }
 ```
 
-`trackit-geo` keeps pure Kotlin source and local JVM tests, but publishes as an Android
+`fieldtrack-geo` keeps pure Kotlin source and local JVM tests, but publishes as an Android
 AAR so AGP can run R8 and embed consumer rules. The Android plugin is packaging, not
 permission to introduce Android imports into the engine.
 
@@ -216,12 +216,12 @@ carries `applicationId`, `targetSdk`, `versionCode`, `versionName`.
 
 ### 4.4 Dependency injection — there isn't any
 
-**No module in this project uses a DI framework.** `trackit-core` wires its own graph by
+**No module in this project uses a DI framework.** `fieldtrack-core` wires its own graph by
 hand in `di/TrakerGraph.kt`: one `internal class` of `by lazy` members, one
 double-checked process singleton, reached through `Traker.getInstance(context)`.
 
 Adding a dependency means adding a `val` to that file. Adding a *module* that needs the
-core graph means adding an accessor to `TrakerArtifacts` (the seam `trackit-sync` uses),
+core graph means adding an accessor to `TrakerArtifacts` (the seam `fieldtrack-sync` uses),
 because `TrakerGraph` is `internal` and a sibling Gradle module cannot see it.
 
 The trade is stated rather than assumed. What was lost is compile-time graph verification;
@@ -229,7 +229,7 @@ what replaces it is `TrakerGraphTest`, which touches every member — a missing 
 already a compile error in `TrakerGraph`, and a cycle overflows the stack in that test
 rather than on a user's device.
 
-> An earlier revision shipped Hilt inside `trackit-core`. The consequence, recorded in
+> An earlier revision shipped Hilt inside `fieldtrack-core`. The consequence, recorded in
 > PLAN.md §0, was that every consuming app inherited the Hilt runtime, had to apply the
 > Hilt Gradle plugin, and had to annotate its `Application` with `@HiltAndroidApp`. That
 > is not an install story an SDK can require of a host whose `Application` class is not
@@ -256,9 +256,9 @@ needs to change — there is no plugin registry to update.
 | Goal | Command |
 |---|---|
 | List modules / sanity-check config | `./gradlew projects` |
-| Geo engine tests (T1) | `./gradlew :trackit-geo:testDebugUnitTest` |
-| Core unit tests (T2) | `./gradlew :trackit-core:testDebugUnitTest` |
-| Optional artifacts | `./gradlew :trackit-sync:test :trackit-snap:test` |
+| Geo engine tests (T1) | `./gradlew :fieldtrack-geo:testDebugUnitTest` |
+| Core unit tests (T2) | `./gradlew :fieldtrack-core:testDebugUnitTest` |
+| Optional artifacts | `./gradlew :fieldtrack-sync:test :fieldtrack-snap:test` |
 | Publish locally | `./gradlew publishToMavenLocal` |
 | Publish to the configured remote | `./gradlew publish` — see §5.5 |
 | Audit published bytecode policy | `./gradlew verifyReleaseObfuscation` |
@@ -279,8 +279,8 @@ Reports land in `<module>/build/reports/`. Lint's readable output is at
 
 ## 5.5 Publishing
 
-Six modules publish: `trackit-geo`, `trackit-core`, `trackit-maps`, `trackit-sync`,
-`trackit-snap`, and `traker-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
+Six modules publish: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`,
+`fieldtrack-snap`, and `traker-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
 
 `sample-android` does **not** publish.
 
@@ -338,8 +338,8 @@ dependency change:
 
 | Gradle | POM | Example |
 |---|---|---|
-| `api(project(":trackit-core"))` | `compile` | `traker-all` → `trackit-core` |
-| `implementation(project(":trackit-core"))` | `runtime` | `trackit-sync` → `trackit-core` |
+| `api(project(":fieldtrack-core"))` | `compile` | `traker-all` → `fieldtrack-core` |
+| `implementation(project(":fieldtrack-core"))` | `runtime` | `fieldtrack-sync` → `fieldtrack-core` |
 | `compileOnly(libs.okhttp)` | **absent** | no host inherits an HTTP stack it did not ask for |
 
 ### Where the configuration lives
@@ -370,7 +370,7 @@ build over if they went missing.
 
 ## 5.6 R8 and consumer rules
 
-Every code-bearing published library, including `trackit-geo`, ships build-time R8 rules
+Every code-bearing published library, including `fieldtrack-geo`, ships build-time R8 rules
 and a `consumer-rules.pro`. The build-time rules protect Traker's own AAR; consumer rules
 protect runtime behavior during the host application's separate R8 pass.
 
@@ -428,7 +428,7 @@ build configuration that ships.
 
 It used to be `isMinifyEnabled = false`, which meant every `consumer-rules.pro` in this
 repository was shipped to hosts having **never once been executed**. Rules that are never
-exercised are guesses, and these guesses were wrong: `trackit-core` kept
+exercised are guesses, and these guesses were wrong: `fieldtrack-core` kept
 `com.devstree.traker.db.**`, a package that does not exist — the real name is `data.db` —
 and nothing anywhere preserved the enum names above.
 
@@ -504,7 +504,7 @@ So Android modules apply **only** `com.android.library` / `com.android.applicati
 The project-level `kotlin { }` block is still available — AGP's built-in Kotlin support
 registers it. See <https://kotl.in/gradle/agp-built-in-kotlin>.
 
-`trackit-geo` also applies `com.android.library` for secure AAR packaging while keeping
+`fieldtrack-geo` also applies `com.android.library` for secure AAR packaging while keeping
 its source platform-independent.
 
 ### `kotlinOptions { }` inside `android { }` is dead
@@ -515,7 +515,7 @@ way out.
 
 ### Room schemas are not wired into androidTest assets
 
-`trackit-core` sets `room.schemaLocation` via KSP args and commits the schemas
+`fieldtrack-core` sets `room.schemaLocation` via KSP args and commits the schemas
 (EC-83 — migrations are real, never destructive). The schema directory is deliberately
 *not* added to androidTest assets: AGP 9 throws
 `DefaultAndroidLibrarySourceSet_Decorated cannot be cast to AndroidLibrarySourceSet`
@@ -558,7 +558,7 @@ it cannot see.
 
 Installing a provider in your own app is one call, documented in [API.md](API.md) §3.
 
-### OkHttp in `trackit-sync` and `trackit-snap` is `compileOnly`
+### OkHttp in `fieldtrack-sync` and `fieldtrack-snap` is `compileOnly`
 
 The default `SyncTransport` and `OsrmSnapProvider` use OkHttp, but a host supplying its
 own `SyncTransport` or `RoadSnapProvider` should not inherit the dependency. It is
@@ -570,7 +570,7 @@ either shipped implementation must add OkHttp themselves.
 `./gradlew lintDebug` currently fails on a pre-existing source issue:
 
 ```
-trackit-core/src/main/kotlin/com/devstree/traker/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
+fieldtrack-core/src/main/kotlin/com/devstree/traker/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
 ```
 
 This is a code problem, not a build-config problem — the fix is a version guard or a
@@ -584,10 +584,10 @@ so it is red until this is addressed.
 `.github/workflows/ci.yml` runs on push to `main` and on every pull request, on
 `ubuntu-latest` with Temurin JDK 17:
 
-1. `./gradlew :trackit-geo:testDebugUnitTest` — T1, the geo engine. PLAN.md §6: all T1 green before
+1. `./gradlew :fieldtrack-geo:testDebugUnitTest` — T1, the geo engine. PLAN.md §6: all T1 green before
    any Android code is trusted.
-2. `./gradlew :trackit-core:testDebugUnitTest` — T2.
-3. `./gradlew :trackit-sync:test :trackit-snap:test` — the optional artifacts. Their
+2. `./gradlew :fieldtrack-core:testDebugUnitTest` — T2.
+3. `./gradlew :fieldtrack-sync:test :fieldtrack-snap:test` — the optional artifacts. Their
    tests are the only thing standing between a host and a silently rotting transport or
    snap provider; nothing else compiles them against a server.
 4. `./gradlew assembleDebug`
@@ -600,7 +600,7 @@ On failure, `**/build/reports/` is uploaded as the `test-reports` artifact.
 Reproduce the whole CI run locally:
 
 ```bash
-./gradlew :trackit-geo:testDebugUnitTest :trackit-core:testDebugUnitTest :trackit-sync:test :trackit-snap:test \
+./gradlew :fieldtrack-geo:testDebugUnitTest :fieldtrack-core:testDebugUnitTest :fieldtrack-sync:test :fieldtrack-snap:test \
           assembleDebug assembleDebugAndroidTest lintDebug --stacktrace
 ```
 

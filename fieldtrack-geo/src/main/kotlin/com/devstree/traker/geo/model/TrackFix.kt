@@ -3,7 +3,7 @@ package com.devstree.traker.geo.model
 /**
  * A raw sample handed to the acceptance pipeline.
  *
- * Platform-agnostic by construction — produced by `FixMapper` in `trackit-core`,
+ * Platform-agnostic by construction — produced by `FixMapper` in `fieldtrack-core`,
  * which is the only place `android.location.Location` is ever touched
  * (PLAN.md §3 invariant 2).
  *

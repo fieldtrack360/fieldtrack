@@ -24,17 +24,17 @@ tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
     repositoryRoot.set(layout.projectDirectory)
 
     dependsOn(
-        ":trackit-geo:assembleRelease",
-        ":trackit-core:assembleRelease",
-        ":trackit-maps:assembleRelease",
-        ":trackit-snap:assembleRelease",
-        ":trackit-sync:assembleRelease",
+        ":fieldtrack-geo:assembleRelease",
+        ":fieldtrack-core:assembleRelease",
+        ":fieldtrack-maps:assembleRelease",
+        ":fieldtrack-snap:assembleRelease",
+        ":fieldtrack-sync:assembleRelease",
         ":fieldtrack:assembleRelease",
-        ":trackit-geo:javaDocReleaseJar",
-        ":trackit-core:javaDocReleaseJar",
-        ":trackit-maps:javaDocReleaseJar",
-        ":trackit-snap:javaDocReleaseJar",
-        ":trackit-sync:javaDocReleaseJar",
+        ":fieldtrack-geo:javaDocReleaseJar",
+        ":fieldtrack-core:javaDocReleaseJar",
+        ":fieldtrack-maps:javaDocReleaseJar",
+        ":fieldtrack-snap:javaDocReleaseJar",
+        ":fieldtrack-sync:javaDocReleaseJar",
         ":fieldtrack:javaDocReleaseJar",
     )
 }
@@ -54,10 +54,10 @@ tasks.register<ArchiveReleaseMappingsTask>("archiveReleaseMappings") {
     )
 
     dependsOn(
-        ":trackit-geo:assembleRelease",
-        ":trackit-core:assembleRelease",
-        ":trackit-maps:assembleRelease",
-        ":trackit-snap:assembleRelease",
-        ":trackit-sync:assembleRelease",
+        ":fieldtrack-geo:assembleRelease",
+        ":fieldtrack-core:assembleRelease",
+        ":fieldtrack-maps:assembleRelease",
+        ":fieldtrack-snap:assembleRelease",
+        ":fieldtrack-sync:assembleRelease",
     )
 }

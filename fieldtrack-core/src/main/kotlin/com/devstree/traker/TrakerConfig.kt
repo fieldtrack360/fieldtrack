@@ -29,7 +29,7 @@ public data class TrakerConfig(
      *
      * **Core never reads it.** It opens no socket and has no endpoint of its own; this is
      * carried here so a host with one base URL for its whole app can set it once, in the
-     * config it is already building, and have `trackit-sync` resolve a path against it:
+     * config it is already building, and have `fieldtrack-sync` resolve a path against it:
      *
      * ```kotlin
      * trackIt.ready(TrakerConfig.builder().baseUrl("https://api.example.com").build())
@@ -201,7 +201,7 @@ public data class TrakerConfig(
         /**
          * Base URL for the upload endpoint — see [TrakerConfig.baseUrl].
          *
-         * Read only by `trackit-sync`, and only when a `SyncConfig` does not carry an
+         * Read only by `fieldtrack-sync`, and only when a `SyncConfig` does not carry an
          * absolute URL of its own. Setting it with that module absent is harmless and does
          * nothing.
          */
@@ -495,7 +495,7 @@ public data class GeolocationConfig(
      *
      * Adaptive cadence is a guess about the whole drive — fast everywhere, because the
      * turns could be anywhere. This spends the battery only where the geometry is, and
-     * `trackit-geo`'s `TurnDetector` decides when that is. Off leaves exactly the
+     * `fieldtrack-geo`'s `TurnDetector` decides when that is. Off leaves exactly the
      * two-tier behaviour that shipped before it.
      */
     val turnBurst: Boolean = true,

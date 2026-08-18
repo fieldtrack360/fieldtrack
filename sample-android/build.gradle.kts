@@ -112,14 +112,14 @@ kotlin {
 dependencies {
     // Linked as a project dependency for local development and JitPack builds.
     // Transitive dependencies are resolved via the sub-project's definitions.
-//    implementation(project(":fieldtrack"))
+    implementation(project(":fieldtrack"))
 //    implementation(libs.fieldtrack)
 
     //local maven
-    implementation(libs.trackit.sdk)
+//    implementation(libs.trackit.sdk)
 
 
-    // OkHttp is compileOnly inside trackit-snap, so the host that wants the shipped
+    // OkHttp is compileOnly inside fieldtrack-snap, so the host that wants the shipped
     // provider supplies the client — that is the artifact's whole bargain: no host
     // inherits an HTTP stack it did not ask for.
     implementation(libs.okhttp)

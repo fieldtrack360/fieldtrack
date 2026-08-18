@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
  * Dropping to 12 s while vehicular is the largest turn-fidelity win available without a
  * routing API (EC-45, spec §8.2).
  *
- * A third tier sits above vehicular: while `trackit-geo`'s `TurnDetector` says the
+ * A third tier sits above vehicular: while `fieldtrack-geo`'s `TurnDetector` says the
  * vehicle is measurably turning, cadence drops again to `turnBurstIntervalMs`. Adaptive
  * cadence is a guess about the whole drive; this spends the battery only where the
  * geometry actually is (EC-45).

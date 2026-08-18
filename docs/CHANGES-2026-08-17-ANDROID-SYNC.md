@@ -9,7 +9,7 @@ Then two `GAPS.md` findings that the above made unavoidable: **G-4** — nothing
 drain, which made the rest of it moot (§6) — and **G-2** — every uploaded point carried
 `"battery_percentage": null` (§7).
 
-§§1–5 are entirely in `trackit-sync`. §§6–7 touch `trackit-core`, and neither puts a socket or
+§§1–5 are entirely in `fieldtrack-sync`. §§6–7 touch `fieldtrack-core`, and neither puts a socket or
 an HTTP concept in it: G-4 goes through a new `SyncTrigger` port that core calls out through
 without knowing what an upload is, and G-2 is a battery reading with no network involvement at
 all.
@@ -169,7 +169,7 @@ where it previously failed silently at upload time. That is the intent.
 
 ## 4. Verified
 
-**`trackit-sync` had no `src/test` directory at all.** It now has 47 tests, all passing —
+**`fieldtrack-sync` had no `src/test` directory at all.** It now has 47 tests, all passing —
 `RetryAfterTest` (15), `SyncQueueTest` (11), `OkHttpSyncTransportTest` (11),
 `SyncConfigValidationTest` (10). MockWebServer was already a declared test dependency and
 unused; no build file change was needed. Note the OkHttp 5 package is `mockwebserver3`.
@@ -181,7 +181,7 @@ byte-for-byte; the sub-threshold body staying uncompressed; a timeout returning 
 rather than throwing; event order across a three-batch drain; a 401 mid-drain keeping the
 batch that already succeeded; loopback and `allowCleartext` acceptance.
 
-`:trackit-core:testDebugUnitTest` passes unchanged. `:trackit-sync:assembleRelease` and the
+`:fieldtrack-core:testDebugUnitTest` passes unchanged. `:fieldtrack-sync:assembleRelease` and the
 root `verifyReleaseObfuscation` audit both pass with the new ProGuard keeps for `SyncEvent`
 and `SyncTimeouts`.
 
@@ -201,7 +201,7 @@ as "upload as points arrive" and read nowhere; repo-wide, nothing outside `Trake
 `requestSync()` or `syncNow()`. A host that configured sync and never called it itself
 accumulated rows forever (GAPS.md G-4, spec §3.4 step 3 and §12.2 check 3).
 
-**The seam.** Core cannot depend on `trackit-sync` — that is the whole offline-first
+**The seam.** Core cannot depend on `fieldtrack-sync` — that is the whole offline-first
 arrangement — so the fix is a second narrow port next to `PendingUploadStore`, pointing the
 other way:
 
@@ -209,13 +209,13 @@ other way:
 public fun interface SyncTrigger { public fun requestSync() }
 ```
 
-`TrakerArtifacts.registerSyncTrigger(trigger)` registers it; `trackit-sync` calls that from
+`TrakerArtifacts.registerSyncTrigger(trigger)` registers it; `fieldtrack-sync` calls that from
 `configure()` when `autoSync` is on, and passes `null` when it is off or when a 401/403 tears
 the configuration down. Nothing registered means core does nothing and asks the database
 nothing — a host without the sync artifact pays for none of it. **No network type crosses into
 core, and no new dependency was added in either direction.**
 
-**Three triggers**, in `SyncScheduler` (`trackit-core/.../work/SyncScheduler.kt`):
+**Three triggers**, in `SyncScheduler` (`fieldtrack-core/.../work/SyncScheduler.kt`):
 
 | Trigger | Cadence | Covers |
 |---|---|---|
@@ -240,7 +240,7 @@ cleared by a 401 teardown both carry 0, and neither is a confirmed upload.
 **Store-then-sync is unchanged.** The row is durable before the trigger fires, so a request
 that never arrives costs nothing.
 
-**Tests:** `trackit-core/src/test/.../work/SyncSchedulerTest.kt`, 11 cases — no trigger means
+**Tests:** `fieldtrack-core/src/test/.../work/SyncSchedulerTest.kt`, 11 cases — no trigger means
 no work and no query at all; the point path throttles at 60 s and fires again after; an empty
 queue wakes nothing; a stale sync overrides the throttle; a queue that never synced counts as
 stale; clearing the trigger stops the nudging; re-registering resets the throttle so a fresh
@@ -265,7 +265,7 @@ This is diagnostic, not functional — nothing in the pipeline gates on it. It i
 field that answers the first question asked of every field report: did the tracker die
 because the OEM killed it, or because the phone was at 3 %.
 
-**`AndroidBatteryProbe`** (`trackit-core/.../data/platform/BatteryProbe.kt`) reads
+**`AndroidBatteryProbe`** (`fieldtrack-core/.../data/platform/BatteryProbe.kt`) reads
 `BATTERY_PROPERTY_CAPACITY` first — a direct query, no broadcast — and falls through to the
 sticky `ACTION_BATTERY_CHANGED` when that answers outside 1..100, which some OEMs do
 (`Int.MIN_VALUE`, `-1`, a flat `0` on a phone that plainly is not). The fallback registers a
@@ -288,7 +288,7 @@ exactly where "the phone was at 4 %" belongs.
 byte-deterministic, and a live battery reading would make it a function of the device it ran
 on.
 
-**Tests:** `trackit-core/src/test/.../data/platform/BatteryProbeTest.kt`, 8 cases — scale
+**Tests:** `fieldtrack-core/src/test/.../data/platform/BatteryProbeTest.kt`, 8 cases — scale
 honoured, range ends, an absent extra reading as unknown rather than 0 %, the charging
 tri-state (`UNKNOWN` stays null instead of becoming "not charging"), 60 fixes costing one
 binder call, refresh after the window, a throwing probe, and a first read on a zero elapsed
@@ -378,7 +378,7 @@ trackIt.ready(TrakerConfig.builder().baseUrl("https://api.example.com").build())
 sync.configure(SyncConfig.builder().path("v1/location/batch").build())
 ```
 
-The reservation stands and is worth recording: `trackit-core` now carries a field it can never
+The reservation stands and is worth recording: `fieldtrack-core` now carries a field it can never
 read, because it opens no socket and has no endpoint of its own. What makes it defensible is
 that the field is inert there — `TrakerArtifacts.baseUrl` is the only door out, and it is the
 same seam `PendingUploadStore` and `SyncTrigger` already use. Core gained no network concept,

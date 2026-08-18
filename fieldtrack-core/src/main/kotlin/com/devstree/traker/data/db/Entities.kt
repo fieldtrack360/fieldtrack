@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  *   the same fix — the stream and the 15-minute backstop — derive the same id, so the
  *   duplicate insert is ignored rather than stored twice (EC-82).
  * @property timezone stored per point, because a session can cross zones (EC-89).
- * @property syncState only ever touched by the optional `trackit-sync` artifact; core
+ * @property syncState only ever touched by the optional `fieldtrack-sync` artifact; core
  *   never opens a socket.
  */
 @Entity(

@@ -20,7 +20,7 @@ package com.devstree.traker.geo.filter
  * the sampling interval.
  *
  * Pure and stateless: the caller owns the two counters, which keeps this unit-testable
- * and keeps the decision itself in `trackit-geo` where every other one lives
+ * and keeps the decision itself in `fieldtrack-geo` where every other one lives
  * (PLAN.md §3 invariant 1).
  */
 public object ClockGuard {

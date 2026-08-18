@@ -1,6 +1,6 @@
 # Traker maps — build-time R8 configuration for the published release AAR.
 #
-# See trackit-core/proguard-rules.pro for the consumer-rules distinction and the honest
+# See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation. Only the three renderer entry points and their public option
 # types retain names. Compiler-generated helpers are optimized away and private methods
 # are shortened.

@@ -77,7 +77,7 @@ import kotlinx.coroutines.flow.update
  *
  * One instance per process, wired by hand in `di/TrakerGraph.kt`. **The SDK carries no
  * DI framework and requires none from the host** — no Hilt plugin, no `@HiltAndroidApp`,
- * no KSP. An earlier revision shipped Hilt inside `trackit-core` and pushed that
+ * no KSP. An earlier revision shipped Hilt inside `fieldtrack-core` and pushed that
  * requirement onto every consumer; it was removed because an SDK whose install story
  * starts with "first, adopt a DI framework" is not installable by a host that cannot
  * annotate its own `Application` class (CROSS-PLATFORM.md B-1).
@@ -439,7 +439,7 @@ public class Traker internal constructor(
      * Builds a ready-to-draw track: consolidated stops, travel/dwell segments,
      * precomputed arrow anchors, an encoded polyline and per-session statistics.
      *
-     * Runs entirely in `trackit-geo` on-device unless a [RoadSnapProvider] has been
+     * Runs entirely in `fieldtrack-geo` on-device unless a [RoadSnapProvider] has been
      * installed — no backend, no routing key, no quota by default.
      */
     public suspend fun buildTrack(

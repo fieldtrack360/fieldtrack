@@ -9,7 +9,7 @@ import com.devstree.traker.geo.filter.TrakerConstants
  *
  * The one place `TrakerConfig` is allowed to move a number inside [TrakerConstants], and
  * it moves exactly three of them. PLAN.md §3 invariant 1 says no algorithm lives above
- * `trackit-geo`; a *ceiling* is not an algorithm, but a config surface that could rewrite
+ * `fieldtrack-geo`; a *ceiling* is not an algorithm, but a config surface that could rewrite
  * arbitrary constants would be one in practice, so the mapping is enumerated here rather
  * than left open.
  *
