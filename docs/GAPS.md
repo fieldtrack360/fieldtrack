@@ -330,7 +330,10 @@ Benign today — the watchdog itself emits `Error(TRACKER_DEAD, …)` before ret
 
 ### G-26 — `trackit-bridge` does not exist {#g-26}
 
-**Verdict: MISSING — blocking.** `settings.gradle.kts:36` includes `:trackit-bridge`. `gradle/publish.gradle.kts` carries a POM description for it. The README lists it as a shipped module. **It has never existed in git history** (`git log --all --diff-filter=A -- 'trackit-bridge/*'` returns nothing).
+**Verdict: MISSING — blocking for Java/RN facades.** `trackit-bridge` is not included in
+`settings.gradle.kts`, is not published by `gradle/publish.gradle.kts`, and has never
+existed in git history (`git log --all --diff-filter=A -- 'trackit-bridge/*'` returns
+nothing).
 
 Consequences:
 
@@ -457,7 +460,10 @@ What ships: `TrakerModule.kt` (284 lines), `TrakerPackage.kt`, `TrakerSpec.kt`. 
 import com.devstree.traker.bridge.TrakerJson
 ```
 
-Nothing else. The module is a thin JSON facade — argument marshalling, promise settling, event emission — over `trackit-bridge`, which is a published, R8-obfuscated AAR. **The engine is not in the npm package and cannot be.** A reader of the RN source learns the method list and the envelope shape, both of which are public API anyway.
+Nothing else. The intended module is a thin JSON facade — argument marshalling, promise
+settling, event emission — over a bridge AAR that does not exist yet. **The engine should
+not be in the npm package.** A reader of the RN source would learn the method list and the
+envelope shape, both of which are public API anyway.
 
 This is the right shape for a bridge, arrived at for other reasons (`ReadableMap` precision loss). It should be documented as a source-protection property so a future refactor does not casually move logic up into the module and give it away.
 
@@ -490,7 +496,10 @@ RN libraries conventionally ship `src/` alongside compiled `lib/`, because hosts
 
 What becomes visible: the TypeScript surface, the JSON envelope contract, the error-code list, the listener refcounting, and the backlog-marker protocol.
 
-All of it is public API. The engine is behind `trackit-bridge`. **Accept and record it** — the point of writing it down is that it is now a decision rather than an assumption, and a future contributor cannot quietly relocate logic into the JS layer without noticing they are publishing it.
+All of it is public API. The engine must stay behind a native bridge if React Native is
+added later. **Accept and record it** — the point of writing it down is that it is now a
+decision rather than an assumption, and a future contributor cannot quietly relocate logic
+into the JS layer without noticing they are publishing it.
 
 ### G-36 — testability, optionality and obfuscation: pick two {#g-36}
 

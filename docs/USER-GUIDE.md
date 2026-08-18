@@ -46,6 +46,8 @@ dependencyResolutionManagement {
 ```kotlin
 // app/build.gradle.kts
 dependencies {
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:0.1.1-alpha01")        // umbrella artifact
+
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-core:0.1.1-alpha01")   // required
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-geo:0.1.1-alpha01")    // pulled in transitively; declare if you use the types directly
 
@@ -53,8 +55,6 @@ dependencies {
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-maps:0.1.1-alpha01")   // Google Maps rendering
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-sync:0.1.1-alpha01")   // HTTP upload queue
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-snap:0.1.1-alpha01")   // OSRM map-matching
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-bridge:0.1.1-alpha01") // Java + JSON facades
-
     // fieldtrack-sync and fieldtrack-snap declare OkHttp as compileOnly — supply your own:
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
 }
@@ -91,14 +91,14 @@ Three calls. `getInstance` → `ready` → `start`.
 ```kotlin
 class SampleApplication : Application() {
 
-    val trackIt: Traker by lazy { Traker.getInstance(this) }
+    val traker: Traker by lazy { Traker.getInstance(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         scope.launch {
-            trackIt.ready(TrakerConfig())
+            traker.ready(TrakerConfig())
         }
     }
 }
@@ -107,21 +107,21 @@ class SampleApplication : Application() {
 ```kotlin
 // In a ViewModel, after permissions are granted:
 suspend fun begin() {
-    when (val result = trackIt.start(tag = "commute")) {
+    when (val result = traker.start(tag = "commute")) {
         is TrakerResult.Ok -> Log.d("app", "session ${result.value.id}")
         is TrakerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
     }
 }
 
 suspend fun end() {
-    trackIt.stop()
+    traker.stop()
 }
 ```
 
 ```kotlin
 // Later — a ready-to-draw track:
-val track = trackIt.buildTrack(PointQuery(sessionId = sessionId))
-val json = trackIt.exportPolylineJson(PointQuery(sessionId = sessionId))
+val track = traker.buildTrack(PointQuery(sessionId = sessionId))
+val json = traker.exportPolylineJson(PointQuery(sessionId = sessionId))
 ```
 
 ### The three calls, precisely
@@ -882,6 +882,7 @@ trackIt.events.collect { event ->
         is TrakerEvent.EnabledChange -> onTrackingToggled(event.enabled)
         is TrakerEvent.ProviderChange -> onProviderState(event.state)
         is TrakerEvent.PowerSaveChange -> onPowerSave(event.enabled)
+        is TrakerEvent.BatteryChange -> onBattery(event.battery)
         is TrakerEvent.Heartbeat -> onAlive(event.atMs)
         is TrakerEvent.SessionInterrupted -> offerResume(event.session)
         is TrakerEvent.Diagnostic -> log(event.message)
@@ -1317,28 +1318,16 @@ This module has **no tests**. It is thin by design, but "thin" is not "verified"
 
 ## 12. Java
 
-`trackit-bridge` gives you the SDK without `suspend` and without `Flow`.
+There is no Java callback facade in the published Maven artifacts yet. Java hosts can
+consume the Kotlin classes, but `suspend` functions and `Flow` are not wrapped by a
+`TrakerClient` module today. The `trackit-bridge`/JSON facade described in older planning
+notes is not shipped.
 
 ```java
-TrakerClient client = TrakerClient.getInstance(context);
-
-client.ready(new TrakerConfig(), new ResultCallback<TrakerState>() {
-    @Override public void onSuccess(TrakerState state) { /* … */ }
-    @Override public void onError(ErrorCode code, String message) { /* … */ }
-});
-
-client.start("commute", callback);
-client.stop(callback);
-
-client.buildTrack(new PointQuery(sessionId, null, null, 500, 0), trackCallback);
-client.getPoints(pointsCallback);
-client.getOdometerMeters(odometerCallback);
-
-Cancellable sub = client.addEventListener(event -> handle(event));
-sub.cancel();
+Traker traker = Traker.Companion.getInstance(context);
 ```
 
-Build config fluently — this is what the builder exists for:
+Build config fluently; this is what the builder exists for:
 
 ```java
 TrakerConfig config = TrakerConfig.builder()
@@ -1349,45 +1338,22 @@ TrakerConfig config = TrakerConfig.builder()
     .build();
 ```
 
-Synchronous getters where nothing can fail: `getState()`, `getProviderState()`,
-`getSensors()`, `permissions()`, `isOffRoute()`.
-
-`TrakerJson` on the same module is the JSON facade for anything that speaks JSON rather
-than Kotlin types.
+Synchronous getters where nothing can fail, such as `getSensors()` and `permissions()`,
+are directly callable. Coroutine and Flow entry points need normal Kotlin interop or a
+host-owned wrapper until a bridge module is added.
 
 ---
 
 ## 13. React Native
 
-npm package `@fieldtrack360/react-native-fieldtrack`, version-locked to the Maven artifacts.
+React Native is not published from this repository today. Older planning notes mention an
+npm package and `trackit-bridge`; neither is present in the current Gradle build or Maven
+Local output.
 
-```ts
-import * as Traker from '@devstree/react-native-traker';
-
-await Traker.ready({ geolocation: { providerType: 'GPS_ONLY' } });
-const session = await Traker.start('commute');
-
-const points = await Traker.getPoints({ sessionId: session.id });
-const track = await Traker.buildTrack({ sessionId: session.id }, { zoom: 14 });
-
-const sub = Traker.addEventListener(event => console.log(event));
-const liveSub = Traker.addLiveTrackListener(frame => draw(frame));
-Traker.setLiveTrackThrottleMs(200);
-
-sub.remove();
-await Traker.stop();
-```
-
-Errors reject with a `TrakerError` carrying the SDK's own `code` — branch on that;
-`message` is for humans and is not stable.
-
-**Android only.** The package installs on iOS and every call rejects with a typed
-`UNSUPPORTED_PLATFORM`. That is deliberate, not an omission: an iOS version would be a
-second implementation of a seven-stage acceptance pipeline, not a port. Check
-`Traker.isSupported` before wiring UI.
+The supported integration path today is a native Android/Kotlin host app depending on the
+Maven artifacts documented in [�1](#1-install).
 
 ---
-
 ## 14. Troubleshooting
 
 ### "I only get one point every few minutes"

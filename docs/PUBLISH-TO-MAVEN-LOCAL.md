@@ -68,7 +68,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 2.  Locate the `traker` variable in the `[versions]` section:
     ```toml
     [versions]
-    trackit = "0.1.1-alpha01"
+    traker = "0.1.1-alpha01"
     ```
 3.  Change the version string to your new version.
 4.  Run `./gradlew publishToMavenLocal` (or `publish`) to build artifacts with the new version.
@@ -83,7 +83,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 JitPack builds the SDK directly from the GitHub repository.
 
 ### 1. Configuration
-The repository includes a [jitpack.yml](file:///home/user/Mitesh/Devstree/traker/jitpack.yml) to ensure JitPack uses **JDK 17**, which is required by Gradle 9 and AGP 9.
+The repository includes [`jitpack.yml`](../jitpack.yml) to ensure JitPack uses **JDK 17**, which is required by Gradle 9 and AGP 9.
 
 ```yaml
 jdk:
@@ -135,4 +135,4 @@ The publishing logic is centralized in [gradle/publish.gradle.kts](../gradle/pub
 - POM metadata (licenses, developers, SCM).
 - Mandatory release-obfuscation verification before every Maven publish task.
 
-R8 mapping files are private release artifacts under `traker-<module>/build/outputs/mapping/release/mapping.txt`. Archive them in restricted release storage; never put them in the public Maven repository.
+R8 mapping files are private release artifacts under `fieldtrack-<module>/build/outputs/mapping/release/mapping.txt`. Archive them in restricted release storage; never put them in the public Maven repository.

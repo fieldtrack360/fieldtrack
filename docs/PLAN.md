@@ -24,10 +24,10 @@
 
 | Decision | Choice | Consequence |
 |---|---|---|
-| Platform scope | **Android only; Kotlin, Java and React Native hosts** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. React Native **was** in this row and was moved out: it is a transport for the one engine, not another engine, and `trackit-bridge` carries it (CROSS-PLATFORM.md). `fieldtrack-geo` is a plain Kotlin module with no Android dependencies, which keeps the engine 100 % JVM-unit-testable; that is still the reason it stays separate, and it does not become KMP. |
+| Platform scope | **Android only; Kotlin hosts today** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. Java and React Native bridge modules are not currently shipped. `fieldtrack-geo` keeps a pure-Kotlin source boundary for local tests, while its published form is an Android AAR so R8 can run. |
 | Server sync | **Offline-first, sync optional** | `fieldtrack-core` never touches the network. `fieldtrack-sync` is a separate optional artifact. |
-| Distribution | **Private Maven + npm + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six artifacts under `com.devstree.traker`, plus `@devstree/react-native-traker` on npm at the same version, enforced by a build check. BUILD.md §5.5. |
-| Name | **Traker** / `com.devstree.traker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `trackit-bridge`. |
+| Distribution | **Private Maven + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six Maven artifacts publish under `com.github.fieldtrack360.fieldtrack`. BUILD.md §5.5. |
+| Name | **Traker** / `com.devstree.traker` | Artifacts: `fieldtrack`, `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`. |
 | Dependency injection | **None — the graph is wired by hand** | Clean-architecture layering (`domain` / `data` / `service`) stands; it is assembled in one `internal` file, `di/TrakerGraph.kt`, reached through `Traker.getInstance(context)`. A host applies no Gradle plugin, annotates no `Application`, and runs no annotation processor. **This reverted an earlier decision to ship Hilt inside the SDK**, which had forced every consumer to adopt Hilt — unacceptable for a host whose `Application` class is not its own to annotate, and a hard blocker for the React Native package (CROSS-PLATFORM.md B-1). The position argued in [reference/EKF-DESIGN-REVIEW.md](reference/EKF-DESIGN-REVIEW.md) §S5 stands after all. Cost, accepted knowingly: no compile-time graph verification — `TrakerGraphTest` constructs every member instead. |
 
 **Single user.** One device, one user, explicit `start()` / `stop()`. Every company / employee / branch / punch / attendance / branch-WiFi / floor-detection concept is stripped — see §5 for the exact list.
@@ -72,7 +72,10 @@ v1 assumed the reference implementation was correct and the job was "port it, st
 
 **iOS · Flutter — permanently, not deferred.**
 
-**React Native was reversed.** This section originally put it in the same sentence as iOS and Flutter, and that was wrong for a reason worth recording: iOS is a *second implementation* of the engine, and React Native is a *transport* for the one that exists. The distinction is the whole argument. `trackit-bridge` carries it, `fieldtrack-geo` is untouched, and every acceptance decision still happens in exactly one place. See [CROSS-PLATFORM.md](CROSS-PLATFORM.md), which supersedes this paragraph.
+**React Native is not shipped today.** Earlier planning treated React Native as a transport
+over the one Android engine, not as a second engine. The required bridge module is not in
+the current Gradle build or Maven Local output, so React Native remains out of the shipped
+surface until that bridge exists.
 
 Also out: reverse geocoding (optional module, off by default) · anything server-side.
 

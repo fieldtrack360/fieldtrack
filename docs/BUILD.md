@@ -15,7 +15,7 @@ come from `gradle/libs.versions.toml`.
 |---|---|---|
 | JDK | 17 | Must be installed. `javaTarget = "17"` in the catalog drives the Gradle toolchain. |
 | Gradle | 9.7.0 | Wrapper — always use `./gradlew`, never a system `gradle`. |
-| Android Gradle Plugin | 9.3.1 | `agp` in the catalog. |
+| Android Gradle Plugin | 9.3.0 | `agp` in the catalog. |
 | Kotlin | 2.4.10 | `kotlin` in the catalog. |
 | Android SDK | compileSdk 37 | `local.properties` → `sdk.dir`, or `ANDROID_HOME`. |
 
@@ -62,7 +62,7 @@ traker/
 ├─ fieldtrack-geo/               # pure-Kotlin engine, published as a minified AAR
 ├─ fieldtrack-core/              # Android library — the public SDK
 ├─ fieldtrack-maps/              # Android library — Maps rendering
-├─ traker-all/               # empty umbrella AAR — re-exports all SDK modules
+├─ fieldtrack/               # empty umbrella AAR — re-exports all SDK modules
 ├─ fieldtrack-sync/              # Android library — optional upload
 ├─ fieldtrack-snap/              # Android library — optional road snapping (OSRM)
 └─ sample-android/            # Android application — the demo app
@@ -280,7 +280,7 @@ Reports land in `<module>/build/reports/`. Lint's readable output is at
 ## 5.5 Publishing
 
 Six modules publish: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`,
-`fieldtrack-snap`, and `traker-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
+`fieldtrack-snap`, and `fieldtrack`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
 
 `sample-android` does **not** publish.
 
@@ -290,7 +290,7 @@ One number, in `gradle/libs.versions.toml`:
 
 ```toml
 [versions]
-trackit = "0.1.1-alpha01"
+traker = "0.1.1-alpha01"
 ```
 
 Every Maven artifact carries this version. Bump it once in the catalog before publishing.
@@ -338,7 +338,7 @@ dependency change:
 
 | Gradle | POM | Example |
 |---|---|---|
-| `api(project(":fieldtrack-core"))` | `compile` | `traker-all` → `fieldtrack-core` |
+| `api(project(":fieldtrack-core"))` | `compile` | `fieldtrack` → `fieldtrack-core` |
 | `implementation(project(":fieldtrack-core"))` | `runtime` | `fieldtrack-sync` → `fieldtrack-core` |
 | `compileOnly(libs.okhttp)` | **absent** | no host inherits an HTTP stack it did not ask for |
 

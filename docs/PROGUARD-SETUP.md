@@ -13,7 +13,7 @@ Traker publishes minified release AARs so an app receives a usable SDK API witho
 | `fieldtrack-maps` | R8-minified AAR | Three renderer entry points and option types | Private methods obfuscated; all helper classes optimized away |
 | `fieldtrack-snap` | R8-minified AAR | `OsrmSnapProvider` | `tr.dev.snap` |
 | `fieldtrack-sync` | R8-minified AAR | Sync configuration, transport, queue, and facade types | `tr.dev.sync` |
-| `traker-all` | Empty umbrella AAR | No classes | Not applicable |
+| `fieldtrack` | Empty umbrella AAR | No classes | Not applicable |
 
 `fieldtrack-geo` still contains pure Kotlin source with no Android imports. Android library packaging is used only so AGP can run R8 and include consumer rules in the published artifact.
 
@@ -100,7 +100,7 @@ Every Maven publish task depends on this verification. The minified sample relea
 Each minified module writes:
 
 ```text
-traker-<module>/build/outputs/mapping/release/
+fieldtrack-<module>/build/outputs/mapping/release/
 ```
 
 Keep at least `mapping.txt`, the SDK version, commit SHA, and artifact checksums together. Use the mapping from the exact released module version when retracing a crash; mappings from a rebuild are not interchangeable.

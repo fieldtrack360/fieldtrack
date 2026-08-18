@@ -338,10 +338,10 @@ the same open question as G-25.
 
 **Compatibility:** `TrakerEvent.BatteryChange` is a **new sealed subtype**, so an exhaustive
 `when (event)` without an `else` stops compiling — the same break class as
-`SyncQueue.Result.Forbidden` in §7 above, and accepted for the same reason. **`sample-android`
-will hit this**: it builds against the published maven artifact (`libs.trackit.sdk`), not the
-project, so it cannot be updated in the same commit — its `CaptureLog.event()` needs a
-`BatteryChange` branch once this version is published. Everything else here is additive.
+`SyncQueue.Result.Forbidden` in §7 above, and accepted for the same reason. `sample-android`
+now includes `BatteryChange` handling in both the screen log and capture file log while
+building against the published Maven artifact (`libs.trackit.sdk`). Everything else here is
+additive.
 
 **Tests:** 8 more cases in the same file — plug-type mapping, `isLow` needing a reading,
 `refresh()` ignoring the cache because a host asking now means now, a change reaching both the
