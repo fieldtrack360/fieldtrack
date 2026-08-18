@@ -19,7 +19,12 @@ private data class ReleaseArtifact(
     val module: String,
     val requiredApi: List<String>,
     val obfuscatedPrefix: String?,
-)
+) {
+    val projectName: String = "fieldtrack-$module"
+
+    fun releaseAar(root: File): File =
+        root.resolve("$projectName/build/outputs/aar/$projectName-release.aar")
+}
 
 private fun File.sha256(): String {
     val digest = MessageDigest.getInstance("SHA-256")
@@ -130,7 +135,7 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
         )
 
         artifacts.forEach { artifact ->
-            val aar = root.resolve("trackit-${artifact.module}/build/outputs/aar/trackit-${artifact.module}-release.aar")
+            val aar = artifact.releaseAar(root)
             check(aar.isFile) {
                 "Missing release artifact: ${aar.relativeTo(root)}"
             }
@@ -202,7 +207,7 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
             "com/devstree/traker/sync/internal/",
         )
         artifacts.forEach { artifact ->
-            val aar = root.resolve("trackit-${artifact.module}/build/outputs/aar/trackit-${artifact.module}-release.aar")
+            val aar = artifact.releaseAar(root)
             val classesJar = ZipFile(aar).use { zip ->
                 zip.getInputStream(zip.getEntry("classes.jar")).readBytes()
             }
@@ -219,9 +224,9 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
 
         val sourceArchives = Files.walk(root.toPath()).use { paths ->
             paths.filter { path ->
-                val value = path.toString()
+                val value = path.toString().replace(File.separatorChar, '/')
                 path.fileName.toString().endsWith("-sources.jar") &&
-                    "/traker-" in value && "/build/" in value
+                    "/fieldtrack-" in value && "/build/" in value
             }.toList()
         }
         check(sourceArchives.isEmpty()) {
@@ -230,8 +235,9 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
 
         val documentationArchives = Files.walk(root.toPath()).use { paths ->
             paths.filter { path ->
+                val value = path.toString().replace(File.separatorChar, '/')
                 path.fileName.toString().endsWith("-javadoc.jar") &&
-                    "/traker-" in path.toString() && "/build/" in path.toString()
+                    "/fieldtrack-" in value && "/build/" in value
             }.toList()
         }
         documentationArchives.forEach { archive ->
@@ -266,12 +272,13 @@ abstract class ArchiveReleaseMappingsTask : DefaultTask() {
         val archiveRoot = root.resolve("build/release-mappings/${version.get()}")
 
         releaseModules.forEach { module ->
-            val aar = root.resolve("trackit-$module/build/outputs/aar/trackit-$module-release.aar")
+            val projectName = "fieldtrack-$module"
+            val aar = root.resolve("$projectName/build/outputs/aar/$projectName-release.aar")
             check(aar.isFile) {
                 "Missing release artifact for mapping archive: ${aar.relativeTo(root)}"
             }
 
-            val mappingDir = root.resolve("trackit-$module/build/outputs/mapping/release")
+            val mappingDir = root.resolve("$projectName/build/outputs/mapping/release")
             val moduleArchive = archiveRoot.resolve(module)
             moduleArchive.mkdirs()
 
