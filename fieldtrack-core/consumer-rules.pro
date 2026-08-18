@@ -50,6 +50,11 @@
     public static ** valueOf(java.lang.String);
 }
 
+# `IntegritySignal` is covered by the rule above and depends on it for the same reason,
+# one step further out: its constant names are uploaded verbatim in `integrity_signals`
+# and a backend rule matches on them. A renamed constant there is a security signal that
+# silently stops matching in release builds only.
+
 # `fieldtrack-geo` ships the equivalent rule in its own AAR. This duplicate remains because
 # core persists geo enum names directly and must protect them even if dependency rule
 # aggregation changes. The rule is idempotent in a host R8 configuration.

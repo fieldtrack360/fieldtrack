@@ -39,6 +39,21 @@ tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
     )
 }
 
+tasks.register<VerifyReleaseIntegrityTask>("verifyReleaseIntegrity") {
+    group = "verification"
+    description = "Audits the release security posture: R8 on, no hardcoded debuggable, integrity defaults intact."
+    repositoryRoot.set(layout.projectDirectory)
+}
+
+// Publishing an artifact with the security layer disabled is the failure this task exists
+// to prevent, so it runs before anything leaves the machine rather than as a separate step
+// somebody has to remember.
+subprojects {
+    tasks.matching { it.name.startsWith("publish") }.configureEach {
+        dependsOn(rootProject.tasks.named("verifyReleaseIntegrity"))
+    }
+}
+
 tasks.register<ArchiveReleaseMappingsTask>("archiveReleaseMappings") {
     group = "distribution"
     description = "Copies R8 release mappings into local release storage."

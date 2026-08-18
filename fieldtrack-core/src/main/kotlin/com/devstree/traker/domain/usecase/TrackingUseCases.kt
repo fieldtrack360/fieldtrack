@@ -17,6 +17,8 @@ import com.devstree.traker.domain.model.TrakerResult
 import com.devstree.traker.domain.model.TrackSession
 import com.devstree.traker.domain.repository.ConfigRepository
 import com.devstree.traker.domain.repository.SessionRepository
+import com.devstree.traker.geo.model.MockPolicy
+import com.devstree.traker.integrity.IntegrityPolicy
 import com.devstree.traker.motion.DeviceSensors
 import com.devstree.traker.motion.MotionQuality
 import com.devstree.traker.motion.SensorProbe
@@ -272,13 +274,28 @@ public class ResolveConfigUseCase internal constructor(
             resolved
         }
 
-        repository.save(effective)
+        // Two settings that must not be able to contradict each other: `security.mockLocation
+        // = BLOCK` means the SDK refuses to run on a device with mock locations, so it cannot
+        // also be storing mock fixes because `mockLocationPolicy` was left at FLAG. The
+        // stricter of the two wins, and it wins silently — a validation error here would fail
+        // `ready()` over a combination the SDK can resolve correctly on its own.
+        val guarded = if (effective.security.mockLocation == IntegrityPolicy.BLOCK &&
+            effective.geolocation.mockLocationPolicy != MockPolicy.REJECT
+        ) {
+            effective.copy(
+                geolocation = effective.geolocation.copy(mockLocationPolicy = MockPolicy.REJECT),
+            )
+        } else {
+            effective
+        }
+
+        repository.save(guarded)
         val source = when {
             supplied.reset -> ConfigSource.SUPPLIED
             persisted != null -> ConfigSource.PERSISTED
             else -> ConfigSource.DEFAULT
         }
-        return Result(effective, emptyList(), source, sensors)
+        return Result(guarded, emptyList(), source, sensors)
     }
 
     public data class Result(

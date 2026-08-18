@@ -265,3 +265,24 @@ What an integrating app must do — everything else is inside the AAR.
 4. Observe `Traker.providerState()` and surface `NeedsSettings` / `Error(TRACKER_DEAD)` in your UI.
 5. Optionally offer the battery-optimisation exemption, and document the OEM autostart setting for MIUI/ColorOS/One UI users (EC-126, EC-127).
 6. Declare nothing in your manifest — permissions, service and receivers merge from the AAR.
+
+---
+
+## 9. Device integrity needs no permission
+
+The device-integrity layer ([INTEGRATION-GUIDE.md §19](INTEGRATION-GUIDE.md#19-device-integrity))
+adds **no** entry to the merged manifest. Everything it reads is already available to any
+app about itself:
+
+| Check | Read from | Permission |
+|---|---|---|
+| Accessibility services | `AccessibilityManager`, `Settings.Secure` | none |
+| Developer options, USB debugging | `Settings.Global` | none |
+| Frida / Xposed / debugger | `/proc/self/*`, a loopback connect, `Debug` | none |
+| Clock and time zone | `Settings.Global`, `TelephonyManager.networkCountryIso`, GNSS fix time | none |
+| Mock-location app | `AppOpsManager` over visible packages | none |
+
+`QUERY_ALL_PACKAGES` is deliberately **not** requested. It would widen mock-app detection
+on Android 11+, and it would also force a Play policy declaration on every host of this
+SDK, for a signal that `MOCK_LOCATION_FIX` already covers the moment a fake fix is
+delivered. A host that needs the wider view can add its own `<queries>` entries.

@@ -57,6 +57,16 @@ public data class IngestContext(
      * without a tier replays byte-identically.
      */
     val cadenceTierMs: Long? = null,
+    /**
+     * Device-integrity bitmask at the time this fix was ingested, as
+     * `IntegrityReport.flags` in `fieldtrack-core`. `0` means "nothing observed", which is
+     * also what a debuggable build and a host with the layer switched off produce.
+     *
+     * The engine never interprets it — it is carried onto the accepted point so the row,
+     * and the upload built from that row, say what the device looked like when the point
+     * was taken. Defaulting to `0` keeps every recorded fixture replaying byte-identically.
+     */
+    val integrityFlags: Int = 0,
 ) {
     public companion object {
         /** Matches `MotionConfig.bearingChangeCaptureDeg`; a normal road junction is ~90°. */

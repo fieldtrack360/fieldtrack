@@ -37,7 +37,8 @@ every public method, every event and callback.
 16. [Diagnostics](#16-diagnostics)
 17. [Java interop](#17-java-interop)
 18. [ProGuard / R8](#18-proguard--r8)
-19. [Troubleshooting](#19-troubleshooting)
+19. [Device integrity](#19-device-integrity)
+20. [Troubleshooting](#20-troubleshooting)
 
 ---
 
@@ -348,12 +349,13 @@ traker.ready(config)
 | `service` | `ServiceConfig` | defaults | Foreground service, notification, survival |
 | `persistence` | `PersistenceConfig` | defaults | Retention and diagnostic storage |
 | `sensors` | `SensorConfig` | defaults | Hardware motion assists |
+| `security` | `SecurityConfig` | defaults | Device-integrity policy — accessibility, developer mode, hooking frameworks, clock tampering, mock-location apps ([§19](#19-device-integrity)). Waived entirely in debuggable builds |
 | `license` | `String?` | `null` | Release license token. Never persisted |
 | `baseUrl` | `String?` | `null` | Scheme + host for uploads, e.g. `https://api.example.com`. Core never opens a socket; `fieldtrack-sync` resolves a relative path against it |
 | `reset` | `Boolean` | `true` | `true` — this config is applied on top of factory defaults. `false` — the persisted config wins and this object is **ignored after the first launch**; only `setConfig()` changes anything after that. **Leave `true` during development** |
 
 Builder methods for the whole blocks: `.geolocation()`, `.motion()`, `.service()`,
-`.persistence()`, `.sensors()`, `.license()`, `.baseUrl()`, `.reset()`.
+`.persistence()`, `.sensors()`, `.security()`, `.license()`, `.baseUrl()`, `.reset()`.
 
 `config.validate(): List<String>` returns everything wrong with a config, or an empty list.
 `ready()` runs it and returns `ErrorCode.INVALID_CONFIG` with the joined messages.
@@ -644,6 +646,7 @@ lifecycleScope.launch {
             is TrakerEvent.GeofenceRemoved    -> Unit
             is TrakerEvent.GeofenceEntered    -> arrive(event.geofence)
             is TrakerEvent.GeofenceExited     -> depart(event.geofence)
+            is TrakerEvent.IntegrityChange    -> integrity(event.report)
             is TrakerEvent.SessionInterrupted -> offerResume(event.session)
             is TrakerEvent.Diagnostic         -> log(event.message)
             is TrakerEvent.Error              -> handle(event.code, event.message)
@@ -665,6 +668,7 @@ lifecycleScope.launch {
 | `BatteryChange` | `battery: BatteryInfo` | Plug, unplug, low, okay — and drift the capture path notices |
 | `GeofenceAdded` / `GeofenceRemoved` | `geofence` / `geofenceId` | Registry changed |
 | `GeofenceEntered` / `GeofenceExited` | `geofence: TrakerGeofence` | A fence was crossed |
+| `IntegrityChange` | `report: IntegrityReport` | The device-integrity flag set changed — transitions only, not every check ([§19](#19-device-integrity)) |
 | `SessionInterrupted` | `session: TrackSession` | `ready()` found a session left open by a crash or force-stop — you decide what to do |
 | `Diagnostic` | `message: String` | Informational |
 | `Error` | `code: ErrorCode`, `message: String` | Anything the SDK wants you to know about |
@@ -1322,7 +1326,9 @@ The default payload is `POST` JSON, snake_case keys, epoch milliseconds:
       "detected_activity_type": "IN_VEHICLE",
       "detected_activity_start_time": 1755499000000,
       "battery_percentage": "62",
-      "is_mock": false
+      "is_mock": false,
+      "integrity_flags": 0,
+      "integrity_signals": []
     }
   ]
 }
@@ -1330,6 +1336,8 @@ The default payload is `POST` JSON, snake_case keys, epoch milliseconds:
 
 Your server should answer **2xx** for accepted, **401** for expired credentials, **403** for a
 rejected credential, and any other status to have the batch retried.
+
+`integrity_flags` and `integrity_signals` describe the device when the point was captured — see [§19.4](#194-on-the-wire-and-in-storage) for the frozen bit assignments. Both default, so an existing backend keeps parsing unchanged. Treat them as advisory input to a server-side rule rather than as the defence itself, and be suspicious of a client version that is known to send them and stops.
 
 ### 14.6 Custom transport
 
@@ -1592,7 +1600,158 @@ inside your APK.
 
 ---
 
-## 19. Troubleshooting
+## 19. Device integrity
+
+A second security layer beside the license gate. It answers one question — *can this
+device fabricate the location data it is about to send?* — and lets you decide what to do
+about the answer.
+
+**Release only.** Every probe is skipped and every policy ignored when the host app is
+debuggable, exactly as the license check is waived there. Development builds, emulators
+and instrumentation runs are unaffected, with nothing to remember to switch off and
+nothing that could survive into production.
+
+### 19.1 What is checked
+
+| Signal | How | Default |
+|---|---|---|
+| `ACCESSIBILITY_SERVICE_ACTIVE` | A non-system accessibility service is enabled — the usual driver for UI automation | `WARN` |
+| `DEVELOPER_MODE_ENABLED` | `Settings.Global.DEVELOPMENT_SETTINGS_ENABLED` | `WARN` |
+| `ADB_ENABLED` | `Settings.Global.ADB_ENABLED` | `WARN` |
+| `HOOKING_FRAMEWORK_DETECTED` | Frida/Xposed: mapped libraries, agent thread names, default ports 27042/27043, `TracerPid`. Weighted; raised at confidence ≥ 60 | **`BLOCK`** |
+| `DEBUGGER_ATTACHED` | `TracerPid` non-zero or `Debug.isDebuggerConnected()` | **`BLOCK`** |
+| `AUTO_TIME_DISABLED` | Automatic date/time **and** automatic time zone both off | `WARN` |
+| `TIMEZONE_MISMATCH` | Device time zone not used in the serving cellular network's country | `WARN` |
+| `CLOCK_SKEWED` | System clock disagrees with **GNSS UTC** by more than `maxClockSkewMs` | `WARN` |
+| `MOCK_LOCATION_APP_SELECTED` | A visible installed package holds the mock-location app-op | **`BLOCK`** |
+| `MOCK_LOCATION_FIX` | The platform flagged a delivered fix as mock | **`BLOCK`** |
+
+No new permission is required, and `QUERY_ALL_PACKAGES` is deliberately **not** requested
+— see [§19.5](#195-limits-worth-knowing).
+
+### 19.2 Policy
+
+Three levels per group of signals:
+
+| Policy | Reported to the host | Stamped on points and uploaded | Blocks `ready()`/`start()` |
+|---|---|---|---|
+| `ALLOW` | no | no | no |
+| `WARN` | yes | yes | no |
+| `BLOCK` | yes | yes | yes |
+
+```kotlin
+val config = TrakerConfig.builder()
+    .securityEnabled(true)                                   // default
+    .hookingPolicy(IntegrityPolicy.BLOCK)                    // default
+    .mockLocationIntegrityPolicy(IntegrityPolicy.BLOCK)      // default
+    .accessibilityPolicy(IntegrityPolicy.WARN)               // default
+    .developerModePolicy(IntegrityPolicy.WARN)               // default
+    .clockPolicy(IntegrityPolicy.WARN)                       // default
+    .accessibilityAllowlist(setOf("com.yourco.kiosk"))
+    .maxClockSkewMs(120_000)                                 // default
+    .integrityRecheckIntervalMs(15 * 60_000)                 // default; 0 disables
+    .build()
+```
+
+`accessibility` defaults to `WARN` on purpose: accessibility services are also how blind
+and motor-impaired users operate a phone, and blocking on them would lock those users out
+of your app. Services installed as part of the system image never raise a finding.
+
+Setting `mockLocationIntegrityPolicy(BLOCK)` forces `mockLocationPolicy = REJECT`; the two
+cannot be left contradicting each other.
+
+### 19.3 Reading the result
+
+```kotlin
+when (val result = trackIt.ready(config)) {
+    is TrakerResult.Error ->
+        if (result.code == ErrorCode.DEVICE_INTEGRITY_BLOCKED) {
+            // result.message names the blocking signals
+            val report = trackIt.integrity()
+            showBlockedScreen(report.blockingSignals)
+        }
+    is TrakerResult.Ok -> Unit
+}
+
+// Live, and re-checked inside the health loop while a session is open.
+trackIt.integrityState()
+    .onEach { report -> banner.isVisible = report.findings.isNotEmpty() }
+    .launchIn(scope)
+
+// Force a fresh evaluation — reads /proc, the package list and a loopback socket.
+val fresh = trackIt.checkIntegrity()
+```
+
+`TrakerEvent.IntegrityChange` is emitted when the flag set changes, not on every
+evaluation. A `BLOCK` finding also arrives as `TrakerEvent.Error` with
+`ErrorCode.DEVICE_INTEGRITY_BLOCKED`, and mid-session it ends the session.
+
+`IntegrityReport.waived` is `true` in a debuggable build: nothing was probed, and the
+empty `findings` list is not a claim that the device is clean.
+
+### 19.4 On the wire and in storage
+
+Every accepted point carries `integrityFlags` — the bitmask of every signal observed when
+it was captured, `WARN` and `BLOCK` alike. It is stored on `track_point` (schema v7) and
+uploaded by `fieldtrack-sync`:
+
+```json
+{
+  "uuid": "…",
+  "is_mock": false,
+  "integrity_flags": 130,
+  "integrity_signals": ["DEVELOPER_MODE_ENABLED", "MOCK_LOCATION_APP_SELECTED"]
+}
+```
+
+The bit assignments are frozen: `ACCESSIBILITY_SERVICE_ACTIVE` = 1, `DEVELOPER_MODE_ENABLED`
+= 2, `ADB_ENABLED` = 4, `HOOKING_FRAMEWORK_DETECTED` = 8, `DEBUGGER_ATTACHED` = 16,
+`AUTO_TIME_DISABLED` = 32, `TIMEZONE_MISMATCH` = 64, `MOCK_LOCATION_APP_SELECTED` = 128,
+`MOCK_LOCATION_FIX` = 256, `CLOCK_SKEWED` = 512.
+
+Both fields default, so a backend that has never seen them keeps parsing. `0` means
+"nothing observed" — which is also what a debuggable build and a host with the layer
+disabled send, so tell "clean" from "not evaluated" by the client version, not by this
+column.
+
+**Evaluate server-side as well.** These flags are advisory input to a server rule, never
+the whole defence: an attacker who has already hooked the process can patch the client
+that produces them. The value is that tampering has to defeat both sides.
+
+### 19.5 Limits worth knowing
+
+- **Package visibility.** From Android 11 the SDK cannot enumerate every installed app, so
+  `MOCK_LOCATION_APP_SELECTED` catches a fake-GPS app only where the platform makes it
+  visible. `QUERY_ALL_PACKAGES` would fix that and is deliberately not requested — it is a
+  Play-policy declaration for every host, for a signal `MOCK_LOCATION_FIX` already covers
+  the moment a fake fix arrives. Add `<queries>` entries in your own manifest if you have a
+  specific list you care about.
+- **Client-side detection is not proof.** It raises cost; it does not make spoofing
+  impossible.
+- **The debuggable waiver is a real surface.** A repackaged APK can set the flag — but
+  re-signing changes the signing certificate, which is what the license token binds to.
+- **Emulators skip the Frida port scan.** CI images run enough loopback tooling to make it
+  noise.
+
+### 19.6 Build-time checks
+
+The SDK ships lint rules inside its AARs, so they run in **your** build:
+
+| Issue | Severity | Fires on |
+|---|---|---|
+| `FieldTrackSecurityDisabled` | fatal | `securityEnabled(false)` or `IntegrityPolicy.ALLOW` outside `src/debug/` |
+| `FieldTrackMockLocationAllowed` | fatal | `MockPolicy.ALLOW` |
+| `FieldTrackDebuggableRelease` | fatal | `android:debuggable="true"` in the manifest |
+| `FieldTrackLicenseHardcoded` | warning | A license token written as a string literal |
+
+Fatal issues fail `assembleRelease` through AGP's `lintVital` — which is the point: the
+runtime layer waives itself in debug builds, so only the build can catch a release that
+shipped with it switched off. Overrides belong in `src/debug/`, where the rules do not
+fire and the runtime waiver already applies.
+
+---
+
+## 20. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -1612,4 +1771,8 @@ inside your APK.
 | Tracking stopped and the queue emptied | A 401 tore everything down | Re-authenticate, then `ready()` / `start()` / `configure()` again |
 | `SNAP_UNAVAILABLE` in `warnings` | Your snap provider could not answer | Never fatal — the raw track is drawn. Check the OSRM server |
 | `MOTION_DETECTION_DEGRADED` | `motionQuality = POOR` on this hardware | Capture is forced to `CONTINUOUS`; expect more battery use |
+| `ready()`/`start()` returns `DEVICE_INTEGRITY_BLOCKED` | A `BLOCK`-policy signal fired | Read `trackIt.integrity()` for the signals ([§19](#19-device-integrity)); relax that policy to `WARN` if the device is legitimate |
+| Session ends by itself with `DEVICE_INTEGRITY_BLOCKED` | The health-loop re-check fired mid-session | Same as above; `integrityRecheckIntervalMs(0)` disables the periodic re-check |
+| Integrity findings never appear | The host app is debuggable, so the layer is waived | Expected. Check `IntegrityReport.waived`; exercise the layer in a release build |
+| `assembleRelease` fails on `FieldTrackSecurityDisabled` | A release source set disables the integrity layer | Move the override to `src/debug/` ([§19.6](#196-build-time-checks)) |
 | Live map jumps backwards | Drawing a stale frame | Drop any `LiveTrackUpdate` whose `sequence` is not newer than the last drawn |

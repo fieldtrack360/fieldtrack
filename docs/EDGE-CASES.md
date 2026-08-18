@@ -228,6 +228,23 @@ See [SDK-COMPARISON.md §6](SDK-COMPARISON.md) for the design. Every sensor path
 
 ---
 
+## 17. Device integrity
+
+| # | Trigger | Unhandled symptom | Handling | Owner | Test |
+|---|---|---|---|---|---|
+| EC-150 | A blind user's screen reader is an enabled accessibility service | Blocking on accessibility locks a disabled user out of the host app entirely | Default policy is `WARN`, never `BLOCK`; system-image services never raise a finding; `accessibilityAllowlist` covers the rest | `AccessibilityProbe` | T2 |
+| EC-151 | A field worker crosses a time zone, or NTP has not resynced after a flight | An innocent clock reads as tampering and tracking stops | Clock signals default to `WARN`; skew is measured against GNSS UTC with a 120 s tolerance, and a reading older than 30 minutes stops counting | `ClockIntegrityProbe`, `IntegrityFeed` | T1, T2 |
+| EC-152 | A CI emulator runs local tooling on a Frida default port | The build farm fails the integrity check and looks like an SDK bug | The port scan is skipped on emulator fingerprints; thread names alone (weight 40) stay below the threshold of 60 | `HookingProbe` | T1 |
+| EC-153 | An OEM kernel denies `/proc/self/maps` | A probe throws and `ready()` fails on a legitimate device | Every probe is wrapped: a throw degrades to "saw nothing", never to a verdict | `IntegrityEvaluator` | T1 |
+| EC-154 | Android 11+ package visibility hides installed fake-GPS apps | The mock-app probe silently returns nothing and reads as "device is clean" | Accepted and documented; `MOCK_LOCATION_FIX` covers the moment a fake fix arrives, needing no visibility at all. `QUERY_ALL_PACKAGES` is deliberately not requested | `MockLocationProbe` | T2 |
+| EC-155 | The device is tampered with *after* `start()` — Frida attached mid-session | A session that began clean keeps recording under a hooked process | The health loop re-evaluates every `recheckIntervalMs` and tears the session down through `StopTrackingUseCase` on a `BLOCK` verdict | `HealthLoop` | T2 |
+| EC-156 | An attacker moves the device clock to expire the record of their own mock fix | Evidence ages out on demand | Evidence ages on the monotonic clock, never the wall clock | `IntegrityFeed` | T1 |
+| EC-157 | An integrator ships a release build with the integrity layer disabled | No runtime check can report it — the reporting is part of what was switched off | Lint rules shipped inside the AARs, fatal, failing the host's `lintVital`; plus `verifyReleaseIntegrity` in this repository | `:fieldtrack-lint` | T1 |
+| EC-158 | A repackaged APK sets `android:debuggable="true"` to claim the development waiver | Both the license gate and the integrity layer waive themselves | Re-signing changes the signing certificate the license token binds to; the manifest flag is also a fatal lint error in the host build | `LicenseGate`, `DebuggableReleaseDetector` | T1 |
+| EC-159 | A point is captured on a device with `WARN`-level findings | The host sees a warning; the backend sees nothing and cannot act | Every observed signal — `WARN` and `BLOCK` alike — is stamped on the point as `integrityFlags` and uploaded as `integrity_flags` / `integrity_signals` | `FixIngestor`, `SyncQueue` | T1 |
+
+---
+
 ## Acceptance criteria derived from this catalogue
 
 These are the pass/fail gates for the field matrix (T4):
@@ -241,3 +258,4 @@ These are the pass/fail gates for the field matrix (T4):
 6. **Reboot mid-session ⇒** tracking resumes within one watchdog tick. (EC-65)
 7. **Airplane mode 10 min ⇒** no phantom points on re-acquisition. (EC-40)
 8. **Same fixture replayed twice ⇒ byte-identical decision sequence.** (EC-52, A10)
+9. **Release build on a device with a mock-location app ⇒ `ready()` returns `DEVICE_INTEGRITY_BLOCKED`; the same build debuggable ⇒ `Ok` with `IntegrityReport.waived = true`.** (EC-154, EC-157)

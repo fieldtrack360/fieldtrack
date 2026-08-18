@@ -46,6 +46,8 @@ import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.port.RoadSnapProvider
 import com.devstree.traker.geo.port.SnapFix
 import com.devstree.traker.geo.port.SnapRequest
+import com.devstree.traker.integrity.IntegrityMonitor
+import com.devstree.traker.integrity.IntegrityReport
 import com.devstree.traker.motion.DeviceSensors
 import com.devstree.traker.motion.SensorProbe
 import com.devstree.traker.motion.StationaryFence
@@ -53,7 +55,9 @@ import com.devstree.traker.permission.PermissionManager
 import com.devstree.traker.permission.ProviderStateMonitor
 import com.devstree.traker.work.PruneWorker
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import java.util.TimeZone
@@ -105,6 +109,7 @@ public class Traker internal constructor(
     private val providerStateMonitor: ProviderStateMonitor,
     private val batteryMonitor: BatteryMonitor,
     private val sensorProbe: SensorProbe,
+    private val integrityMonitor: IntegrityMonitor,
     private val stationaryFence: StationaryFence,
     private val permissions: PermissionManager,
     private val context: Context,
@@ -218,6 +223,21 @@ public class Traker internal constructor(
             }
         }
 
+        // Evaluated on the resolved-by-the-host config rather than the persisted one: the
+        // integrity policy is the host's standing decision about its own release build, so
+        // it must apply on the very first launch, before any config has been stored.
+        integrityGate(config.security)?.let { return it }
+        // Said out loud rather than left silent: "no findings" and "nothing was looked at"
+        // are different states, and a developer reading a clean report in a debug build
+        // should not conclude the layer is working.
+        if (integrityMonitor.current.waived) {
+            eventSink.tryEmit(
+                TrakerEvent.Diagnostic(
+                    "device integrity waived — debuggable build or security.enabled = false",
+                ),
+            )
+        }
+
         val resolved = resolveConfig(config)
         if (resolved.validationErrors.isNotEmpty()) {
             val message = resolved.validationErrors.joinToString("; ")
@@ -237,6 +257,15 @@ public class Traker internal constructor(
 
                         is TrakerEvent.MotionChange ->
                             _state.update { it.copy(motionState = event.state) }
+
+                        // The SDK can end a session without the host calling stop() — the
+                        // health loop does exactly that on a BLOCK-policy integrity finding.
+                        // Without this, `state.isTracking` would stay true for a session
+                        // that no longer exists.
+                        is TrakerEvent.EnabledChange ->
+                            if (!event.enabled) {
+                                _state.update { it.copy(isTracking = false, currentSessionId = null) }
+                            }
 
                         else -> Unit
                     }
@@ -265,6 +294,48 @@ public class Traker internal constructor(
         }
         return TrakerResult.Ok(_state.value)
     }
+
+    /**
+     * Runs the integrity layer and turns a `BLOCK` verdict into the error both `ready()`
+     * and `start()` return. `null` means "carry on".
+     *
+     * Deliberately not a `fun isTampered(): Boolean` used from two call sites: each entry
+     * point evaluates for itself, so patching one method out does not silently open both
+     * doors. The report is published either way — a `WARN` finding still reaches the host
+     * and still rides along on every point.
+     */
+    private fun integrityGate(security: SecurityConfig): TrakerResult.Error? {
+        val report = integrityMonitor.evaluate(security)
+        if (!report.blocked) return null
+
+        val message = "Device integrity check failed: ${report.describeBlocking()}"
+        eventSink.tryEmit(TrakerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
+        return TrakerResult.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message)
+    }
+
+    /**
+     * The last device-integrity evaluation. No probing — this is a field read.
+     *
+     * `IntegrityReport.waived` is `true` in a debuggable build, where nothing is probed
+     * and nothing blocks.
+     */
+    public fun integrity(): IntegrityReport = integrityMonitor.current
+
+    /**
+     * Probes now and returns the fresh report, publishing it to [integrityState] and to
+     * [TrakerEvent.IntegrityChange] if anything moved.
+     *
+     * Reads `/proc`, the installed-package list and a loopback socket — tens of
+     * milliseconds. Call it on a state change worth re-checking (an app install, a return
+     * from the background), not on a timer: the SDK already re-checks inside the health
+     * loop at `SecurityConfig.recheckIntervalMs`.
+     */
+    public suspend fun checkIntegrity(): IntegrityReport = withContext(Dispatchers.IO) {
+        integrityMonitor.evaluate(config?.security ?: SecurityConfig())
+    }
+
+    /** Live device-integrity state. Emits on a change of the flag set, not on every check. */
+    public fun integrityState(): StateFlow<IntegrityReport> = integrityMonitor.state
 
     /**
      * Live provider and permission state: GPS toggle, permission tier, granularity,
@@ -313,6 +384,12 @@ public class Traker internal constructor(
     public suspend fun start(tag: String? = null): TrakerResult<TrackSession> {
         val active = config
             ?: return TrakerResult.Error(ErrorCode.NOT_READY, "Call ready() before start()")
+
+        // Re-evaluated rather than reused from ready(): a device can be tampered with in
+        // the seconds between the two calls, and start() is the one that opens a session
+        // whose points a payroll run will later trust.
+        integrityGate(active.security)?.let { return it }
+        integrityMonitor.onSessionStart()
 
         return when (val result = startTracking(active, tag)) {
             is TrakerResult.Ok -> {
@@ -529,7 +606,15 @@ public class Traker internal constructor(
         // in the order it arrived braids the line back on itself (EC-88b).
         ClockGuard.inFixOrder(rawFixes.bySession(sessionId)) { it.elapsedRealtimeNanos }
             .map {
-                RawFix(it.timeMs, it.latitude, it.longitude, it.accuracy, it.bearingDeg, it.provider)
+                RawFix(
+                    timeMs = it.timeMs,
+                    latitude = it.latitude,
+                    longitude = it.longitude,
+                    accuracy = it.accuracy,
+                    bearingDeg = it.bearingDeg,
+                    provider = it.provider,
+                    integrityFlags = it.integrityFlags,
+                )
             }
 
     /**
@@ -616,6 +701,8 @@ public data class RawPoint(
     val batteryPct: Int?,
     val isCharging: Boolean?,
     val extras: String?,
+    /** Device-integrity bitmask when this fix was judged — see `IntegrityReport.flags`. */
+    val integrityFlags: Int,
     /** `ACCEPT`, `SKIP` or `REJECT`. */
     val verdict: String,
     /** The `Reasons` vocabulary — the same strings the decision log uses. */
@@ -633,4 +720,6 @@ public data class RawFix(
     /** 0f when the provider reported no bearing — check `hasBearing` on the source fix. */
     val bearingDeg: Float,
     val provider: String,
+    /** Device-integrity bitmask when this fix was received — see `IntegrityReport.flags`. */
+    val integrityFlags: Int = 0,
 )

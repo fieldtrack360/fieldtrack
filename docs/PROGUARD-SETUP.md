@@ -55,6 +55,19 @@ sample, `fieldtrack-core`, and `fieldtrack-maps` all compile against them.
 
 Kotlin serialization generates descriptors containing wire keys. R8 may rename a Kotlin property without changing the serialized JSON key. Enum constants are separately preserved because persisted rows and some wire values use `name`/`valueOf`; renaming those constants would silently change data semantics.
 
+## Device Integrity Types
+
+The `com.devstree.traker.integrity` package is kept **selectively**: the model a host reads
+(`IntegritySignal`, `IntegrityPolicy`, `IntegrityFinding`, `IntegrityReport`) plus
+`SecurityConfig`. The probes, the evaluator and the monitor are internal and stay renamed
+and repackaged with everything else — an anti-tamper layer whose class names survive
+obfuscation is a map for the person it exists to stop.
+
+`IntegritySignal` also depends on the enum-name rule in `consumer-rules.pro`: its constant
+names are uploaded verbatim in `integrity_signals`, and a backend rule matches on them. A
+renamed constant there is a security signal that silently stops matching, in release builds
+only.
+
 ## Release Logging
 
 Debug variants set `BuildConfig.SDK_LOGGING_ENABLED=true`. Release variants set it to `false`.

@@ -1,6 +1,7 @@
 package com.devstree.traker
 
 import com.devstree.traker.geo.model.MockPolicy
+import com.devstree.traker.integrity.IntegrityPolicy
 import java.net.URI
 import com.devstree.traker.domain.model.TrakerGeofence
 import kotlinx.serialization.Serializable
@@ -22,6 +23,7 @@ public data class TrakerConfig(
     val service: ServiceConfig = ServiceConfig(),
     val persistence: PersistenceConfig = PersistenceConfig(),
     val sensors: SensorConfig = SensorConfig(),
+    val security: SecurityConfig = SecurityConfig(),
     @Transient
     val license: String? = null,
     /**
@@ -138,6 +140,8 @@ public data class TrakerConfig(
         if (geolocation.providerType == LocationProviderType.PASSIVE && geolocation.navigationMode) {
             add("geolocation.navigationMode cannot be used with providerType=PASSIVE")
         }
+
+        addAll(security.validate())
     }
 
     public companion object {
@@ -184,6 +188,7 @@ public data class TrakerConfig(
         private var service: ServiceConfig = ServiceConfig()
         private var persistence: PersistenceConfig = PersistenceConfig()
         private var sensors: SensorConfig = SensorConfig()
+        private var security: SecurityConfig = SecurityConfig()
         private var license: String? = null
         private var baseUrl: String? = null
         private var reset: Boolean = true
@@ -195,6 +200,8 @@ public data class TrakerConfig(
         public fun service(value: ServiceConfig): Builder = apply { service = value }
         public fun persistence(value: PersistenceConfig): Builder = apply { persistence = value }
         public fun sensors(value: SensorConfig): Builder = apply { sensors = value }
+        /** Device-integrity policy — see [SecurityConfig]. Waived entirely in debuggable builds. */
+        public fun security(value: SecurityConfig): Builder = apply { security = value }
         /** Optional release-build license token. Ignored by persistence. */
         public fun license(value: String?): Builder = apply { license = value }
 
@@ -438,6 +445,42 @@ public data class TrakerConfig(
         public fun decisionMaxRows(value: Int): Builder =
             apply { persistence = persistence.copy(decisionMaxRows = value) }
 
+        // ── device integrity ─────────────────────────────────────────────────
+
+        /**
+         * Master switch for the whole integrity layer.
+         *
+         * `false` in a release source set is what `FieldTrackSecurityDisabled` lint flags —
+         * see docs/DEVICE-INTEGRITY-PLAN.md §7.
+         */
+        public fun securityEnabled(value: Boolean): Builder =
+            apply { security = security.copy(enabled = value) }
+
+        public fun accessibilityPolicy(value: IntegrityPolicy): Builder =
+            apply { security = security.copy(accessibility = value) }
+
+        public fun developerModePolicy(value: IntegrityPolicy): Builder =
+            apply { security = security.copy(developerMode = value) }
+
+        public fun hookingPolicy(value: IntegrityPolicy): Builder =
+            apply { security = security.copy(hooking = value) }
+
+        public fun clockPolicy(value: IntegrityPolicy): Builder =
+            apply { security = security.copy(clock = value) }
+
+        public fun mockLocationIntegrityPolicy(value: IntegrityPolicy): Builder =
+            apply { security = security.copy(mockLocation = value) }
+
+        /** Accessibility packages that never raise a finding — see [SecurityConfig.accessibilityAllowlist]. */
+        public fun accessibilityAllowlist(value: Set<String>): Builder =
+            apply { security = security.copy(accessibilityAllowlist = value) }
+
+        public fun maxClockSkewMs(value: Long): Builder =
+            apply { security = security.copy(maxClockSkewMs = value) }
+
+        public fun integrityRecheckIntervalMs(value: Long): Builder =
+            apply { security = security.copy(recheckIntervalMs = value) }
+
         // ── terminal ─────────────────────────────────────────────────────────
 
         /** @throws IllegalArgumentException if [TrakerConfig.validate] reports anything. */
@@ -455,6 +498,7 @@ public data class TrakerConfig(
             service = service,
             persistence = persistence,
             sensors = sensors,
+            security = security,
             license = license,
             baseUrl = baseUrl,
             reset = reset,
@@ -786,6 +830,69 @@ public data class AccuracyConfig(
         /** Under 5 m nothing consumer-grade qualifies; over 500 m the ceiling is not a filter. */
         internal const val MIN_CUSTOM_M = 5f
         internal const val MAX_CUSTOM_M = 500f
+    }
+}
+
+/**
+ * Device-integrity policy — the second security layer, beside the license gate.
+ *
+ * **Release-only by construction.** Every probe is skipped and every policy ignored when
+ * the host app is debuggable, exactly as the license gate is waived there. Development,
+ * emulators and instrumentation runs are therefore unaffected without anyone having to
+ * remember to turn something off — and, more importantly, without a "turn it off" switch
+ * that could survive into a release build.
+ *
+ * Each policy is [IntegrityPolicy.WARN] or [IntegrityPolicy.BLOCK]; `WARN` still reports
+ * the finding, stamps it on every point and uploads it. Blocking is a product decision
+ * with a real cost — a false positive stops a field worker's tracking — so only the two
+ * signals that have no innocent explanation block by default.
+ *
+ * @property accessibility Default [IntegrityPolicy.WARN], deliberately. Accessibility
+ *   services are also how blind and motor-impaired users operate a phone; blocking on
+ *   them by default would lock those users out of the host app entirely. System services
+ *   never raise a finding, and [accessibilityAllowlist] covers the rest.
+ * @property clock Default [IntegrityPolicy.WARN]. A traveller crossing time zones with a
+ *   briefly stale clock is not an attacker.
+ * @property accessibilityAllowlist Package names that never raise
+ *   [com.devstree.traker.integrity.IntegritySignal.ACCESSIBILITY_SERVICE_ACTIVE].
+ *   Packages installed as part of the
+ *   system image are always allowed and need no entry here.
+ * @property maxClockSkewMs Tolerated `|GNSS UTC − system clock|`. GNSS time comes from
+ *   the satellite signal and cannot be set from the Settings app, which makes it the one
+ *   trusted reference the SDK has offline.
+ * @property recheckIntervalMs Re-evaluation cadence inside the health loop while a session
+ *   is open. `0` disables periodic re-checks; `ready()` and `start()` still evaluate.
+ */
+@Serializable
+public data class SecurityConfig(
+    val enabled: Boolean = true,
+    val accessibility: IntegrityPolicy = IntegrityPolicy.WARN,
+    val developerMode: IntegrityPolicy = IntegrityPolicy.WARN,
+    val hooking: IntegrityPolicy = IntegrityPolicy.BLOCK,
+    val clock: IntegrityPolicy = IntegrityPolicy.WARN,
+    val mockLocation: IntegrityPolicy = IntegrityPolicy.BLOCK,
+    val accessibilityAllowlist: Set<String> = emptySet(),
+    val maxClockSkewMs: Long = DEFAULT_MAX_CLOCK_SKEW_MS,
+    val recheckIntervalMs: Long = DEFAULT_RECHECK_INTERVAL_MS,
+) {
+    internal fun validate(): List<String> = buildList {
+        if (maxClockSkewMs < 0) add("security.maxClockSkewMs must be >= 0")
+        if (recheckIntervalMs != 0L && recheckIntervalMs < MIN_RECHECK_INTERVAL_MS) {
+            add(
+                "security.recheckIntervalMs must be 0 (disabled) or >= $MIN_RECHECK_INTERVAL_MS ms — " +
+                    "a tighter loop probes /proc on the service thread for no added signal",
+            )
+        }
+    }
+
+    public companion object {
+        /** Two minutes. Wide enough for NTP drift and a slow GNSS lock, narrow enough to catch backdating. */
+        public const val DEFAULT_MAX_CLOCK_SKEW_MS: Long = 120_000
+
+        /** Fifteen minutes, matching the cadence at which a health loop can act without cost. */
+        public const val DEFAULT_RECHECK_INTERVAL_MS: Long = 15 * 60_000
+
+        internal const val MIN_RECHECK_INTERVAL_MS = 60_000L
     }
 }
 

@@ -10,6 +10,9 @@ import com.devstree.traker.domain.repository.SessionRepository
 import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.model.MotionState
 import com.devstree.traker.geo.port.TrackLogger
+import com.devstree.traker.domain.model.ErrorCode
+import com.devstree.traker.domain.usecase.StopTrackingUseCase
+import com.devstree.traker.integrity.IntegrityMonitor
 import com.devstree.traker.motion.MotionController
 import com.devstree.traker.permission.ProviderStateMonitor
 import com.devstree.traker.work.BackstopWorker
@@ -17,6 +20,7 @@ import com.devstree.traker.work.RestoreWorker
 import com.devstree.traker.work.SyncScheduler
 import com.devstree.traker.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
@@ -46,9 +50,14 @@ HealthLoop(
     private val providerState: ProviderStateMonitor,
     private val syncScheduler: SyncScheduler,
     private val logger: TrackLogger,
+    private val integrityMonitor: IntegrityMonitor,
+    private val stopTracking: StopTrackingUseCase,
 ) {
 
     private var job: Job? = null
+
+    /** Monotonic timestamp of the last integrity evaluation; `0` = not evaluated in this loop. */
+    private var lastIntegrityCheckNanos: Long = 0
 
     fun start(scope: CoroutineScope, config: TrakerConfig, onSessionClosed: () -> Unit) {
         job?.cancel()
@@ -63,6 +72,7 @@ HealthLoop(
     fun stop() {
         job?.cancel()
         job = null
+        lastIntegrityCheckNanos = 0
     }
 
     private suspend fun runCheck(config: TrakerConfig, onSessionClosed: () -> Unit) {
@@ -75,6 +85,14 @@ HealthLoop(
         }
 
         ensureBackstopAlive(config)
+
+        // A device can be rooted, hooked or handed a fake-GPS app *during* a session, and
+        // a check that only ran at start() would be one reboot behind the attacker. Costed
+        // deliberately: at the default fifteen minutes this is ~120 evaluations a month.
+        if (integrityBlocked(config)) {
+            onSessionClosed()
+            return
+        }
 
         val action = watchdog.tick(
             config = config.service,
@@ -95,6 +113,37 @@ HealthLoop(
 
         // Health is judged first; the heartbeat then records that the loop is alive.
         events.tryEmit(TrakerEvent.Heartbeat(clock.wallTimeMs()))
+    }
+
+    /**
+     * Re-evaluates device integrity at `SecurityConfig.recheckIntervalMs` and tears the
+     * session down on a `BLOCK` verdict.
+     *
+     * Stopping goes through [StopTrackingUseCase] rather than just killing the service:
+     * the session has to be closed, the stream released and the sensors disarmed, or the
+     * SDK leaves a half-live capture stack behind on exactly the device it just decided
+     * not to trust.
+     */
+    private suspend fun integrityBlocked(config: TrakerConfig): Boolean {
+        val interval = config.security.recheckIntervalMs
+        if (interval <= 0L) return false
+
+        val now = clock.elapsedRealtimeNanos()
+        if (lastIntegrityCheckNanos != 0L &&
+            (now - lastIntegrityCheckNanos) / NANOS_PER_MS < interval
+        ) {
+            return false
+        }
+        lastIntegrityCheckNanos = now
+
+        val report = withContext(Dispatchers.IO) { integrityMonitor.evaluate(config.security) }
+        if (!report.blocked) return false
+
+        val message = "Device integrity check failed mid-session: ${report.describeBlocking()}"
+        sdkLog { logger.w(TAG, message) }
+        events.tryEmit(TrakerEvent.Error(ErrorCode.DEVICE_INTEGRITY_BLOCKED, message))
+        stopTracking()
+        return true
     }
 
     /**
@@ -119,5 +168,6 @@ HealthLoop(
 
     private companion object {
         const val TAG = "HealthLoop"
+        const val NANOS_PER_MS = 1_000_000L
     }
 }

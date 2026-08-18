@@ -63,6 +63,18 @@
 -keep public class com.devstree.traker.TrakerConfig$Builder { public protected *; }
 -keep public class com.devstree.traker.TrakerConfig$Companion { public protected *; }
 -keep public class com.devstree.traker.TrackingMode { public protected *; }
+-keep public class com.devstree.traker.SecurityConfig { public protected *; }
+-keep public class com.devstree.traker.SecurityConfig$Companion { public protected *; }
+
+# The device-integrity model, and ONLY the model. The probes, the evaluator and the
+# monitor are internal and stay renamed and repackaged — an anti-tamper layer whose class
+# names survive obfuscation is a map for the person it exists to stop.
+-keep public class com.devstree.traker.integrity.IntegritySignal { public protected *; }
+-keep public class com.devstree.traker.integrity.IntegrityPolicy { public protected *; }
+-keep public class com.devstree.traker.integrity.IntegrityFinding { public protected *; }
+-keep public class com.devstree.traker.integrity.IntegrityFinding$Companion { public protected *; }
+-keep public class com.devstree.traker.integrity.IntegrityReport { public protected *; }
+-keep public class com.devstree.traker.integrity.IntegrityReport$Companion { public protected *; }
 
 # The model and repository seams hosts and siblings consume. Generated serializers are
 # deliberately omitted: companion serializer() methods remain stable, implementations

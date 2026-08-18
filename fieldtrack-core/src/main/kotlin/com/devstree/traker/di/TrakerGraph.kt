@@ -49,6 +49,15 @@ import com.devstree.traker.geo.motion.TurnDetector
 import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.port.PointStore
 import com.devstree.traker.geo.port.TrackLogger
+import com.devstree.traker.integrity.IntegrityEnvironment
+import com.devstree.traker.integrity.IntegrityEvaluator
+import com.devstree.traker.integrity.IntegrityFeed
+import com.devstree.traker.integrity.IntegrityMonitor
+import com.devstree.traker.integrity.probes.AccessibilityProbe
+import com.devstree.traker.integrity.probes.ClockIntegrityProbe
+import com.devstree.traker.integrity.probes.DeveloperModeProbe
+import com.devstree.traker.integrity.probes.HookingProbe
+import com.devstree.traker.integrity.probes.MockLocationProbe
 import com.devstree.traker.motion.ActivityRecognizer
 import com.devstree.traker.motion.CaptureStream
 import com.devstree.traker.motion.GeofenceRegistrar
@@ -209,6 +218,36 @@ internal class TrakerGraph private constructor(
         ActivityRecognizer(context, permissions, events, logger, scope)
     }
 
+    // ── device integrity ────────────────────────────────────────────────────
+
+    /**
+     * Per-fix evidence for the integrity layer: mock fixes seen, GNSS-vs-system clock skew.
+     * Written by the ingest path, read by the probes.
+     */
+    val integrityFeed: IntegrityFeed by lazy { IntegrityFeed(clock) }
+
+    /**
+     * The probe list, in signal order. Constructed eagerly inside the lazy so the platform
+     * lookups happen once, not per evaluation.
+     */
+    val integrityEvaluator: IntegrityEvaluator by lazy {
+        IntegrityEvaluator(
+            probes = listOf(
+                AccessibilityProbe(context),
+                DeveloperModeProbe(context),
+                HookingProbe(),
+                ClockIntegrityProbe(context, integrityFeed),
+                MockLocationProbe(context, integrityFeed),
+            ),
+            clock = clock,
+            isWaived = { IntegrityEnvironment.isWaived(context) },
+        )
+    }
+
+    val integrityMonitor: IntegrityMonitor by lazy {
+        IntegrityMonitor(integrityEvaluator, events, integrityFeed)
+    }
+
     // ── capture ─────────────────────────────────────────────────────────────
 
     val watchdog: Watchdog by lazy { Watchdog(clock, events) }
@@ -225,6 +264,8 @@ internal class TrakerGraph private constructor(
             events = events,
             liveTrack = liveTrackFeed,
             battery = batteryMonitor,
+            integrityFeed = integrityFeed,
+            integrityFlags = { integrityMonitor.flags },
         )
     }
 
@@ -253,7 +294,7 @@ internal class TrakerGraph private constructor(
     val healthLoop: HealthLoop by lazy {
         HealthLoop(
             context, sessions, clock, events, watchdog, motionController, providerStateMonitor,
-            syncScheduler, logger,
+            syncScheduler, logger, integrityMonitor, stopTracking,
         )
     }
 
@@ -331,6 +372,7 @@ internal class TrakerGraph private constructor(
             providerStateMonitor = providerStateMonitor,
             batteryMonitor = batteryMonitor,
             sensorProbe = sensorProbe,
+            integrityMonitor = integrityMonitor,
             stationaryFence = stationaryFence,
             permissions = permissions,
             context = context,

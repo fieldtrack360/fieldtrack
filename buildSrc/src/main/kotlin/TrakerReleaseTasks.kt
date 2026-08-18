@@ -300,3 +300,108 @@ abstract class ArchiveReleaseMappingsTask : DefaultTask() {
         }
     }
 }
+
+/**
+ * Source-level audit of the release security posture.
+ *
+ * The runtime device-integrity layer waives itself in a debuggable build, and the license
+ * gate does the same. That waiver is deliberate and it is also the one thing no runtime
+ * check can police: by the time the SDK is running with security off, the code that would
+ * report it is the code that was disabled. So the guard has to live in the build.
+ *
+ * Three audiences, three mechanisms, deliberately separate:
+ *  - the **host app** is guarded by the lint checks in `:fieldtrack-lint`, shipped inside
+ *    the AARs, where a FATAL issue fails the host's own `assembleRelease`;
+ *  - **this repository** is guarded by this task, wired ahead of publishing;
+ *  - the **published artifacts** are guarded by [VerifyReleaseObfuscationTask].
+ *
+ * Every check here is a text assertion over build files and manifests. That is blunt on
+ * purpose: it reads what a human reviewer would read, and cannot be satisfied by a value
+ * computed at configuration time.
+ */
+abstract class VerifyReleaseIntegrityTask : DefaultTask() {
+    @get:Internal
+    abstract val repositoryRoot: DirectoryProperty
+
+    @TaskAction
+    fun verify() {
+        val root = repositoryRoot.get().asFile
+        val failures = mutableListOf<String>()
+
+        // 1. R8 on for every module that ships code. The umbrella AAR is empty and is
+        //    excluded by name rather than by guesswork.
+        val minified = listOf("fieldtrack-geo", "fieldtrack-core", "fieldtrack-maps", "fieldtrack-sync", "fieldtrack-snap")
+        minified.forEach { module ->
+            val buildFile = File(root, "$module/build.gradle.kts")
+            if (!buildFile.isFile) {
+                failures += "$module/build.gradle.kts is missing"
+            } else if (!buildFile.readText().contains("isMinifyEnabled = true")) {
+                failures += "$module release build type does not set isMinifyEnabled = true"
+            }
+        }
+
+        // 2. No manifest anywhere in the SDK hardcodes the flag that waives both security
+        //    layers. `src/debug/` is exempt for the same reason the runtime waiver exists.
+        root.walkTopDown()
+            .filter { it.name == "AndroidManifest.xml" }
+            .filterNot { it.invariantPath().contains("/build/") }
+            .filterNot { it.invariantPath().contains("/src/debug/") }
+            .forEach { manifest ->
+                val text = manifest.readText()
+                if (DEBUGGABLE_PATTERN.containsMatchIn(text)) {
+                    failures += "${manifest.relativeTo(root)} hardcodes android:debuggable=\"true\""
+                }
+            }
+
+        // 3. SDK logging must be off in release: the decision log is field-debugging
+        //    material and includes positions.
+        val coreBuild = File(root, "fieldtrack-core/build.gradle.kts")
+        if (coreBuild.isFile &&
+            !coreBuild.readText().contains("buildConfigField(\"boolean\", \"SDK_LOGGING_ENABLED\", \"false\")")
+        ) {
+            failures += "fieldtrack-core release build type does not disable SDK_LOGGING_ENABLED"
+        }
+
+        // 4. The shipped defaults of the integrity layer. Guards against a default flipped
+        //    while debugging and committed — the exact mistake the lint checks catch in a
+        //    host app, applied to the SDK's own source.
+        val securityDefaults = File(
+            root,
+            "fieldtrack-core/src/main/kotlin/com/devstree/traker/TrakerConfig.kt",
+        )
+        if (!securityDefaults.isFile) {
+            failures += "TrakerConfig.kt is missing"
+        } else {
+            val text = securityDefaults.readText()
+            REQUIRED_SECURITY_DEFAULTS.forEach { required ->
+                if (!text.contains(required)) {
+                    failures += "SecurityConfig no longer declares `$required`"
+                }
+            }
+        }
+
+        if (failures.isNotEmpty()) {
+            throw IllegalStateException(
+                failures.joinToString(
+                    prefix = "Release integrity verification failed:\n  - ",
+                    separator = "\n  - ",
+                ),
+            )
+        }
+
+        logger.lifecycle("Release integrity verification passed (${minified.size} modules audited).")
+    }
+
+    private companion object {
+        /** Windows path separators normalised, so the source-set filters read the same everywhere. */
+        fun File.invariantPath(): String = path.replace(File.separatorChar, '/')
+
+        val DEBUGGABLE_PATTERN = Regex("""android:debuggable\s*=\s*"true"""")
+
+        val REQUIRED_SECURITY_DEFAULTS = listOf(
+            "val enabled: Boolean = true",
+            "val hooking: IntegrityPolicy = IntegrityPolicy.BLOCK",
+            "val mockLocation: IntegrityPolicy = IntegrityPolicy.BLOCK",
+        )
+    }
+}

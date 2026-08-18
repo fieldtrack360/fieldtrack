@@ -55,6 +55,8 @@ internal data class TrackPointEntity(
     val batteryPct: Int?,
     val isCharging: Boolean?,
     val extras: String?,
+    /** `IntegrityReport.flags` when this point was captured; `0` before v7 and in debug (v7). */
+    val integrityFlags: Int = 0,
     val acceptReason: String,
     val syncState: Int = 0,
     val syncTimeMs: Long = 0,
@@ -157,6 +159,8 @@ internal data class RawFixEntity(
     /** `null` = the platform reported no confidence — deliberately not 0 (v5). */
     val speedAccuracyMps: Float? = null,
     val bearingAccuracyDeg: Float? = null,
+    /** `IntegrityReport.flags` when this fix was received; `0` before v7 and in debug (v7). */
+    val integrityFlags: Int = 0,
 )
 
 /**
@@ -225,6 +229,8 @@ internal data class RawPointEntity(
     val batteryPct: Int?,
     val isCharging: Boolean?,
     val extras: String?,
+    /** `IntegrityReport.flags` when this fix was judged; `0` before v7 and in debug (v7). */
+    val integrityFlags: Int = 0,
     val verdict: String,
     val reason: String,
 )

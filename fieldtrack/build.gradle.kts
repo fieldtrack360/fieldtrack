@@ -54,6 +54,11 @@ dependencies {
     api(project(":fieldtrack-maps"))
     api(project(":fieldtrack-sync"))
     api(project(":fieldtrack-snap"))
+
+    // Repeated from :fieldtrack-core rather than relied upon transitively: lint jars ride
+    // in the AAR that declares them, and a host depending only on this umbrella must still
+    // get the checks.
+    lintPublish(project(":fieldtrack-lint"))
 }
 
 // Publishing — coordinates, POM, sources and javadoc jars. See the script for why it

@@ -17,6 +17,7 @@ not the intended surface. Where a capability is planned but not shipped, it says
 | Work out why a point is missing or wrong | [10](#10-diagnostics) |
 | Upload points to my backend | [11](#11-optional-modules) — API [11.2](#112-the-api-surface), request/response [11.4](#114-the-request)·[11.5](#115-the-response) |
 | Use it from Java or React Native | [12](#12-java) · [13](#13-react-native) |
+| Stop a spoofed device sending fake locations | [15](#15-device-integrity) |
 | Fix a problem I am seeing right now | [14](#14-troubleshooting) |
 
 ---
@@ -1446,7 +1447,53 @@ correct — snapping is an enhancement, never a dependency.
 
 ---
 
-## 15. Known limitations
+## 15. Device integrity
+
+Beside the license gate there is a second security layer, and it runs **only in release
+builds** — a debuggable host app waives it completely, the same way the license check is
+waived there.
+
+It watches for five things: an enabled non-system accessibility service, developer options
+or USB debugging, a hooking framework such as Frida, a system clock that disagrees with
+GNSS time (or a time zone that does not match the serving network's country), and
+mock-location apps.
+
+Each group carries a policy — `ALLOW`, `WARN` or `BLOCK`:
+
+```kotlin
+val config = TrakerConfig.builder()
+    .hookingPolicy(IntegrityPolicy.BLOCK)                // default
+    .mockLocationIntegrityPolicy(IntegrityPolicy.BLOCK)  // default
+    .accessibilityPolicy(IntegrityPolicy.WARN)           // default
+    .developerModePolicy(IntegrityPolicy.WARN)           // default
+    .clockPolicy(IntegrityPolicy.WARN)                   // default
+    .build()
+
+when (val result = traker.ready(config)) {
+    is TrakerResult.Error ->
+        if (result.code == ErrorCode.DEVICE_INTEGRITY_BLOCKED) blocked(traker.integrity())
+    is TrakerResult.Ok -> Unit
+}
+```
+
+`WARN` is not "ignore": the finding reaches you through `Traker.integrityState()` and
+`TrakerEvent.IntegrityChange`, is stamped on every stored point as `integrityFlags`, and is
+uploaded with it. Only `BLOCK` refuses to start — and ends a live session, checked again
+every fifteen minutes while tracking.
+
+Accessibility defaults to `WARN` deliberately: accessibility services are also how blind
+and motor-impaired people use a phone, and blocking on them would lock those users out.
+
+The SDK also ships lint rules inside its AARs, so a release build that disables the layer
+(or hardcodes `android:debuggable="true"`) fails **your** `assembleRelease`. Put any
+override in `src/debug/`, where the runtime waiver already applies.
+
+Full detail, including the frozen wire-format bit assignments and the known limits, is in
+[INTEGRATION-GUIDE.md §19](INTEGRATION-GUIDE.md#19-device-integrity).
+
+---
+
+## 16. Known limitations
 
 Stated rather than discovered:
 
@@ -1461,7 +1508,7 @@ Stated rather than discovered:
   constant tuning against real drives has not happened.
 - **No OEM field matrix.** The survival stack is unit-tested, not device-tested across
   Xiaomi/Oppo/Vivo/Huawei.
-- **Room migrations are untested.** The schema is at v4, all migrations are hand-written and
+- **Room migrations are untested.** The schema is at v7, all migrations are hand-written and
   additive, but `MigrationTestHelper` needs the schema directory in androidTest assets,
   which AGP 9 currently rejects.
 - **`PlatformLocationSource` has no instrumented test.** GPS/network/passive registration is
@@ -1471,7 +1518,7 @@ Stated rather than discovered:
 
 ---
 
-## 16. Where to go next
+## 17. Where to go next
 
 | Document | What it holds |
 |---|---|

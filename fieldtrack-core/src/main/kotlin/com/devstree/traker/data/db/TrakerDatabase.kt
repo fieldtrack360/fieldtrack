@@ -18,7 +18,7 @@ import androidx.sqlite.execSQL
         FilterStateEntity::class,
         RawPointEntity::class,
     ],
-    version = 6,
+    version = 7,
     // EC-83: schemas are committed and migrations are explicit. A library that
     // silently wipes its host's data on upgrade is not shippable, so
     // fallbackToDestructiveMigration() is never called anywhere in this module.
@@ -169,13 +169,43 @@ internal abstract class TrakerDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v6 → v7: the device-integrity bitmask, on all three point-shaped tables.
+         *
+         * Additive and non-destructive, per EC-83. `0` is the correct default for every
+         * existing row and is *not* a claim of cleanliness — it is `IntegrityReport.flags`
+         * for "nothing observed", which is also what a debuggable build and a host with
+         * the layer disabled produce. A backend telling "clean" from "not evaluated" reads
+         * the SDK version, not this column.
+         */
+        val MIGRATION_6_7: Migration = object : Migration(6, 7) {
+            override fun migrate(connection: SQLiteConnection) {
+                connection.execSQL(
+                    "ALTER TABLE track_point ADD COLUMN integrityFlags INTEGER NOT NULL DEFAULT 0",
+                )
+                connection.execSQL(
+                    "ALTER TABLE raw_fix ADD COLUMN integrityFlags INTEGER NOT NULL DEFAULT 0",
+                )
+                connection.execSQL(
+                    "ALTER TABLE raw_points ADD COLUMN integrityFlags INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+        }
+
         fun build(context: Context): TrakerDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 TrakerDatabase::class.java,
                 nameFor(context),
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+                .addMigrations(
+                    MIGRATION_1_2,
+                    MIGRATION_2_3,
+                    MIGRATION_3_4,
+                    MIGRATION_4_5,
+                    MIGRATION_5_6,
+                    MIGRATION_6_7,
+                )
                 // WAL so host reads never block the ingestor's writes (EC-85).
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                 .build()

@@ -40,6 +40,13 @@ public data class TrackPoint(
     val batteryPct: Int? = null,
     val isCharging: Boolean? = null,
     val extras: String? = null,
+    /**
+     * Device-integrity bitmask observed when this point was captured — see
+     * `IntegrityReport.flags` in `fieldtrack-core`. `0` on every point captured by a
+     * debuggable build, by a host that switched the layer off, and by any build predating
+     * it.
+     */
+    val integrityFlags: Int = 0,
     val acceptReason: String,
 )
 

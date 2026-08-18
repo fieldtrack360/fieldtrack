@@ -122,4 +122,19 @@ public data class SyncPoint(
     val detected_activity_start_time: Long = 0,
     val battery_percentage: String? = null,
     val is_mock: Boolean = false,
+    /**
+     * Device-integrity bitmask observed when this point was captured — `IntegrityReport.flags`
+     * in `fieldtrack-core`, whose bit assignments are frozen.
+     *
+     * `0` means "nothing observed", which is also what a debuggable build and a host with
+     * the layer disabled send. Defaulted so a backend that has never seen the field keeps
+     * parsing, and so a payload recorded before this field existed still deserializes.
+     */
+    val integrity_flags: Int = 0,
+    /**
+     * The same signals by name, for a backend rule that would rather match on
+     * `"HOOKING_FRAMEWORK_DETECTED"` than on bit 3. Redundant with [integrity_flags] and
+     * deliberately so — the mask is the durable storage form, this is the readable one.
+     */
+    val integrity_signals: List<String> = emptyList(),
 )

@@ -63,7 +63,7 @@ internal class RoomPointStore(
     }
 
     /** Debug ring buffer; trimmed on every write so it cannot grow without bound. */
-    suspend fun recordRawFix(fix: TrackFix, sessionId: String, capacity: Int) {
+    suspend fun recordRawFix(fix: TrackFix, sessionId: String, capacity: Int, integrityFlags: Int = 0) {
         runCatching {
             rawFixes.insert(
                 RawFixEntity(
@@ -80,6 +80,7 @@ internal class RoomPointStore(
                     provider = fix.provider,
                     speedAccuracyMps = fix.speedAccuracyMps,
                     bearingAccuracyDeg = fix.bearingAccuracyDeg,
+                    integrityFlags = integrityFlags,
                 ),
             )
             rawFixes.trimTo(capacity)
@@ -115,6 +116,7 @@ internal class RoomPointStore(
                     batteryPct = context.batteryPct,
                     isCharging = context.isCharging,
                     extras = context.extras,
+                    integrityFlags = context.integrityFlags,
                     point = point,
                 ),
             )

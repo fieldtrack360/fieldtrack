@@ -15,6 +15,7 @@ import com.devstree.traker.geo.model.TrackFix
 import com.devstree.traker.geo.model.TrackPoint
 import com.devstree.traker.geo.motion.TurnDetector
 import com.devstree.traker.geo.port.Clock
+import com.devstree.traker.integrity.IntegrityFeed
 import com.devstree.traker.work.Watchdog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -50,6 +51,13 @@ internal class FixIngestor(
     private val events: MutableSharedFlow<TrakerEvent>,
     private val liveTrack: LiveTrackFeed,
     private val battery: BatteryReader,
+    private val integrityFeed: IntegrityFeed,
+    /**
+     * The current integrity bitmask, read once per fix. A lambda over
+     * `IntegrityMonitor.flags` rather than the monitor itself: this class must not be able
+     * to trigger a probe from the ingest path, and a field read is all it is allowed.
+     */
+    private val integrityFlags: () -> Int,
 ) {
 
     /**
@@ -205,7 +213,12 @@ internal class FixIngestor(
         // delivery is part of that truth — it is exactly what you go looking for when
         // diagnosing this.
         watchdog.onRawFix(fix)
-        if (persistRawFixes) store.recordRawFix(fix, active.id, rawRingCapacity)
+        // Before any gate: a mock fix that MockPolicy.REJECT is about to drop is exactly
+        // the fix the integrity layer needs to have seen, and a session that stored nothing
+        // because every fix was fake must still be able to say so.
+        integrityFeed.onFix(fix)
+        val integrity = integrityFlags()
+        if (persistRawFixes) store.recordRawFix(fix, active.id, rawRingCapacity, integrity)
 
         when (ClockGuard.classify(lastElapsedNanos, fix.elapsedRealtimeNanos, outOfOrderRun, constants)) {
             ClockGuard.Step.OUT_OF_ORDER -> {
@@ -258,7 +271,7 @@ internal class FixIngestor(
         // burst exists to take are the ones that decide whether to take them (EC-45).
         updateTurnBurst(fix)
 
-        val context = contextFor(active, queued.cadenceTierMs)
+        val context = contextFor(active, queued.cadenceTierMs, integrity)
         val result = pipeline.accept(fix, past, state, context)
         state = result.state
 
@@ -293,7 +306,11 @@ internal class FixIngestor(
         onTurnBurst?.invoke(result.isBursting)
     }
 
-    private fun contextFor(session: TrackSession, cadenceTierMs: Long?): IngestContext {
+    private fun contextFor(
+        session: TrackSession,
+        cadenceTierMs: Long?,
+        integrityFlags: Int,
+    ): IngestContext {
         val zone = ZoneId.systemDefault()
         // Cached behind a one-minute TTL, so this is a field read on all but one fix a
         // minute. Read for every verdict, not only accepted ones: a rejected fix's raw-point
@@ -311,6 +328,7 @@ internal class FixIngestor(
             cadenceTierMs = cadenceTierMs,
             batteryPct = power.percent,
             isCharging = power.isCharging,
+            integrityFlags = integrityFlags,
         )
     }
 

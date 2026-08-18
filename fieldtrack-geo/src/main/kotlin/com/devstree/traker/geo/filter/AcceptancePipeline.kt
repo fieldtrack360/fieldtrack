@@ -943,6 +943,7 @@ public class AcceptancePipeline(
             batteryPct = context.batteryPct,
             isCharging = context.isCharging,
             extras = context.extras,
+            integrityFlags = context.integrityFlags,
             acceptReason = reason,
         )
 

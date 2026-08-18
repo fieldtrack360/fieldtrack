@@ -3,6 +3,7 @@ package com.devstree.traker.sync
 import com.devstree.traker.domain.repository.PendingUploadStore
 import com.devstree.traker.geo.model.MovementStatus
 import com.devstree.traker.geo.model.TrackPoint
+import com.devstree.traker.integrity.IntegritySignal
 import com.devstree.traker.geo.port.Clock
 import com.devstree.traker.geo.port.TrackLogger
 import kotlinx.coroutines.sync.Mutex
@@ -151,6 +152,10 @@ public class SyncQueue internal constructor(
         detected_activity_start_time = point.activityStartTimeMs,
         battery_percentage = point.batteryPct?.toString(),
         is_mock = point.isMock,
+        integrity_flags = point.integrityFlags,
+        integrity_signals = IntegritySignal.entries
+            .filter { point.integrityFlags and it.mask != 0 }
+            .map { it.name },
     )
 
     private fun MovementStatus.wireName() = name.lowercase()

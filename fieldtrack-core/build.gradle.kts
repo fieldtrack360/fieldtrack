@@ -88,6 +88,11 @@ ksp {
 dependencies {
     api(project(":fieldtrack-geo"))
 
+    // Custom lint rules, packaged into this AAR so they run in the HOST app's build.
+    // They guard the one thing runtime code cannot: a release build that shipped with the
+    // device-integrity layer switched off (docs/DEVICE-INTEGRITY-PLAN.md §7).
+    lintPublish(project(":fieldtrack-lint"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.datastore.preferences)

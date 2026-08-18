@@ -4,6 +4,7 @@ import com.devstree.traker.geo.model.ActivityType
 import com.devstree.traker.geo.model.FixDecision
 import com.devstree.traker.geo.model.MotionState
 import com.devstree.traker.geo.model.TrackPoint
+import com.devstree.traker.integrity.IntegrityReport
 import kotlinx.serialization.Serializable
 
 /**
@@ -49,6 +50,15 @@ public enum class ErrorCode {
     LICENSE_INVALID,
     LICENSE_BUNDLE_MISMATCH,
     NO_ACTIVITY,
+
+    /**
+     * The device or process failed a `BLOCK`-policy integrity check — a hooking framework,
+     * a selected mock-location app, or whatever else `SecurityConfig` was told to refuse.
+     *
+     * The message names the blocking signals; `Traker.integrity()` carries the full report.
+     * Never returned by a debuggable build, where the whole layer is waived.
+     */
+    DEVICE_INTEGRITY_BLOCKED,
 
     /** motionQuality = POOR — motion gating is not trustworthy on this hardware (EC-137). */
     MOTION_DETECTION_DEGRADED,
@@ -126,6 +136,14 @@ public sealed interface TrakerEvent {
 
     /** A session was found still open at launch — the host decides what to do (EC-66). */
     public data class SessionInterrupted(val session: TrackSession) : TrakerEvent
+    /**
+     * The device-integrity flag set changed — a hooking framework appeared, a mock fix
+     * arrived, developer options were switched on mid-session.
+     *
+     * Emitted on transitions only, not on every re-evaluation. A `BLOCK`-policy finding
+     * arrives here *and* as an [Error] with `ErrorCode.DEVICE_INTEGRITY_BLOCKED`.
+     */
+    public data class IntegrityChange(val report: IntegrityReport) : TrakerEvent
     public data class Diagnostic(val message: String) : TrakerEvent
     public data class Error(val code: ErrorCode, val message: String) : TrakerEvent
 }
