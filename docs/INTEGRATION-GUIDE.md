@@ -10,7 +10,6 @@ every public method, every event and callback.
 |---|---|
 | Maven group | `com.github.fieldtrack360.fieldtrack` |
 | Distribution | JitPack (`https://jitpack.io`) |
-| Package namespace | `com.devstree.traker` |
 | `minSdk` | 26 (Android 8.0) |
 | `compileSdk` / `targetSdk` | 37 |
 | JDK / Java target | 17 |
@@ -121,32 +120,7 @@ dependencies {
 }
 ```
 
-### 1.3 Individual modules
-
-The umbrella is convenient but pulls everything. To keep the APK smaller, depend only on the
-modules you use. All share the same group and version.
-
-| Artifact | Contains | Needed? |
-|---|---|---|
-| `fieldtrack` | Umbrella — no code, re-exports all four below | Optional convenience |
-| `fieldtrack-core` | Capture stack, Room storage, `Traker` public API | **Required** |
-| `fieldtrack-geo` | Pure engine — filter, pipeline, plotting, models | Arrives transitively via core; declare it if you name its types directly |
-| `fieldtrack-maps` | Google Maps renderers for tracks and live puck | Optional |
-| `fieldtrack-sync` | HTTP upload queue with retry/backoff | Optional |
-| `fieldtrack-snap` | OSRM road map-matching provider | Optional |
-
-```kotlin
-dependencies {
-    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-core:<version>")   // required
-    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-geo:<version>")    // transitive; declare if used directly
-
-    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-maps:<version>")   // optional
-    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-sync:<version>")   // optional
-    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-snap:<version>")   // optional
-}
-```
-
-### 1.4 OkHttp is `compileOnly`
+### 1.3 OkHttp is `compileOnly`
 
 `fieldtrack-sync` and `fieldtrack-snap` declare OkHttp as `compileOnly`, so it is **not**
 pulled into your app. If you use their built-in HTTP paths, add OkHttp yourself:
@@ -158,7 +132,7 @@ implementation("com.squareup.okhttp3:okhttp:5.4.0")
 You can skip it entirely by supplying your own `SyncTransport` (see [§14.6](#146-custom-transport))
 or your own `RoadSnapProvider` (see [§15](#15-snap-module--road-matching)).
 
-### 1.5 What you do *not* have to add
+### 1.4 What you do *not* have to add
 
 - **No DI framework.** No Hilt, no `@HiltAndroidApp`, no KSP, no Gradle plugin. The SDK's
   object graph is wired internally.
@@ -174,7 +148,7 @@ or your own `RoadSnapProvider` (see [§15](#15-snap-module--road-matching)).
   Play-policy sensitive and must be your own explicit choice.
 - **No ProGuard rules.** `consumer-rules.pro` ships inside each AAR.
 
-### 1.6 Google Play Services
+### 1.5 Google Play Services
 
 The default provider (`LocationProviderType.FUSED`) needs Google Play Services. For devices
 without it (Huawei, AOSP builds), use `LocationProviderType.GPS_ONLY`, `NETWORK_ONLY` or
