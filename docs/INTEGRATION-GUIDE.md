@@ -24,7 +24,7 @@ every public method, every event and callback.
 3. [Quick start](#3-quick-start)
 4. [Permissions](#4-permissions)
 5. [Configuration reference](#5-configuration-reference)
-6. [Public API — `Tracker`](#6-public-api--traker)
+6. [Public API — `Tracker`](#6-public-api--tracker)
 7. [Events, state and callbacks](#7-events-state-and-callbacks)
 8. [Data models](#8-data-models)
 9. [Plotting and export](#9-plotting-and-export)
@@ -176,7 +176,7 @@ Supply it either in your manifest:
 or in config, which takes precedence:
 
 ```kotlin
-traker.ready(
+tracker.ready(
     TrackerConfig.builder()
         .license(BuildConfig.FIELDTRACK_LICENSE)
         .build()
@@ -198,14 +198,14 @@ Three calls: `getInstance` → `ready` → `start`.
 ```kotlin
 class MyApplication : Application() {
 
-    val traker: Tracker by lazy { Tracker.getInstance(this) }
+    val tracker: Tracker by lazy { Tracker.getInstance(this) }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         scope.launch {
-            when (val result = traker.ready(TrackerConfig())) {
+            when (val result = tracker.ready(TrackerConfig())) {
                 is TrackerResult.Ok    -> Log.d("app", "ready: ${result.value}")
                 is TrackerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
             }
@@ -217,24 +217,24 @@ class MyApplication : Application() {
 ```kotlin
 // After permissions are granted:
 suspend fun begin() {
-    when (val result = traker.start(tag = "commute")) {
+    when (val result = tracker.start(tag = "commute")) {
         is TrackerResult.Ok    -> Log.d("app", "session ${result.value.id}")
         is TrackerResult.Error -> Log.w("app", "${result.code}: ${result.message}")
     }
 }
 
 suspend fun end() {
-    traker.stop()
+    tracker.stop()
 }
 ```
 
 Read the data back:
 
 ```kotlin
-val points   = traker.getPoints(PointQuery(sessionId = sessionId))
-val track    = traker.buildTrack(PointQuery(sessionId = sessionId))
-val json     = traker.exportPolylineJson(PointQuery(sessionId = sessionId))
-val distance = traker.getOdometerMeters()
+val points   = tracker.getPoints(PointQuery(sessionId = sessionId))
+val track    = tracker.buildTrack(PointQuery(sessionId = sessionId))
+val json     = tracker.exportPolylineJson(PointQuery(sessionId = sessionId))
+val distance = tracker.getOdometerMeters()
 ```
 
 ### Contract notes
@@ -259,7 +259,7 @@ questions and hands you the permission arrays and the Settings intent; your app 
 prompt.
 
 ```kotlin
-val permissions: PermissionManager = traker.permissions()
+val permissions: PermissionManager = tracker.permissions()
 ```
 
 ### 4.1 `PermissionManager` API
@@ -277,7 +277,7 @@ val permissions: PermissionManager = traker.permissions()
 | `shouldStopAsking(attempts: Int)` | `Boolean` | `true` at 3 attempts — stop prompt-looping |
 | `appSettingsIntent()` | `Intent` | Deep link to your app's settings page |
 
-`traker.permissionTier()` is a shortcut for `permissions().tier()`.
+`tracker.permissionTier()` is a shortcut for `permissions().tier()`.
 
 ### 4.2 The ladder
 
@@ -337,7 +337,7 @@ val config = TrackerConfig.builder()
     .baseUrl("https://api.example.com")
     .build()          // validates; throws IllegalArgumentException on failure
 
-traker.ready(config)
+tracker.ready(config)
 ```
 
 ### 5.1 Top-level `TrackerConfig`
@@ -539,7 +539,7 @@ Builder: `.maxDaysToPersist()`, `.maxRecords()`, `.persistRawFixes()`, `.rawRing
 ## 6. Public API — `Tracker`
 
 ```kotlin
-val traker = Tracker.getInstance(context)   // @JvmStatic, idempotent, thread-safe
+val tracker = Tracker.getInstance(context)   // @JvmStatic, idempotent, thread-safe
 ```
 
 ### 6.1 Lifecycle
@@ -631,7 +631,7 @@ first. Everything is a Kotlin `Flow`.
 
 ```kotlin
 lifecycleScope.launch {
-    traker.events.collect { event ->
+    tracker.events.collect { event ->
         when (event) {
             is TrackerEvent.Location           -> draw(event.point)
             is TrackerEvent.LocationRejected   -> log(event.decision)
@@ -847,7 +847,7 @@ render without doing geometry. It runs entirely on-device — no backend, no rou
 quota — unless you install a `RoadSnapProvider`.
 
 ```kotlin
-val track = traker.buildTrack(
+val track = tracker.buildTrack(
     query   = PointQuery(sessionId = sessionId),
     options = TrackOptions(zoom = 15f, smoothing = Smoothing.SPLINE),
 )
@@ -928,8 +928,8 @@ export cannot disagree about arrow placement.
 ### 9.3 Export
 
 ```kotlin
-val polylineJson = traker.exportPolylineJson(PointQuery(sessionId = id))
-val geoJson      = traker.exportGeoJson(PointQuery(sessionId = id))
+val polylineJson = tracker.exportPolylineJson(PointQuery(sessionId = id))
+val geoJson      = tracker.exportGeoJson(PointQuery(sessionId = id))
 ```
 
 `exportGeoJson` produces an RFC 7946 `FeatureCollection` — coordinates are `[lng, lat]`.
@@ -961,7 +961,7 @@ snapped, segmented historical product.
 
 ```kotlin
 lifecycleScope.launch {
-    traker.liveTrack().collect { update ->
+    tracker.liveTrack().collect { update ->
         renderer.render(update)
     }
 }
@@ -993,8 +993,8 @@ data class PuckState(
 ### 10.2 Route snapping for the puck
 
 ```kotlin
-traker.setActiveRoute(routePolylinePoints)   // List<GeoPoint>; pass emptyList() to clear
-if (traker.isOffRoute()) offerReroute()
+tracker.setActiveRoute(routePolylinePoints)   // List<GeoPoint>; pass emptyList() to clear
+if (tracker.isOffRoute()) offerReroute()
 ```
 
 This projects the live puck onto the route your app is already navigating — entirely offline,
@@ -1022,7 +1022,7 @@ val fence = TrackerGeofence(
     onExitEvent = "warehouse_exit",
 )
 
-when (val result = traker.addGeofence(fence)) {
+when (val result = tracker.addGeofence(fence)) {
     is TrackerResult.Ok    -> Unit
     is TrackerResult.Error -> when (result.code) {
         ErrorCode.GEOFENCE_LIMIT_REACHED        -> pruneOldFences()
@@ -1038,12 +1038,12 @@ Validation: non-blank `id`, latitude in −90..90, longitude in −180..180, `ra
 Crossings arrive as `TrackerEvent.GeofenceEntered` / `GeofenceExited` and are also persisted:
 
 ```kotlin
-val history: List<TrackerGeofenceEvent> = traker.getGeofenceEvents(
+val history: List<TrackerGeofenceEvent> = tracker.getGeofenceEvents(
     geofenceId = "warehouse",
     fromMs = startOfDay,
     limit = 100,
 )
-val deleted: Int = traker.deleteGeofenceEvents(geofenceId = "warehouse")
+val deleted: Int = tracker.deleteGeofenceEvents(geofenceId = "warehouse")
 ```
 
 ```kotlin
@@ -1063,8 +1063,8 @@ Constants: `TrackerGeofence.MAX_GEOFENCES = 19`, `DEFAULT_ID = "trackit-stationa
 ## 12. Battery and sensors
 
 ```kotlin
-val now: BatteryInfo = traker.batteryInfo()            // reads the platform right now
-val live: StateFlow<BatteryInfo> = traker.batteryState()
+val now: BatteryInfo = tracker.batteryInfo()            // reads the platform right now
+val live: StateFlow<BatteryInfo> = tracker.batteryState()
 ```
 
 `batteryInfo()` needs no session, no permission and no `ready()` call. It is a binder call —
@@ -1084,7 +1084,7 @@ This is the same reading stamped on every stored point, so your display and your
 cannot disagree. `TrackerEvent.BatteryChange` carries the same transitions.
 
 ```kotlin
-val sensors: DeviceSensors = traker.getSensors()
+val sensors: DeviceSensors = tracker.getSensors()
 ```
 
 ```kotlin
@@ -1153,7 +1153,7 @@ val live = LiveTrackRenderer(
     LiveTrackRenderer.Options(cameraFollow = LiveTrackRenderer.CameraFollowMode.FOLLOW_BEARING),
 )
 
-lifecycleScope.launch { traker.liveTrack().collect(live::render) }
+lifecycleScope.launch { tracker.liveTrack().collect(live::render) }
 
 live.cameraFollow = LiveTrackRenderer.CameraFollowMode.NONE   // switchable at runtime
 live.clear()
@@ -1396,7 +1396,7 @@ Optional. With no provider installed, `buildTrack()` never leaves the device and
 `snap_unavailable` warning.
 
 ```kotlin
-traker.setRoadSnapProvider(
+tracker.setRoadSnapProvider(
     OsrmSnapProvider(baseUrl = "https://osrm.example.com")
 )
 ```
@@ -1454,7 +1454,7 @@ Three layers, from rawest to most interpreted.
 Requires `persistence.persistRawFixes = true`.
 
 ```kotlin
-val raw: List<RawFix> = traker.getRawFixes(sessionId)
+val raw: List<RawFix> = tracker.getRawFixes(sessionId)
 ```
 
 ```kotlin
@@ -1487,7 +1487,7 @@ is this point wrong". `RawPoint` has the same columns as `TrackPoint` plus:
 On by default (`persistence.persistDecisions = true`).
 
 ```kotlin
-val decisions: List<FixDecision> = traker.getDecisions(sessionId, limit = 200, offset = 0)
+val decisions: List<FixDecision> = tracker.getDecisions(sessionId, limit = 200, offset = 0)
 ```
 
 ```kotlin
@@ -1558,7 +1558,7 @@ Every entry point is Java-callable. `getInstance`, `TrackerConfig.builder()` and
 methods carry `@JvmOverloads`.
 
 ```java
-Tracker traker = Tracker.getInstance(context);
+Tracker tracker = Tracker.getInstance(context);
 
 TrackerConfig config = TrackerConfig.builder()
         .provider(LocationProviderType.GPS_ONLY)
@@ -1663,23 +1663,23 @@ cannot be left contradicting each other.
 ### 19.3 Reading the result
 
 ```kotlin
-when (val result = trackIt.ready(config)) {
+when (val result = tracker.ready(config)) {
     is TrackerResult.Error ->
         if (result.code == ErrorCode.DEVICE_INTEGRITY_BLOCKED) {
             // result.message names the blocking signals
-            val report = trackIt.integrity()
+            val report = tracker.integrity()
             showBlockedScreen(report.blockingSignals)
         }
     is TrackerResult.Ok -> Unit
 }
 
 // Live, and re-checked inside the health loop while a session is open.
-trackIt.integrityState()
+tracker.integrityState()
     .onEach { report -> banner.isVisible = report.findings.isNotEmpty() }
     .launchIn(scope)
 
 // Force a fresh evaluation — reads /proc, the package list and a loopback socket.
-val fresh = trackIt.checkIntegrity()
+val fresh = tracker.checkIntegrity()
 ```
 
 `TrackerEvent.IntegrityChange` is emitted when the flag set changes, not on every
@@ -1771,7 +1771,7 @@ fire and the runtime waiver already applies.
 | Tracking stopped and the queue emptied | A 401 tore everything down | Re-authenticate, then `ready()` / `start()` / `configure()` again |
 | `SNAP_UNAVAILABLE` in `warnings` | Your snap provider could not answer | Never fatal — the raw track is drawn. Check the OSRM server |
 | `MOTION_DETECTION_DEGRADED` | `motionQuality = POOR` on this hardware | Capture is forced to `CONTINUOUS`; expect more battery use |
-| `ready()`/`start()` returns `DEVICE_INTEGRITY_BLOCKED` | A `BLOCK`-policy signal fired | Read `trackIt.integrity()` for the signals ([§19](#19-device-integrity)); relax that policy to `WARN` if the device is legitimate |
+| `ready()`/`start()` returns `DEVICE_INTEGRITY_BLOCKED` | A `BLOCK`-policy signal fired | Read `tracker.integrity()` for the signals ([§19](#19-device-integrity)); relax that policy to `WARN` if the device is legitimate |
 | Session ends by itself with `DEVICE_INTEGRITY_BLOCKED` | The health-loop re-check fired mid-session | Same as above; `integrityRecheckIntervalMs(0)` disables the periodic re-check |
 | Integrity findings never appear | The host app is debuggable, so the layer is waived | Expected. Check `IntegrityReport.waived`; exercise the layer in a release build |
 | `assembleRelease` fails on `FieldTrackSecurityDisabled` | A release source set disables the integrity layer | Move the override to `src/debug/` ([§19.6](#196-build-time-checks)) |
