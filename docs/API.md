@@ -10,13 +10,13 @@ Namespace `com.devstree.traker` (Maven group `com.github.fieldtrack360.fieldtrac
 
 ```
                     ┌───────────────────────────────────────┐
-                    │  trackit-geo   (pure Kotlin/JVM)      │
+                    │  fieldtrack-geo   (pure Kotlin/JVM)      │
                     │  every algorithm, every constant,     │
                     │  every decision. No Android. No I/O.  │
                     └──────────────────┬────────────────────┘
                                        │ implements ports
                     ┌──────────────────▼────────────────────┐
-                    │  trackit-core  (Android library)      │
+                    │  fieldtrack-core  (Android library)      │
                     │  platform plumbing + Traker API      │
                     │  + TrakerJava (Java facade)          │
                     └──────────────────┬────────────────────┘
@@ -27,14 +27,14 @@ Namespace `com.devstree.traker` (Maven group `com.github.fieldtrack360.fieldtrac
 
 Two invariants, enforced in CI:
 
-1. **No algorithm above `trackit-geo`.** A Konsist/Detekt rule fails the build if `trackit-core` contains a numeric literal in a decision expression, or imports `kotlin.math` outside `provider/FixMapper`.
-2. **No platform types in `trackit-geo`.** It is a plain Kotlin/JVM module; `android.location.Location` never appears, so the whole engine runs under JVM unit tests with no emulator. Conversion happens once, in `FixMapper`.
+1. **No algorithm above `fieldtrack-geo`.** A Konsist/Detekt rule fails the build if `fieldtrack-core` contains a numeric literal in a decision expression, or imports `kotlin.math` outside `provider/FixMapper`.
+2. **No platform types in `fieldtrack-geo`.** It is a plain Kotlin/JVM module; `android.location.Location` never appears, so the whole engine runs under JVM unit tests with no emulator. Conversion happens once, in `FixMapper`.
 
-Consequence: a behaviour change is a one-file change in `trackit-geo`, proven by the JVM fixture suite before any device runs it.
+Consequence: a behaviour change is a one-file change in `fieldtrack-geo`, proven by the JVM fixture suite before any device runs it.
 
 ---
 
-## 2. Core types (`trackit-geo`)
+## 2. Core types (`fieldtrack-geo`)
 
 ```kotlin
 package com.devstree.traker.geo.model
@@ -173,7 +173,7 @@ Heuristic Gate · Session Closed · Mock Location · Invalid Coordinates · Stal
 
 ---
 
-## 3. Ports — what `trackit-geo` needs from the platform
+## 3. Ports — what `fieldtrack-geo` needs from the platform
 
 ```kotlin
 package com.devstree.traker.geo.port
@@ -207,13 +207,13 @@ interface RoadSnapProvider {
 }
 ```
 
-`trackit-core` implements the first three (`RoomPointStore`, `SystemClock`, `AndroidLogger`). The fixture harness implements them in-memory, which is how the whole engine is tested without a device.
+`fieldtrack-core` implements the first three (`RoomPointStore`, `SystemClock`, `AndroidLogger`). The fixture harness implements them in-memory, which is how the whole engine is tested without a device.
 
-`RoadSnapProvider` is deliberately left to the host, with one implementation shipped in the optional `trackit-snap` artifact:
+`RoadSnapProvider` is deliberately left to the host, with one implementation shipped in the optional `fieldtrack-snap` artifact:
 
 ```kotlin
-// build.gradle.kts — trackit-snap treats OkHttp as compileOnly, exactly like trackit-sync
-implementation("com.github.fieldtrack360.fieldtrack:trackit-snap:<version>")
+// build.gradle.kts — fieldtrack-snap treats OkHttp as compileOnly, exactly like fieldtrack-sync
+implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-snap:<version>")
 implementation("com.squareup.okhttp3:okhttp:<version>")
 
 // There is deliberately NO default baseUrl. The OSRM demo server has no availability
@@ -226,7 +226,7 @@ trackIt.setRoadSnapProvider(OsrmSnapProvider(baseUrl = "https://osrm.example.com
 
 ---
 
-## 4. The Kalman filter (`trackit-geo`)
+## 4. The Kalman filter (`fieldtrack-geo`)
 
 A **constant-velocity** filter: position plus a velocity estimate, one 2×2 covariance shared by latitude and longitude. Concurrency defects from `KalmanLatLngFilter.kt` stay removed — no mutable fields, no `@Volatile`, and `predictSigma` takes `q` explicitly (fixes [A7](SOURCE-AUDIT.md)).
 
@@ -293,7 +293,7 @@ The off-diagonal `dt²/2` term is the mechanism by which a *position* correction
 
 ---
 
-## 5. Acceptance pipeline (`trackit-geo`)
+## 5. Acceptance pipeline (`fieldtrack-geo`)
 
 Signature and stage order. The stage bodies port `LocationUtil.isKalmanFilteredLocation` (`LocationUtil.kt:172-669`) verbatim; **the order is load-bearing and must not change** — burst before anything mutates the last-fix clock, NLP before state determination (an NLP fix has no speed and would masquerade as stationary), recovery before the sigma gate (a post-gap fix would otherwise burn the reject counter).
 
@@ -644,7 +644,7 @@ data class TrackPointEntity(
     val addressJson: String?,
     val extras: String?,
     val acceptReason: String,
-    val syncState: Int = 0,              // 0 pending / 1 synced — used only by trackit-sync
+    val syncState: Int = 0,              // 0 pending / 1 synced — used only by fieldtrack-sync
     val syncTimeMs: Long = 0,
 )
 
@@ -726,7 +726,7 @@ object Traker {
         val onExitEvent: String = "stationary_fence_exit",
     ) {
         companion object {
-            const val DEFAULT_ID = "trackit-stationary"
+            const val DEFAULT_ID = "fieldtrack-stationary"
             const val DEFAULT_ENTER_EVENT = "stationary_fence_enter"
             const val DEFAULT_EXIT_EVENT = "stationary_fence_exit"
         }
@@ -1065,7 +1065,7 @@ Config is persisted in DataStore and restored by `ready()` unless `reset = true`
 
 ## 12. Plotting output
 
-The geometry runs entirely in `trackit-geo`:
+The geometry runs entirely in `fieldtrack-geo`:
 
 ```
 points → consolidateStops(stationary only, 60 m / 10 min)
@@ -1125,7 +1125,7 @@ A `stop` segment carries no geometry, so **the drawn line breaks across it** —
 `TrackBuilder.build()` is **synchronous and pure, including the snap stage.** It takes
 road geometry the caller already fetched — not a provider it may call. `Traker` does the
 `suspend` round-trip and hands the result down as a value, which is what keeps the HTTP
-client out of `trackit-geo` and lets every rule in `Snapper` be tested against a
+client out of `fieldtrack-geo` and lets every rule in `Snapper` be tested against a
 hand-written road with no server.
 
 **Matched geometry is cached per chunk.** `buildTrack` asks the provider every call, and
@@ -1189,7 +1189,7 @@ data class Track(
 )
 
 /** THE feature that makes "plot with arrow" trivial for a host.
- *  One implementation, used by trackit-maps AND by the JSON export (A9/EC-108). */
+ *  One implementation, used by fieldtrack-maps AND by the JSON export (A9/EC-108). */
 data class ArrowAnchor(val lat: Double, val lng: Double, val bearing: Double, val segment: Int)
 ```
 

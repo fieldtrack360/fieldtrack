@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
  * The Android side of motion detection: owns the pure [MotionStateMachine]'s state and
  * turns its transitions into hardware actions.
  *
- * The division is deliberate. Every *decision* lives in `trackit-geo` where it is
+ * The division is deliberate. Every *decision* lives in `fieldtrack-geo` where it is
  * JVM-testable; this class only arms sensors, registers fences and changes cadence
  * (PLAN.md §3 invariant 1).
  *

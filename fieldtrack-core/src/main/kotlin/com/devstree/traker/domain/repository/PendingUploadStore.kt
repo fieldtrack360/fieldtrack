@@ -3,7 +3,7 @@ package com.devstree.traker.domain.repository
 import com.devstree.traker.geo.model.TrackPoint
 
 /**
- * The seam `trackit-sync` uploads through.
+ * The seam `fieldtrack-sync` uploads through.
  *
  * It exists so that core can stay genuinely network-free while still letting an optional
  * artifact drain the queue. Entities and DAOs are `internal` on purpose — this is the

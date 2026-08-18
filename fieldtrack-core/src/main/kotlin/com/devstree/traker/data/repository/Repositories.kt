@@ -48,7 +48,7 @@ internal class TrackPointRepositoryImpl(
 }
 
 /**
- * Drains through the public [PendingUploadStore] seam, so `trackit-sync` never sees a
+ * Drains through the public [PendingUploadStore] seam, so `fieldtrack-sync` never sees a
  * Room type and core never sees a socket.
  */
 internal class PendingUploadStoreImpl(

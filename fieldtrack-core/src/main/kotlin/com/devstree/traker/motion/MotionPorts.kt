@@ -8,7 +8,7 @@ import com.devstree.traker.domain.model.TrakerGeofence
  * `MotionController` decides; these three interfaces do. Depending on abstractions
  * rather than on `SensorManager` and `GeofencingClient` directly is what makes the
  * controller's wiring testable at all — and the wiring is where the interesting bugs
- * live, since the state machine underneath is already covered in `trackit-geo`.
+ * live, since the state machine underneath is already covered in `fieldtrack-geo`.
  *
  * All three are genuinely optional at runtime: the sensor may not exist, geofence
  * registration fails for real reasons, and `MOTION_ONLY` deliberately stops the stream.

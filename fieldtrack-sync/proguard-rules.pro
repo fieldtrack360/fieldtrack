@@ -1,6 +1,6 @@
 # Traker sync — build-time R8 configuration for the published release AAR.
 #
-# See trackit-core/proguard-rules.pro for the consumer-rules distinction and the honest
+# See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation.
 
 -keepattributes Signature,InnerClasses,EnclosingMethod,Exceptions,*Annotation*,AnnotationDefault

@@ -50,6 +50,6 @@
     public static ** valueOf(java.lang.String);
 }
 
-# `trackit-geo` ships the equivalent rule in its own AAR. This duplicate remains because
+# `fieldtrack-geo` ships the equivalent rule in its own AAR. This duplicate remains because
 # core persists geo enum names directly and must protect them even if dependency rule
 # aggregation changes. The rule is idempotent in a host R8 configuration.

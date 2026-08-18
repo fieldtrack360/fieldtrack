@@ -51,12 +51,12 @@ val osrmBaseUrl: String = localProperties.getProperty("OSRM_BASE_URL", "")
 val trackItLicense: String = localProperties.getProperty("TRACKIT_LICENSE", "")
 
 android {
-    namespace = "com.devstree.trackit.sample"
+    namespace = "com.devstree.fieldtrack.sample"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.devstree.trackit.sample"
+        applicationId = "com.devstree.fieldtrack.sample"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
@@ -116,10 +116,10 @@ dependencies {
 //    implementation(libs.fieldtrack)
 
     //local maven
-    implementation(libs.trackit.sdk)
+    implementation(libs.fieldtrack.sdk)
 
 
-    // OkHttp is compileOnly inside trackit-snap, so the host that wants the shipped
+    // OkHttp is compileOnly inside fieldtrack-snap, so the host that wants the shipped
     // provider supplies the client — that is the artifact's whole bargain: no host
     // inherits an HTTP stack it did not ask for.
     implementation(libs.okhttp)

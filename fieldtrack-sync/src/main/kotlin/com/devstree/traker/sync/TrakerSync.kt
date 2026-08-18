@@ -260,7 +260,7 @@ public data class SyncConfig(
 /**
  * The optional upload half.
  *
- * `trackit-core` never opens a socket; this artifact does, and a host that does not
+ * `fieldtrack-core` never opens a socket; this artifact does, and a host that does not
  * depend on it gets an offline-first SDK with no network code linked at all
  * (PLAN.md §0).
  */
@@ -522,7 +522,7 @@ internal class SyncWorker(
     }
 
     companion object {
-        const val NAME = "trackit-sync"
+        const val NAME = "fieldtrack-sync"
 
         fun enqueue(context: Context, requiresUnmetered: Boolean) {
             WorkManager.getInstance(context)

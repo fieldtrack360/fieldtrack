@@ -697,13 +697,13 @@ trackIt.offerFix(
 
 ## 13. HTTP synchronization
 
-Add `trackit-sync` and either OkHttp or a custom `SyncTransport`. The full endpoint contract —
+Add `fieldtrack-sync` and either OkHttp or a custom `SyncTransport`. The full endpoint contract —
 request body field by field, response status semantics, and every API in its own subsection —
 is in [USER-GUIDE.md §11](USER-GUIDE.md#11-optional-modules).
 
 A base URL can be set in either builder. `SyncConfig.builder()` keeps it next to the upload
 config; `TrakerConfig.builder().baseUrl(...)` sets it once for an app that already has one,
-and `trackit-sync` resolves a bare `path` against it at `configure()` time. An absolute URL on
+and `fieldtrack-sync` resolves a bare `path` against it at `configure()` time. An absolute URL on
 the `SyncConfig` always wins — the core value is a fallback, never an override.
 
 ```kotlin

@@ -30,7 +30,7 @@
 
 # ── the public contract ─────────────────────────────────────────────────────
 #
-# Hosts and the sibling artifacts (trackit-bridge, trackit-sync, trackit-maps) are
+# Hosts and the sibling artifacts (fieldtrack-bridge, fieldtrack-sync, fieldtrack-maps) are
 # compiled separately against these names, so the names are load-bearing. Kept by
 # explicit package/class rather than by visibility on purpose: Kotlin `internal`
 # compiles to public bytecode, so "keep everything public" would keep the internals

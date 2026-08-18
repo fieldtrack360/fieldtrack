@@ -35,7 +35,7 @@ internal abstract class TrakerDatabase : RoomDatabase() {
 
     companion object {
         /** Package-scoped so a host app's own Room database can never collide (EC-84). */
-        fun nameFor(context: Context): String = "trackit-${context.packageName}.db"
+        fun nameFor(context: Context): String = "fieldtrack-${context.packageName}.db"
 
         /**
          * v1 → v2: bearing persisted alongside accuracy on the two capture tables.

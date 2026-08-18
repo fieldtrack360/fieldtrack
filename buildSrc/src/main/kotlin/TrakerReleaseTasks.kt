@@ -130,7 +130,7 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
         )
 
         artifacts.forEach { artifact ->
-            val aar = root.resolve("trackit-${artifact.module}/build/outputs/aar/trackit-${artifact.module}-release.aar")
+            val aar = root.resolve("fieldtrack-${artifact.module}/build/outputs/aar/fieldtrack-${artifact.module}-release.aar")
             check(aar.isFile) {
                 "Missing release artifact: ${aar.relativeTo(root)}"
             }
@@ -202,7 +202,7 @@ abstract class VerifyReleaseObfuscationTask : DefaultTask() {
             "com/devstree/traker/sync/internal/",
         )
         artifacts.forEach { artifact ->
-            val aar = root.resolve("trackit-${artifact.module}/build/outputs/aar/trackit-${artifact.module}-release.aar")
+            val aar = root.resolve("fieldtrack-${artifact.module}/build/outputs/aar/fieldtrack-${artifact.module}-release.aar")
             val classesJar = ZipFile(aar).use { zip ->
                 zip.getInputStream(zip.getEntry("classes.jar")).readBytes()
             }
@@ -266,12 +266,12 @@ abstract class ArchiveReleaseMappingsTask : DefaultTask() {
         val archiveRoot = root.resolve("build/release-mappings/${version.get()}")
 
         releaseModules.forEach { module ->
-            val aar = root.resolve("trackit-$module/build/outputs/aar/trackit-$module-release.aar")
+            val aar = root.resolve("fieldtrack-$module/build/outputs/aar/fieldtrack-$module-release.aar")
             check(aar.isFile) {
                 "Missing release artifact for mapping archive: ${aar.relativeTo(root)}"
             }
 
-            val mappingDir = root.resolve("trackit-$module/build/outputs/mapping/release")
+            val mappingDir = root.resolve("fieldtrack-$module/build/outputs/mapping/release")
             val moduleArchive = archiveRoot.resolve(module)
             moduleArchive.mkdirs()
 

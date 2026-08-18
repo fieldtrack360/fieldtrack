@@ -3,7 +3,7 @@ package com.devstree.traker.geo.model
 /**
  * The per-fix facts the engine cannot derive on its own.
  *
- * Everything here is supplied by `trackit-core` (session identity, calendar fields,
+ * Everything here is supplied by `fieldtrack-core` (session identity, calendar fields,
  * battery, the current activity label). Keeping them in one parameter object is what
  * lets [com.devstree.traker.geo.filter.AcceptancePipeline] stay a pure function of
  * `(fix, past, state, context)` — which is in turn what makes fixture replay

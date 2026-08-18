@@ -68,7 +68,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 2.  Locate the `traker` variable in the `[versions]` section:
     ```toml
     [versions]
-    trackit = "0.1.1-alpha01"
+    fieldtrack = "0.1.1-alpha01"
     ```
 3.  Change the version string to your new version.
 4.  Run `./gradlew publishToMavenLocal` (or `publish`) to build artifacts with the new version.
@@ -111,7 +111,7 @@ dependencies {
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:v0.1.1-alpha01")
     
     // Or individual modules
-    implementation("com.github.fieldtrack360.fieldtrack:trackit-core:v0.1.1-alpha01")
+    implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-core:v0.1.1-alpha01")
 }
 ```
 

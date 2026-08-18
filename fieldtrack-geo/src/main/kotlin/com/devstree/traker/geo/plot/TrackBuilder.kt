@@ -25,7 +25,7 @@ import com.devstree.traker.geo.plot.model.TrackStats
  *
  * Entirely on-device and entirely pure — **including the snap stage**. [roadGeometry] is
  * geometry the caller already fetched, not a provider this function may call: the
- * network round-trip belongs to `trackit-core`, and keeping it there is what lets a
+ * network round-trip belongs to `fieldtrack-core`, and keeping it there is what lets a
  * track render with no backend, no routing key and no quota, and what keeps every rule
  * in [Snapper] testable against a hand-written road with no server (PLAN.md §5).
  */

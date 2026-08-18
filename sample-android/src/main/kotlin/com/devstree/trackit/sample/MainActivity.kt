@@ -3,8 +3,10 @@ package com.devstree.trackit.sample
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +36,7 @@ import com.devstree.trackit.sample.screen.DebugOverlayScreen
 import com.devstree.trackit.sample.screen.DecisionLogScreen
 import com.devstree.trackit.sample.screen.HomeScreen
 import com.devstree.trackit.sample.screen.TrackScreen
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
@@ -84,7 +87,7 @@ class MainActivity : ComponentActivity() {
      * tester with no laptop needs a way to get the file off the phone.
      */
     private fun shareLog(path: String) {
-        val file = java.io.File(path)
+        val file = File(path)
         if (!file.exists()) return
 
         val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
@@ -112,9 +115,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun trackItSettingsIntent() =
-        android.content.Intent(
-            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-            android.net.Uri.fromParts("package", packageName, null),
+        Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null),
         )
 }
 
@@ -233,7 +236,7 @@ private fun SampleApp(
                     onOpenSession = viewModel::openSession,
                     onSnapToRoad = viewModel::setSnapToRoad,
                 )
-                Tab.DEBUG -> DebugOverlayScreen(state, onOpenSession = viewModel::openSession)
+                Tab.DEBUG ->  DebugOverlayScreen(state, onOpenSession = viewModel::openSession)
                 Tab.DECISIONS -> DecisionLogScreen(state, onOpenSession = viewModel::openSession)
             }
         }

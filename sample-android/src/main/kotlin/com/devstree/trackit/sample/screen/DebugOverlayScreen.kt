@@ -18,7 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.devstree.trackit.sample.BuildConfig
+import com.devstree.fieldtrack.sample.BuildConfig
 import com.devstree.trackit.sample.TrackItViewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -69,7 +69,7 @@ fun DebugOverlayScreen(
         if (state.points.isEmpty() && state.rawFixes.isEmpty()) {
             Centered(
                 "Nothing captured in this session.\n\n" +
-                    "Raw fixes need persistence.persistRawFixes = true.",
+                        "Raw fixes need persistence.persistRawFixes = true.",
             )
             return@Column
         }

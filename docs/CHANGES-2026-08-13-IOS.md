@@ -267,7 +267,7 @@ New events: `TrakerEvent.geofenceEnter(GeofenceEvent)`, `.geofenceExit(GeofenceE
 - **CoreLocation is the list.** There is no fence table. `monitoredRegions` already survives
   termination and reboot, and a second copy in the database is a copy that can disagree with the
   thing doing the monitoring. `getGeofences()` maps regions back and filters out the SDK's own
-  `StationaryFence.identifier = "trackit-stationary"`.
+  `StationaryFence.identifier = "fieldtrack-stationary"`.
 - **Crossings are stored *and* emitted, row first.** iOS relaunches a terminated app to deliver
   one; `events()` has no replay, so at that moment no host is subscribed. The process may not
   outlive the emission. Centre and radius are copied onto each row so a crossing stays readable

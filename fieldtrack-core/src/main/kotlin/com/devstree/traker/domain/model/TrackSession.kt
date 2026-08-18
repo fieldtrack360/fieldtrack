@@ -148,7 +148,7 @@ public data class TrakerGeofence(
     public companion object {
         /** Public parity limit; the SDK's internal stationary wake fence does not count. */
         public const val MAX_GEOFENCES: Int = 19
-        public const val DEFAULT_ID: String = "trackit-stationary"
+        public const val DEFAULT_ID: String = "fieldtrack-stationary"
         public const val DEFAULT_ENTER_EVENT: String = "stationary_fence_enter"
         public const val DEFAULT_EXIT_EVENT: String = "stationary_fence_exit"
     }

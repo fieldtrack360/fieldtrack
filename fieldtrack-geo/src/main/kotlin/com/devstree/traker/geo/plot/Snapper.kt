@@ -13,7 +13,7 @@ import com.devstree.traker.geo.plot.model.RenderTag
  * **Pure, and the network call is somebody else's problem.** The provider is `suspend`
  * and lives behind an interface in an optional artifact; this takes the geometry it
  * returned and does the geometry. That split is what keeps `TrackBuilder.build()`
- * synchronous, keeps `trackit-geo` free of an HTTP client, and makes every rule below
+ * synchronous, keeps `fieldtrack-geo` free of an HTTP client, and makes every rule below
  * testable with a hand-written road and no server (PLAN.md §5).
  *
  * Three rules, each pinned to the failure it prevents:

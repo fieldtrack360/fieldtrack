@@ -28,7 +28,7 @@ internal class DaoUploadQueueStats(private val dao: TrackPointDao) : UploadQueue
 /**
  * Pulls the upload trigger.
  *
- * The queue, batching, backoff and 401 teardown in `trackit-sync` all worked; nothing ever
+ * The queue, batching, backoff and 401 teardown in `fieldtrack-sync` all worked; nothing ever
  * started them. `SyncConfig.autoSync` was documented as "upload as points arrive" and read
  * nowhere, so a host that configured sync and never called `syncNow()` itself accumulated
  * rows forever (GAPS.md G-4, spec §3.4 step 3 and §12.2 check 3).

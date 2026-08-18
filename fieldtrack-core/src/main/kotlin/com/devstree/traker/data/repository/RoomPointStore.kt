@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 /**
  * The Room-backed implementation of the engine's [PointStore] port.
  *
- * This class is the *only* place `trackit-geo` touches storage, which is what keeps
+ * This class is the *only* place `fieldtrack-geo` touches storage, which is what keeps
  * the engine free of Android and testable on the JVM (PLAN.md §3).
  *
  * @param sessionIdProvider decision rows need the session they belong to, but the

@@ -9,8 +9,8 @@
 # strips the rest, which is the correct outcome for a drawing helper a host may only
 # partly use.
 #
-# The enums it hands back (`RenderTag`, `SegmentType`) are kept by `trackit-core`'s
+# The enums it hands back (`RenderTag`, `SegmentType`) are kept by `fieldtrack-core`'s
 # consumer rules for any host that also depends on core. A host depending on
-# `trackit-maps` and `trackit-geo` alone does not persist or `valueOf` them — nothing in
+# `fieldtrack-maps` and `fieldtrack-geo` alone does not persist or `valueOf` them — nothing in
 # this module or in the plotting plane reads an enum back from a name — so there is
 # nothing to preserve.

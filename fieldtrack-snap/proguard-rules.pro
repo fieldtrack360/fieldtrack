@@ -1,6 +1,6 @@
 # Traker snap — build-time R8 configuration for the published release AAR.
 #
-# See trackit-core/proguard-rules.pro for the consumer-rules distinction and the honest
+# See fieldtrack-core/proguard-rules.pro for the consumer-rules distinction and the honest
 # limits of obfuscation. The public surface is one class; everything else — the chunk
 # cache, the OSRM response model, the matching heuristics' privates — obfuscates. The
 # OSRM wire format survives renaming by construction: kotlinx-serialization bakes the

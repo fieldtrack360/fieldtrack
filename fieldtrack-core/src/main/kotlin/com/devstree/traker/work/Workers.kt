@@ -66,7 +66,7 @@ internal class BackstopWorker(
     }
 
     companion object {
-        const val NAME = "trackit-backstop"
+        const val NAME = "fieldtrack-backstop"
 
         fun enqueue(context: Context, intervalMinutes: Int) {
             val request = PeriodicWorkRequestBuilder<BackstopWorker>(
@@ -113,7 +113,7 @@ internal class RestoreWorker(
     }
 
     companion object {
-        const val NAME = "trackit-restore"
+        const val NAME = "fieldtrack-restore"
 
         fun enqueueExpedited(context: Context) {
             val request = OneTimeWorkRequestBuilder<RestoreWorker>()
@@ -158,7 +158,7 @@ internal class PruneWorker(
     }
 
     companion object {
-        const val NAME = "trackit-prune"
+        const val NAME = "fieldtrack-prune"
         private const val MILLIS_PER_DAY = 24L * 60 * 60 * 1000
 
         fun enqueue(context: Context) {

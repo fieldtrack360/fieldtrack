@@ -4,7 +4,7 @@ Every condition Traker must handle, with the trigger, the observable symptom if 
 
 **Columns:** `#` · **Trigger** — what happens in the world · **Unhandled symptom** — what the user or the data sees · **Handling** — the SDK's response · **Owner** — module/class · **Test** — how it's proven.
 
-Test tiers: **T1** pure JVM (`trackit-geo`, fixture replay) · **T2** Robolectric · **T3** instrumented · **T4** manual field matrix.
+Test tiers: **T1** pure JVM (`fieldtrack-geo`, fixture replay) · **T2** Robolectric · **T3** instrumented · **T4** manual field matrix.
 
 ---
 
@@ -182,7 +182,7 @@ The nine classes from the reference spec, plus what the audit added.
 |---|---|---|---|---|---|
 | EC-112 | The host UI and a background collector both listen for events | Reference-style single-callback fields overwrite each other | `SharedFlow` with replay 0 and unlimited subscribers — never a `var callback` | `Traker.events` | T2 |
 | EC-113 | Host `Activity`/`ViewModel` is destroyed and recreated (rotation, process restore) | A collector leaks, or the new instance never re-subscribes and events vanish | Events are cold on the host side: collect in a lifecycle-scoped coroutine, and re-read authoritative state via `Traker.state` on resubscribe. Native state is always the source of truth, never a replayed event buffer | `Traker.events` | T2 |
-| EC-114 | Host process has no UI on screen (backgrounded, activity finished) | Custom host work stops running; developer assumes capture stopped too | Capture, filtering and storage run in `trackit-core` inside the foreground service and **never depend on a host collector being alive**. A host that wants work with no UI collects `Traker.events` from an application- or service-scoped `CoroutineScope` | design | T3 |
+| EC-114 | Host process has no UI on screen (backgrounded, activity finished) | Custom host work stops running; developer assumes capture stopped too | Capture, filtering and storage run in `fieldtrack-core` inside the foreground service and **never depend on a host collector being alive**. A host that wants work with no UI collects `Traker.events` from an application- or service-scoped `CoroutineScope` | design | T3 |
 | EC-115 | Host collector throws | Exception cancels the shared scope, all delivery stops | Emission is isolated per subscriber; a throwing collector is logged and dropped, never propagated back into the ingestor | `Traker.events` | T2 |
 | EC-116 | Host passes an out-of-range config value | Undefined behaviour deep in the provider | `TrakerConfig.validate()` runs in `ready()` and fails fast with a typed error naming the field (EC-77, EC-120, EC-121) | `TrakerConfig` | T2 |
 | EC-117 | Host app upgraded; a persisted enum name is no longer known | Crash on deserialise | Unknown enum values decode to `UNKNOWN` and are preserved verbatim on re-encode | `TrakerConverters` | T1 |

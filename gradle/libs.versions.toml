@@ -41,7 +41,7 @@ truth = "1.4.5"
 [libraries]
 # --- Kotlin / coroutines ---
 #fieldtrack = { module = "com.github.fieldtrack360.fieldtrack:fieldtrack", version.ref = "trakerAll" }
-trackit-sdk = { group = "com.github.fieldtrack360.fieldtrack", name = "fieldtrack", version.ref = "traker" }
+fieldtrack-sdk = { group = "com.github.fieldtrack360.fieldtrack", name = "fieldtrack", version.ref = "traker" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }

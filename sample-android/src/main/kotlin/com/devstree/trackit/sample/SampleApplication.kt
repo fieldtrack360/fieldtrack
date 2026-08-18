@@ -1,6 +1,8 @@
 package com.devstree.trackit.sample
 
 import android.app.Application
+import com.devstree.fieldtrack.sample.BuildConfig
+import com.devstree.fieldtrack.sample.CaptureLog
 import com.devstree.trackit.AccuracyProfile
 import com.devstree.trackit.LocationProviderType
 import com.devstree.trackit.TrackIt

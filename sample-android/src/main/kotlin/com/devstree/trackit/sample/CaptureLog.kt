@@ -1,4 +1,4 @@
-package com.devstree.trackit.sample
+package com.devstree.fieldtrack.sample
 
 import android.content.Context
 import android.os.Build
@@ -30,7 +30,7 @@ import java.util.Locale
  *
  * This is a **testing instrument**, not a product feature, and it lives in the sample for
  * the same reason the permission dialogs do: the SDK does no I/O the host did not ask for.
- * `TrackLogger` inside `trackit-core` writes to logcat, which is ring-buffered and gone
+ * `TrackLogger` inside `fieldtrack-core` writes to logcat, which is ring-buffered and gone
  * after a long drive — the whole point here is a file that survives the drive, the app
  * being killed, and the phone being plugged into a laptop hours later.
  *
@@ -51,7 +51,7 @@ class CaptureLog(context: Context) {
 
     /**
      * App-scoped external storage: no permission needed, visible over USB/MTP at
-     * `Android/data/com.devstree.trackit.sample/files/`, and removed on uninstall.
+     * `Android/data/com.devstree.fieldtrack.sample/files/`, and removed on uninstall.
      * Falls back to internal storage on a device with no external volume mounted.
      */
     val file: File by lazy {
@@ -429,7 +429,7 @@ class CaptureLog(context: Context) {
     }
 
     private companion object {
-        const val FILE_NAME = "trackit-capture.txt"
+        const val FILE_NAME = "fieldtrack-capture.txt"
         const val BUFFERED_LINES = 4096
         const val KIND_WIDTH = 9
 

@@ -5,7 +5,7 @@ package com.devstree.traker.geo.filter
  *
  * Two reasons this is a `data class` rather than a file of `const val`s: the fixture
  * harness can sweep a constant and re-run a recorded day, and PLAN.md §3 invariant 1
- * ("no algorithm above `trackit-geo`") is checkable — there is exactly one place a
+ * ("no algorithm above `fieldtrack-geo`") is checkable — there is exactly one place a
  * decision number can live.
  *
  * Values are the field-verified production set from the reference implementation

@@ -79,9 +79,9 @@ They solve **capture**: get location in the background, cheaply, without the OS 
 | `maxDaysToPersist`, `maxRecords` | ✅ | ✅ | |
 | `getLocations` / `getCount` / `destroyLocations` | ✅ | ✅ | Paged (EC-80) |
 | `insertLocation` | ✅ | ✅ | Validated like a real fix (EC-86) |
-| HTTP `url`/`method`/`headers`/`params`/`autoSync`/`batchSync` | ✅ | 🔁 | Optional `trackit-sync` module — core never touches the network |
+| HTTP `url`/`method`/`headers`/`params`/`autoSync`/`batchSync` | ✅ | 🔁 | Optional `fieldtrack-sync` module — core never touches the network |
 | JWT / SAS authorization with auto-refresh | ✅ | ⛔ | Host's concern |
-| `onHttp` event | ✅ | 🔁 | `TrakerSync.events` → `SyncEvent.HttpResponse(statusCode, count)`, one per exchange. In `trackit-sync` only. No response body — it can be megabytes; implement `SyncTransport` if you need it |
+| `onHttp` event | ✅ | 🔁 | `TrakerSync.events` → `SyncEvent.HttpResponse(statusCode, count)`, one per exchange. In `fieldtrack-sync` only. No response body — it can be megabytes; implement `SyncTransport` if you need it |
 | `Retry-After` honoured | ✅ | ✅ | Both delta-seconds and HTTP-date, clamped 1 s–6 h; the worker re-enqueues at the server's time |
 | Terminal auth failures | ✅ (401) | ⭐ (401 **and** 403) | 401 clears the queue, 403 keeps it — a revoked key is the same user, an expired session may not be |
 | **Session as a first-class entity** | ⛔ | ⭐ | Every point belongs to a session with a config snapshot |
@@ -209,7 +209,7 @@ data class ServiceConfig(
 
 **Why our defaults are inverted.** Theirs are conservative — safe for an app that only sometimes wants background tracking, and they document flipping them. But an SDK whose entire purpose is surviving termination should not ship defaults under which a swipe-away silently ends tracking; the failure is invisible and the user only discovers it as missing data. We flip them and document the flip.
 
-**No headless API, because the problem it solves does not exist here.** `enableHeadless` is a bridge artifact: it exists because a JS context or a Flutter isolate can die while the native process lives on, so events need somewhere else to land. Traker is consumed by Kotlin and Java directly — capture, filtering and storage all run in `trackit-core` inside the foreground service, in the same process as the host. A host that wants work to continue with no UI on screen collects `Traker.events` from an application- or service-scoped `CoroutineScope`; there is nothing to re-register and nothing to keep alive (EC-114).
+**No headless API, because the problem it solves does not exist here.** `enableHeadless` is a bridge artifact: it exists because a JS context or a Flutter isolate can die while the native process lives on, so events need somewhere else to land. Traker is consumed by Kotlin and Java directly — capture, filtering and storage all run in `fieldtrack-core` inside the foreground service, in the same process as the host. A host that wants work to continue with no UI on screen collects `Traker.events` from an application- or service-scoped `CoroutineScope`; there is nothing to re-register and nothing to keep alive (EC-114).
 
 The invariant that matters is unchanged and stated plainly: **capture never depends on a host collector being alive.** If every subscriber goes away, fixes are still filtered and still written to Room. Collectors are for reacting, never for recording.
 

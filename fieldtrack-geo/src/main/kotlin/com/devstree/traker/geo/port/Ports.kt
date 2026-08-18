@@ -8,7 +8,7 @@ import com.devstree.traker.geo.model.TrackPoint
 /**
  * What the engine needs from a platform, and nothing more.
  *
- * `trackit-core` supplies Room- and Android-backed implementations; the fixture
+ * `fieldtrack-core` supplies Room- and Android-backed implementations; the fixture
  * harness supplies in-memory ones. That symmetry is why the entire pipeline is
  * testable on the JVM with no emulator (PLAN.md §6, tier T1).
  */
@@ -43,7 +43,7 @@ public interface TrackLogger {
 }
 
 /**
- * Optional road-snapping. Deliberately an interface in `trackit-geo` with its only
+ * Optional road-snapping. Deliberately an interface in `fieldtrack-geo` with its only
  * real implementation in an optional artifact, so core carries no HTTP client, no
  * vendor lock and no API key (PLAN.md §5).
  *

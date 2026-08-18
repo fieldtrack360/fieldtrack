@@ -32,6 +32,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
+import com.devstree.fieldtrack.sample.BuildConfig
+import com.devstree.trackit.sample.screen.SessionPicker
 import com.devstree.trackit.RawFix
 import com.devstree.trackit.domain.model.TrackItGeofence
 import com.devstree.trackit.geo.math.Bearing
@@ -42,7 +44,6 @@ import com.devstree.trackit.geo.plot.PolylineCodec
 import com.devstree.trackit.geo.plot.TrackBuilder.WARNING_SNAP_UNAVAILABLE
 import com.devstree.trackit.geo.plot.model.SegmentType
 import com.devstree.trackit.geo.plot.model.Track
-import com.devstree.trackit.sample.BuildConfig
 import com.devstree.trackit.sample.TrackItViewModel
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory

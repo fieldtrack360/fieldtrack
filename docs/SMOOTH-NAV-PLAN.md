@@ -55,7 +55,7 @@ Each verified against code by an adversarial pass (verdict REAL unless noted):
 
 From PLAN.md §0 / EDGE-CASES.md — unchanged:
 
-- trackit-geo stays pure Kotlin; all algorithms and numeric constants live there (Konsist-enforced).
+- fieldtrack-geo stays pure Kotlin; all algorithms and numeric constants live there (Konsist-enforced).
 - Stage order in `AcceptancePipeline` is load-bearing; never reorder, never cross-tune.
 - CV Kalman, not CTRV (EKF review C1); turn boost applies to the correction only, never the gate (EC-45a).
 - Raw coordinates remain the stored truth. This plan *emits* filtered coordinates for live display; it does not change what is persisted.
@@ -67,7 +67,7 @@ From PLAN.md §0 / EDGE-CASES.md — unchanged:
 
 ## 4. Phases
 
-### Phase 1 — Navigation cadence profile (trackit-core)
+### Phase 1 — Navigation cadence profile (fieldtrack-core)
 
 The pipeline cannot animate what it does not receive. Fastest current tier is turn-burst 4 s.
 
@@ -82,7 +82,7 @@ The pipeline cannot animate what it does not receive. Fastest current tier is tu
 
 Acceptance: navigation profile delivers ≥ 0.9 fixes/s to `FixIngestor` on a reference device with screen on; existing fixture replay byte-identical (no pipeline behaviour change).
 
-### Phase 2 — Live track surface (trackit-core; the missing push path)
+### Phase 2 — Live track surface (fieldtrack-core; the missing push path)
 
 1. New API: `Traker.liveTrack(): Flow<LiveTrackUpdate>`, fed from the accepted-point path in `FixIngestor` (same place `TrakerEvent.Location` is emitted today).
 2. `LiveTrackUpdate` =
@@ -90,12 +90,12 @@ Acceptance: navigation profile delivers ≥ 0.9 fixes/s to `FixIngestor` on a re
    - `liveHead`: last ~2 spline spans as plain points, re-smoothed per fix,
    - `puck`: Kalman state snapshot — filtered position, velocity vector, heading, accuracy (this is where filter output finally reaches a display surface; storage still records raw, per locked decision),
    - `sequence`: monotonic counter so renderers drop stale updates.
-3. Live-head smoothing runs in trackit-geo (new `LiveSpline` entry point reusing `Spline` internals on a 4-knot window) so the drawn head and the eventual full-track spline agree where they overlap.
+3. Live-head smoothing runs in fieldtrack-geo (new `LiveSpline` entry point reusing `Spline` internals on a 4-knot window) so the drawn head and the eventual full-track spline agree where they overlap.
 4. Backpressure: conflated flow — renderer always gets the latest state, never a queue.
 
 Acceptance: JVM test — feeding fixture fixes through ingest produces `LiveTrackUpdate` stream whose final frozen tail + head equals `TrackBuilder.build()` geometry for the same points (modulo the head window); no additional DB writes.
 
-### Phase 3 — Smooth rendering (trackit-maps)
+### Phase 3 — Smooth rendering (fieldtrack-maps)
 
 1. `TrackRenderer`: add incremental mode —
    - one mutable base `Polyline`, `setPoints()` append for frozen-tail growth; live head drawn as a second small polyline rebuilt per update,
@@ -109,7 +109,7 @@ Acceptance: JVM test — feeding fixture fixes through ingest produces `LiveTrac
 
 Acceptance: 20-min drive replay on device — no polyline flicker, puck moves continuously between fixes, steady-state render cost per fix is O(head), not O(track).
 
-### Phase 4 — Turn geometry quality (trackit-geo)
+### Phase 4 — Turn geometry quality (fieldtrack-geo)
 
 1. **Douglas-Peucker stage** — DP (not Visvalingam) because it preserves corner apexes.
 
@@ -142,10 +142,10 @@ Acceptance: 20-min drive replay on device — no polyline flicker, puck moves co
 
 Acceptance: fixture replay updated goldens reviewed hand-by-hand (geometry intentionally changes); hairpin fixture renders without chord artifacts; encoded polyline size for the 50 km fixture drops ≥ 60 %.
 
-### Phase 5 — Snap upgrades (trackit-snap; optional tier, still zero client deps)
+### Phase 5 — Snap upgrades (fieldtrack-snap; optional tier, still zero client deps)
 
 1. Send `&timestamps=` with each `/match` request (materially strengthens OSRM's HMM via speed plausibility); add `gaps=split` and stop flat-mapping matchings across genuine trace gaps.
-2. Parse `matchings[].confidence`; discard matchings below threshold (constant in trackit-geo) so the 80 m Snapper guard is no longer the only defence.
+2. Parse `matchings[].confidence`; discard matchings below threshold (constant in fieldtrack-geo) so the 80 m Snapper guard is no longer the only defence.
 3. Parse `tracepoints` to recover input-index ↔ matched-geometry correspondence, enabling timestamp re-attachment to snapped geometry (unblocks time-parameterised interpolation along roads for the live head).
 4. If the host app has a planned route: **snap-to-route** — project the puck onto the active route polyline, tolerance 2–3 × accuracy, fall back to raw when persistently off-route. Fully offline; delivers most of Google's "glued to road" effect. New optional input on the live surface, not a pipeline change.
 
