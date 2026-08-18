@@ -1,9 +1,9 @@
 [versions]
 # THE artifact version. Every published module carries it.
-trackit = "0.1.1-alpha01"
+traker = "0.1.1-alpha01"
 
 # Toolchain — see docs/API.md §"Toolchain". Verified against Google Maven / Maven Central 2026-07-31.
-agp = "9.3.1"
+agp = "9.3.0-alpha10"
 kotlin = "2.4.10"
 ksp = "2.3.10"
 javaTarget = "17"
@@ -24,7 +24,7 @@ fragment = "1.8.9"
 lifecycleCompose = "2.11.0"
 mapsCompose = "8.4.0"
 lifecycle = "2.11.0"
-trackitAll = "v0.1.1-alpha01"
+trakerAll = "v0.1.1-alpha01"
 work = "2.11.2"
 playServicesLocation = "21.4.0"
 playServicesMaps = "20.0.0"
@@ -40,8 +40,8 @@ truth = "1.4.5"
 
 [libraries]
 # --- Kotlin / coroutines ---
-#fieldtrack = { module = "com.github.fieldtrack360.fieldtrack:fieldtrack", version.ref = "trackitAll" }
-trackit-sdk = { group = "com.github.fieldtrack360.fieldtrack", name = "fieldtrack", version.ref = "trackit" }
+#fieldtrack = { module = "com.github.fieldtrack360.fieldtrack:fieldtrack", version.ref = "trakerAll" }
+trackit-sdk = { group = "com.github.fieldtrack360.fieldtrack", name = "fieldtrack", version.ref = "traker" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }

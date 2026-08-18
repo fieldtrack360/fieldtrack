@@ -4,11 +4,11 @@ Source-verified integration and API reference for FieldTrack.
 
 Version values used in this guide:
 
-- `TRACKIT_VERSION`: the SDK version to publish, install, and reference throughout the doc.
+- `TRAKER_VERSION`: the SDK version to publish, install, and reference throughout the doc.
 
 This guide documents the SDK that is implemented in the current repository. It is aimed
 at Android application developers who need to install, configure, operate, query, render,
-debug, or extend TrackIt. For algorithm details, see [API.md](API.md). For the exported
+debug, or extend Traker. For algorithm details, see [API.md](API.md). For the exported
 JSON contract, see [POLYLINE-JSON.md](POLYLINE-JSON.md).
 
 ## Contents
@@ -18,7 +18,7 @@ JSON contract, see [POLYLINE-JSON.md](POLYLINE-JSON.md).
 3. [Required permissions](#3-required-permissions)
 4. [Initialization and lifecycle](#4-initialization-and-lifecycle)
 5. [Configuration](#5-configuration)
-6. [Complete TrackIt method reference](#6-complete-trackit-method-reference)
+6. [Complete Traker method reference](#6-complete-traker-method-reference)
 7. [Results, state, events, and errors](#7-results-state-events-and-errors)
 8. [Reading sessions and points](#8-reading-sessions-and-points)
 9. [Historical track plotting and export](#9-historical-track-plotting-and-export)
@@ -38,7 +38,7 @@ JSON contract, see [POLYLINE-JSON.md](POLYLINE-JSON.md).
 - `compileSdk 37`
 - JDK 17
 - Maven group: `com.github.fieldtrack360.fieldtrack`
-- Current version: `TRACKIT_VERSION`
+- Current version: `TRAKER_VERSION`
 
 
 ## 2. Installation
@@ -60,21 +60,21 @@ implementation 'com.github.fieldtrack360.fieldtrack:fieldtrack:TAG'
 implementation("com.squareup.okhttp3:okhttp:5.4.0")
 ```
 
-No Hilt plugin, DI framework, annotation processor, or TrackIt Gradle plugin is required.
+No Hilt plugin, DI framework, annotation processor, or Traker Gradle plugin is required.
 The AAR supplies its services, receivers, permissions, and consumer ProGuard rules through
 manifest merging.
 
-Release builds also expect a TrackIt license token. Provide it through
-`TrackItConfig.license` or an `AndroidManifest.xml` meta-data entry named
+Release builds also expect a Traker license token. Provide it through
+`TrakerConfig.license` or an `AndroidManifest.xml` meta-data entry named
 `TrackItLicense`. Debuggable installs are waived automatically. The same release pass
-also keeps `TrackIt.state.value.providerState` and `TrackIt.state.value.motionState`
-synchronized with the matching change events, and emits `TrackItEvent.Heartbeat(atMs)`
+also keeps `Traker.state.value.providerState` and `Traker.state.value.motionState`
+synchronized with the matching change events, and emits `TrakerEvent.Heartbeat(atMs)`
 after the watchdog check while a session is open.
 
 ## 3. Required permissions
 
 The SDK declares permissions in its manifest, but the host application must display the
-rationale and make runtime permission requests. TrackIt never displays permission UI.
+rationale and make runtime permission requests. Traker never displays permission UI.
 
 Request permissions in this order:
 
@@ -84,7 +84,7 @@ Request permissions in this order:
 4. Activity recognition optionally. Denial reduces motion quality but is not fatal.
 
 ```kotlin
-val trackIt = TrackIt.getInstance(applicationContext)
+val trackIt = Traker.getInstance(applicationContext)
 val permissions = trackIt.permissions()
 
 notificationLauncher.launch(permissions.notificationPermissions())
@@ -132,15 +132,15 @@ Create the process singleton and prepare it once from `Application.onCreate`:
 
 ```kotlin
 class App : Application() {
-    val trackIt by lazy { TrackIt.getInstance(this) }
+    val trackIt by lazy { Traker.getInstance(this) }
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         appScope.launch {
-            when (val result = trackIt.ready(TrackItConfig())) {
-                is TrackItResult.Ok -> Unit
-                is TrackItResult.Error -> Log.e("TrackIt", "${result.code}: ${result.message}")
+            when (val result = trackIt.ready(TrakerConfig())) {
+                is TrakerResult.Ok -> Unit
+                is TrakerResult.Error -> Log.e("Traker", "${result.code}: ${result.message}")
             }
         }
     }
@@ -150,17 +150,17 @@ class App : Application() {
 Start only after `ready()` succeeds and foreground location permission is granted:
 
 ```kotlin
-suspend fun startCommute(trackIt: TrackIt) {
+suspend fun startCommute(trackIt: Traker) {
     when (val result = trackIt.start(tag = "commute")) {
-        is TrackItResult.Ok -> Log.d("TrackIt", "Session ${result.value.id}")
-        is TrackItResult.Error -> showTrackingError(result.code, result.message)
+        is TrakerResult.Ok -> Log.d("Traker", "Session ${result.value.id}")
+        is TrakerResult.Error -> showTrackingError(result.code, result.message)
     }
 }
 
-suspend fun stopTracking(trackIt: TrackIt) {
+suspend fun stopTracking(trackIt: Traker) {
     when (val result = trackIt.stop()) {
-        is TrackItResult.Ok -> Log.d("TrackIt", "Stopped ${result.value?.id}")
-        is TrackItResult.Error -> showTrackingError(result.code, result.message)
+        is TrakerResult.Ok -> Log.d("Traker", "Stopped ${result.value?.id}")
+        is TrakerResult.Error -> showTrackingError(result.code, result.message)
     }
 }
 ```
@@ -177,12 +177,12 @@ snapshot and the event stream from a lifecycle-aware scope:
 ```kotlin
 appScope.launch {
     when (val result = trackIt.ready(
-        TrackItConfig.builder()
-            .license(BuildConfig.TRACKIT_LICENSE.takeIf { it.isNotBlank() })
+        TrakerConfig.builder()
+            .license(BuildConfig.TRAKER_LICENSE.takeIf { it.isNotBlank() })
             .build()
     )) {
-        is TrackItResult.Ok -> Unit
-        is TrackItResult.Error -> Log.e("TrackIt", "${result.code}: ${result.message}")
+        is TrakerResult.Ok -> Unit
+        is TrakerResult.Error -> Log.e("Traker", "${result.code}: ${result.message}")
     }
 }
 
@@ -192,9 +192,9 @@ lifecycleScope.launch {
         launch {
             trackIt.events.collect { event ->
                 when (event) {
-                    is TrackItEvent.ProviderChange -> updateProviderUi(event.state)
-                    is TrackItEvent.MotionChange -> updateMotionUi(event.state)
-                    is TrackItEvent.Heartbeat -> updateHeartbeatUi(event.atMs)
+                    is TrakerEvent.ProviderChange -> updateProviderUi(event.state)
+                    is TrakerEvent.MotionChange -> updateMotionUi(event.state)
+                    is TrakerEvent.Heartbeat -> updateHeartbeatUi(event.atMs)
                     else -> Unit
                 }
             }
@@ -208,7 +208,7 @@ lifecycleScope.launch {
 Use immutable configuration objects directly for simple cases:
 
 ```kotlin
-val config = TrackItConfig(
+val config = TrakerConfig(
     geolocation = GeolocationConfig(
         trackingMode = TrackingMode.ADAPTIVE,
         providerType = LocationProviderType.FUSED,
@@ -226,7 +226,7 @@ val config = TrackItConfig(
 Use the builder for a flat, Java-friendly configuration API:
 
 ```kotlin
-val config = TrackItConfig.builder()
+val config = TrakerConfig.builder()
     .trackingMode(TrackingMode.ADAPTIVE)
     .provider(LocationProviderType.FUSED)
     .accuracyProfile(AccuracyProfile.BALANCED)
@@ -300,33 +300,33 @@ by subsequent sessions. With `reset = false`, an existing persisted configuratio
 full. There is no public live `setConfig()` method in this version, so use `reset = true`
 on a later process launch when intentionally replacing persisted settings.
 
-If you ship a license token, set it with `TrackItConfig.license` or an `AndroidManifest`
+If you ship a license token, set it with `TrakerConfig.license` or an `AndroidManifest`
 meta-data entry named `TrackItLicense`. The token is checked before config resolution and
 is not written back into persisted config.
 
 The Android release changes in this branch follow the same rule: keep the token as a
 startup override, use `state` for current UI snapshots, and use `events` when you need
-transitions or liveness information. `TrackIt.state.value.providerState` and
-`TrackIt.state.value.motionState` now stay in sync with the latest provider and motion
-events, while `TrackItEvent.Heartbeat(atMs)` gives you a watchdog-backed heartbeat for an
+transitions or liveness information. `Traker.state.value.providerState` and
+`Traker.state.value.motionState` now stay in sync with the latest provider and motion
+events, while `TrakerEvent.Heartbeat(atMs)` gives you a watchdog-backed heartbeat for an
 open session.
 
-## 6. Complete TrackIt method reference
+## 6. Complete Traker method reference
 
-Obtain the API with `TrackIt.getInstance(context)`. These are all public methods and
-observable properties on `TrackIt` in this version.
+Obtain the API with `Traker.getInstance(context)`. These are all public methods and
+observable properties on `Traker` in this version.
 
 ### Setup and capture
 
 | API | Returns | Use |
 |---|---|---|
-| `getInstance(context)` | `TrackIt` | Get the process-wide SDK singleton. |
-| `ready(config = TrackItConfig())` | `TrackItResult<TrackItState>` | Validate/resolve config, check license, restore state, start monitors and retention work. |
-| `start(tag = null)` | `TrackItResult<TrackSession>` | Open or return the active session and begin capture. |
-| `stop()` | `TrackItResult<TrackSession?>` | Stop capture and close the active session. |
-| `getCurrentLocation()` | `TrackItResult<TrackFix>` | Request a fresh, non-persisted location snapshot using the ready configuration. |
-| `state` | `StateFlow<TrackItState>` | Observe ready/tracking/motion/provider/session state. |
-| `events` | `SharedFlow<TrackItEvent>` | Observe locations, decisions, provider changes, geofences, diagnostics, and errors. |
+| `getInstance(context)` | `Traker` | Get the process-wide SDK singleton. |
+| `ready(config = TrakerConfig())` | `TrakerResult<TrakerState>` | Validate/resolve config, check license, restore state, start monitors and retention work. |
+| `start(tag = null)` | `TrakerResult<TrackSession>` | Open or return the active session and begin capture. |
+| `stop()` | `TrakerResult<TrackSession?>` | Stop capture and close the active session. |
+| `getCurrentLocation()` | `TrakerResult<TrackFix>` | Request a fresh, non-persisted location snapshot using the ready configuration. |
+| `state` | `StateFlow<TrakerState>` | Observe ready/tracking/motion/provider/session state. |
+| `events` | `SharedFlow<TrakerEvent>` | Observe locations, decisions, provider changes, geofences, diagnostics, and errors. |
 
 ### Permissions and device status
 
@@ -355,7 +355,7 @@ observable properties on `TrackIt` in this version.
 | API | Returns | Use |
 |---|---|---|
 | `buildTrack(query, options)` | `Track` | Build consolidated, smoothed, optionally snapped drawable geometry. |
-| `exportPolylineJson(query, options)` | `String` | Export TrackIt's versioned JSON format. |
+| `exportPolylineJson(query, options)` | `String` | Export Traker's versioned JSON format. |
 | `exportGeoJson(query, options)` | `String` | Export an RFC 7946 GeoJSON `FeatureCollection`. |
 | `setRoadSnapProvider(provider)` | `Unit` | Install optional historical road matching. |
 | `liveTrack()` | `Flow<LiveTrackUpdate>` | Receive conflated frames for a live map. |
@@ -366,12 +366,12 @@ observable properties on `TrackIt` in this version.
 
 | API | Returns | Use |
 |---|---|---|
-| `addGeofence(geofence)` | `TrackItResult<TrackItGeofence>` | Register or replace one of 19 persistent system geofences. |
-| `getGeofences()` | `List<TrackItGeofence>` | Return all registered fences. |
-| `getGeofence(id = DEFAULT_ID)` | `TrackItGeofence?` | Return the matching registered fence. |
-| `removeGeofence(id = DEFAULT_ID)` | `TrackItResult<Boolean>` | Remove the matching fence; `Ok(false)` means none matched. |
-| `removeAllGeofences()` | `TrackItResult<Int>` | Remove every SDK-managed fence and return the count. |
-| `getGeofenceEvents(...)` | `List<TrackItGeofenceEvent>` | Read newest-first crossing history with filters and paging. |
+| `addGeofence(geofence)` | `TrakerResult<TrakerGeofence>` | Register or replace one of 19 persistent system geofences. |
+| `getGeofences()` | `List<TrakerGeofence>` | Return all registered fences. |
+| `getGeofence(id = DEFAULT_ID)` | `TrakerGeofence?` | Return the matching registered fence. |
+| `removeGeofence(id = DEFAULT_ID)` | `TrakerResult<Boolean>` | Remove the matching fence; `Ok(false)` means none matched. |
+| `removeAllGeofences()` | `TrakerResult<Int>` | Remove every SDK-managed fence and return the count. |
+| `getGeofenceEvents(...)` | `List<TrakerGeofenceEvent>` | Read newest-first crossing history with filters and paging. |
 | `deleteGeofenceEvents(...)` | `Int` | Delete matching crossing history. |
 
 ### Diagnostics and testing
@@ -385,7 +385,7 @@ observable properties on `TrackIt` in this version.
 
 Methods described in older planning documents such as `setConfig`, `changePace`,
 `getCurrentPosition`, `insertPoint`, `deletePoints`, `resetOdometer`, `requestPermission`,
-and `exportFixture` are not public `TrackIt` methods in this version. Use
+and `exportFixture` are not public `Traker` methods in this version. Use
 `getCurrentLocation()` for the Android one-shot location snapshot.
 
 ## 7. Results, state, events, and errors
@@ -396,8 +396,8 @@ Fallible entry points return a typed result:
 
 ```kotlin
 when (val result = trackIt.start()) {
-    is TrackItResult.Ok -> useSession(result.value)
-    is TrackItResult.Error -> handle(result.code, result.message)
+    is TrakerResult.Ok -> useSession(result.value)
+    is TrakerResult.Error -> handle(result.code, result.message)
 }
 ```
 
@@ -412,23 +412,23 @@ Call `ready()` first and complete the host-owned foreground location permission 
 
 ```kotlin
 when (val result = trackIt.getCurrentLocation()) {
-    is TrackItResult.Ok -> {
+    is TrakerResult.Ok -> {
         val fix = result.value
-        Log.d("TrackIt", "${fix.latitude}, ${fix.longitude} +/- ${fix.accuracy} m")
+        Log.d("Traker", "${fix.latitude}, ${fix.longitude} +/- ${fix.accuracy} m")
     }
-    is TrackItResult.Error -> handle(result.code, result.message)
+    is TrakerResult.Error -> handle(result.code, result.message)
 }
 ```
 
 The returned `TrackFix` is a snapshot, not an accepted `TrackPoint`. It has no session
 ID, UUID, acceptance reason, or odometer contribution. The SDK does not persist it or
-emit `TrackItEvent.Location`; call `start()` when fixes should enter the tracking
+emit `TrakerEvent.Location`; call `start()` when fixes should enter the tracking
 pipeline. Expected errors are `NOT_READY`, `PERMISSION_DENIED`, `LOCATION_DISABLED`,
 and `FIX_TIMEOUT`.
 
 ### State
 
-`TrackItState` contains:
+`TrakerState` contains:
 
 - `isReady`
 - `isTracking`
@@ -632,7 +632,7 @@ The stationary wake fence shares the registry but remains internally marked, so 
 a host business fence emits an event without changing motion capture state.
 
 ```kotlin
-val fence = TrackItGeofence(
+val fence = TrakerGeofence(
     id = "warehouse",
     latitude = 23.0225,
     longitude = 72.5714,
@@ -642,8 +642,8 @@ val fence = TrackItGeofence(
 )
 
 when (val result = trackIt.addGeofence(fence)) {
-    is TrackItResult.Ok -> Unit
-    is TrackItResult.Error -> Log.e("TrackIt", result.message)
+    is TrakerResult.Ok -> Unit
+    is TrakerResult.Error -> Log.e("Traker", result.message)
 }
 
 val armed = trackIt.getGeofence("warehouse")
@@ -660,7 +660,7 @@ Enable only the data needed for a diagnostic build because raw layers increase s
 and write volume:
 
 ```kotlin
-val config = TrackItConfig.builder()
+val config = TrakerConfig.builder()
     .persistRawFixes(true)
     .persistRawPoints(true)
     .persistDecisions(true)
@@ -702,7 +702,7 @@ request body field by field, response status semantics, and every API in its own
 is in [USER-GUIDE.md §11](USER-GUIDE.md#11-optional-modules).
 
 A base URL can be set in either builder. `SyncConfig.builder()` keeps it next to the upload
-config; `TrackItConfig.builder().baseUrl(...)` sets it once for an app that already has one,
+config; `TrakerConfig.builder().baseUrl(...)` sets it once for an app that already has one,
 and `trackit-sync` resolves a bare `path` against it at `configure()` time. An absolute URL on
 the `SyncConfig` always wins — the core value is a fallback, never an override.
 
@@ -717,7 +717,7 @@ sync.configure(
 ```
 
 ```kotlin
-val sync = TrackItSync.getInstance(applicationContext)
+val sync = TrakerSync.getInstance(applicationContext)
 sync.configure(
     SyncConfig(
         url = "https://api.example.com/location/batch",
@@ -735,9 +735,9 @@ val pending = sync.pendingCount()
 sync.requestSync()                   // WorkManager, safe to call repeatedly
 
 when (val result = sync.syncNow()) { // inline, suspend
-    is SyncQueue.Result.Uploaded -> Log.d("TrackIt", "Uploaded ${result.count}")
+    is SyncQueue.Result.Uploaded -> Log.d("Traker", "Uploaded ${result.count}")
     SyncQueue.Result.Empty -> Unit
-    is SyncQueue.Result.Retry -> Log.w("TrackIt", result.reason)
+    is SyncQueue.Result.Retry -> Log.w("Traker", result.reason)
     SyncQueue.Result.AuthExpired -> forceLogout()
     SyncQueue.Result.Forbidden -> promptForNewCredential()
 }
@@ -763,11 +763,11 @@ credential cannot keep the loop alive.
 A parked user uploads nothing, because the filter stores nothing. That is by design and is
 not evidence of a dead tracker.
 
-### TrackItSync methods
+### TrakerSync methods
 
 | Method | Use |
 |---|---|
-| `getInstance(context)` | Get the process-wide sync instance linked to TrackIt's database. |
+| `getInstance(context)` | Get the process-wide sync instance linked to Traker's database. |
 | `configure(config, transport = null)` | Set endpoint behavior and optional custom transport. **Throws `IllegalArgumentException`** if the config fails `SyncConfig.validate()`. |
 | `pendingCount()` | Count queued rows. |
 | `requestSync()` | Enqueue unique network-constrained WorkManager work. No-op before configuration, and after a 403. |
@@ -917,14 +917,14 @@ override `snap(request)` to consume timestamp and accuracy information.
 
 ## 15. Advanced geo APIs
 
-Most apps should use `TrackIt.buildTrack()` rather than calling the engine directly. The
+Most apps should use `Traker.buildTrack()` rather than calling the engine directly. The
 following public pure-engine APIs are useful for custom renderers, offline processing, and
 tests:
 
 | API | Purpose |
 |---|---|
 | `TrackBuilder.build(...)` | Build a `Track` directly from `List<TrackPoint>`. |
-| `TrackJson.encode/decode` | Serialize or deserialize TrackIt's track format. |
+| `TrackJson.encode/decode` | Serialize or deserialize Traker's track format. |
 | `GeoJson.encode` | Convert a built `Track` to GeoJSON. |
 | `PolylineCodec.encode/decode` | Encode/decode `GeoPoint` lists at an explicit precision. |
 | `PolylineCodec.Encoder.add/snapshot`, `Decoder.drain` | Incrementally encode or decode an append-only live polyline. |
@@ -956,14 +956,14 @@ Platform ports available for custom implementations are `PointStore`, `Clock`,
 `TrackLogger`, and `RoadSnapProvider`. Direct filter/pipeline use is an advanced API: the
 caller owns state persistence, monotonic timing, and correct ingest context.
 
-`TrackItArtifacts.of(context)` is the supported seam used by optional modules. It exposes
+`TrakerArtifacts.of(context)` is the supported seam used by optional modules. It exposes
 the shared `trackIt`, `clock`, `logger`, and `pendingUploads` objects. Repository and queue
 interfaces are public for adapters and tests, but normal host code should prefer the
-corresponding `TrackIt` and `TrackItSync` methods so invariants remain centralized.
+corresponding `Traker` and `TrakerSync` methods so invariants remain centralized.
 
 ### Java callers
 
-`TrackIt.getInstance(context)`, the config builder, permission helpers, and value objects
+`Traker.getInstance(context)`, the config builder, permission helpers, and value objects
 are callable from Java. Most operational methods are Kotlin `suspend` functions and live
 surfaces are Kotlin `Flow`; this release does not ship a callback/Future Java facade. A
 Java-only host must add its own small Kotlin adapter that launches coroutines and converts
@@ -974,7 +974,7 @@ results/flows to the application's callback, `CompletableFuture`, LiveData, or R
 - Call `ready()` once from application scope and handle `INVALID_CONFIG`.
 - Provide a release license token when building for distribution; debug installs are waived.
 - Collect `state` and `events` together when the UI must react to provider, motion, or heartbeat changes.
-- Use `TrackIt.state.value.providerState` and `TrackIt.state.value.motionState` as the current source of truth.
+- Use `Traker.state.value.providerState` and `Traker.state.value.motionState` as the current source of truth.
 - Request notification, foreground location, background location, and activity recognition
   in the documented order.
 - Never start a foreground service solely from an arbitrary background context.
@@ -999,11 +999,11 @@ results/flows to the application's callback, `CompletableFuture`, LiveData, or R
 |---|---|
 | `NOT_READY` | Await successful `ready()` before `start()`. |
 | `INVALID_CONFIG` | Log the full returned message or call `config.validate()`. |
-| `LICENSE_MISSING` | Add `TrackItConfig.license` or `TrackItLicense` meta-data. |
+| `LICENSE_MISSING` | Add `TrakerConfig.license` or `TrackItLicense` meta-data. |
 | `LICENSE_INVALID` | Reissue or fix the token payload/signature/key id. |
 | `LICENSE_BUNDLE_MISMATCH` | Use a token issued for the current application id. |
 | No heartbeat | Collect `events` and record the last `Heartbeat(atMs)` value; it is only emitted while a session is open. |
-| Provider state looks stale | Read `TrackIt.state.value.providerState` and observe `ProviderChange` events together. |
+| Provider state looks stale | Read `Traker.state.value.providerState` and observe `ProviderChange` events together. |
 | No points | Check session state, permission tier, provider state, accuracy profile, and decision log. |
 | Sparse stationary data | Expected: stationary drift is suppressed and heartbeat fixes normally are not stored. |
 | No background capture | Check `FULL` permission tier, visible FGS notification, battery restrictions, and `stopOnTerminate`. |

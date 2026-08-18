@@ -1,9 +1,9 @@
 # Build Manual
 
-How the TrackIt Gradle build is put together, what to run, and what to change when you
+How the Traker Gradle build is put together, what to run, and what to change when you
 add or edit a module.
 
-There is no `build-logic/` composite build and there are no `trackit.*` convention
+There is no `build-logic/` composite build and there are no `traker.*` convention
 plugins. Every module configures itself in its own `build.gradle.kts`, and all versions
 come from `gradle/libs.versions.toml`.
 
@@ -54,7 +54,7 @@ part that makes a leak expensive rather than merely embarrassing.
 ## 2. Repository layout
 
 ```
-trackit/
+traker/
 ├─ settings.gradle.kts        # module list + repository config
 ├─ build.gradle.kts           # declares plugins with `apply false` only
 ├─ gradle.properties          # JVM args, parallel, caching, configuration cache
@@ -62,7 +62,7 @@ trackit/
 ├─ trackit-geo/               # pure-Kotlin engine, published as a minified AAR
 ├─ trackit-core/              # Android library — the public SDK
 ├─ trackit-maps/              # Android library — Maps rendering
-├─ trackit-all/               # empty umbrella AAR — re-exports all SDK modules
+├─ traker-all/               # empty umbrella AAR — re-exports all SDK modules
 ├─ trackit-sync/              # Android library — optional upload
 ├─ trackit-snap/              # Android library — optional road snapping (OSRM)
 └─ sample-android/            # Android application — the demo app
@@ -128,7 +128,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.trackit.<module>"
+    namespace = "com.devstree.traker.<module>"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 
@@ -178,7 +178,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.trackit.geo"
+    namespace = "com.devstree.traker.geo"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -217,16 +217,16 @@ carries `applicationId`, `targetSdk`, `versionCode`, `versionName`.
 ### 4.4 Dependency injection — there isn't any
 
 **No module in this project uses a DI framework.** `trackit-core` wires its own graph by
-hand in `di/TrackItGraph.kt`: one `internal class` of `by lazy` members, one
-double-checked process singleton, reached through `TrackIt.getInstance(context)`.
+hand in `di/TrakerGraph.kt`: one `internal class` of `by lazy` members, one
+double-checked process singleton, reached through `Traker.getInstance(context)`.
 
 Adding a dependency means adding a `val` to that file. Adding a *module* that needs the
-core graph means adding an accessor to `TrackItArtifacts` (the seam `trackit-sync` uses),
-because `TrackItGraph` is `internal` and a sibling Gradle module cannot see it.
+core graph means adding an accessor to `TrakerArtifacts` (the seam `trackit-sync` uses),
+because `TrakerGraph` is `internal` and a sibling Gradle module cannot see it.
 
 The trade is stated rather than assumed. What was lost is compile-time graph verification;
-what replaces it is `TrackItGraphTest`, which touches every member — a missing edge is
-already a compile error in `TrackItGraph`, and a cycle overflows the stack in that test
+what replaces it is `TrakerGraphTest`, which touches every member — a missing edge is
+already a compile error in `TrakerGraph`, and a cycle overflows the stack in that test
 rather than on a user's device.
 
 > An earlier revision shipped Hilt inside `trackit-core`. The consequence, recorded in
@@ -243,10 +243,10 @@ rather than on a user's device.
 Add one line to `settings.gradle.kts`:
 
 ```kotlin
-include(":trackit-newthing")
+include(":traker-newthing")
 ```
 
-Then create `trackit-newthing/build.gradle.kts` from the recipe above. Nothing else
+Then create `traker-newthing/build.gradle.kts` from the recipe above. Nothing else
 needs to change — there is no plugin registry to update.
 
 ---
@@ -280,7 +280,7 @@ Reports land in `<module>/build/reports/`. Lint's readable output is at
 ## 5.5 Publishing
 
 Six modules publish: `trackit-geo`, `trackit-core`, `trackit-maps`, `trackit-sync`,
-`trackit-snap`, and `trackit-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
+`trackit-snap`, and `traker-all`. Coordinates are `com.github.fieldtrack360.fieldtrack:<module>:<version>`.
 
 `sample-android` does **not** publish.
 
@@ -303,7 +303,7 @@ Every Maven artifact carries this version. Bump it once in the catalog before pu
 
 Needs no repository configuration and is the loop for testing the sample or another host
 against a local build. Add `mavenLocal()` to the host repositories and select the local
-TrackIt version.
+Traker version.
 
 ### Remote
 
@@ -311,11 +311,11 @@ A remote repository is added **only if** its URL is configured, so a developer w
 credentials gets a working local publish rather than a configuration error.
 
 ```bash
-./gradlew publish   -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack   -PtrackitMavenUser=… -PtrackitMavenToken=…
+./gradlew publish   -PtrakerMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack   -PtrakerMavenUser=… -PtrakerMavenToken=…
 ```
 
-or, for CI, the same three as `TRACKIT_MAVEN_URL`, `TRACKIT_MAVEN_USER`,
-`TRACKIT_MAVEN_TOKEN` in the environment.
+or, for CI, the same three as `TRAKER_MAVEN_URL`, `TRAKER_MAVEN_USER`,
+`TRAKER_MAVEN_TOKEN` in the environment.
 
 **No credential has a default and none is read from a file in this repository.** That is
 not a principle being restated for its own sake — a live Google Maps API key was committed
@@ -338,7 +338,7 @@ dependency change:
 
 | Gradle | POM | Example |
 |---|---|---|
-| `api(project(":trackit-core"))` | `compile` | `trackit-all` → `trackit-core` |
+| `api(project(":trackit-core"))` | `compile` | `traker-all` → `trackit-core` |
 | `implementation(project(":trackit-core"))` | `runtime` | `trackit-sync` → `trackit-core` |
 | `compileOnly(libs.okhttp)` | **absent** | no host inherits an HTTP stack it did not ask for |
 
@@ -371,13 +371,13 @@ build over if they went missing.
 ## 5.6 R8 and consumer rules
 
 Every code-bearing published library, including `trackit-geo`, ships build-time R8 rules
-and a `consumer-rules.pro`. The build-time rules protect TrackIt's own AAR; consumer rules
+and a `consumer-rules.pro`. The build-time rules protect Traker's own AAR; consumer rules
 protect runtime behavior during the host application's separate R8 pass.
 
 ### The rules are short on purpose
 
 A consumer rule constrains **somebody else's** build. A blanket
-`-keep class com.devstree.trackit.** { *; }` would add hundreds of KB to every host's APK
+`-keep class com.devstree.traker.** { *; }` would add hundreds of KB to every host's APK
 to protect against a handful of reflective lookups, and would hide the next one instead of
 documenting it. Three of these files therefore keep nothing at all, and say why.
 
@@ -399,7 +399,7 @@ by construction.
 ### The one rule that is ours
 
 ```proguard
--keepclassmembers,allowoptimization enum com.devstree.trackit.** {
+-keepclassmembers,allowoptimization enum com.devstree.traker.** {
     <fields>;
     public static **[] values();
     public static ** valueOf(java.lang.String);
@@ -429,7 +429,7 @@ build configuration that ships.
 It used to be `isMinifyEnabled = false`, which meant every `consumer-rules.pro` in this
 repository was shipped to hosts having **never once been executed**. Rules that are never
 exercised are guesses, and these guesses were wrong: `trackit-core` kept
-`com.devstree.trackit.db.**`, a package that does not exist — the real name is `data.db` —
+`com.devstree.traker.db.**`, a package that does not exist — the real name is `data.db` —
 and nothing anywhere preserved the enum names above.
 
 The artifact audit runs first, then the locally published sample release exercises the
@@ -570,7 +570,7 @@ either shipped implementation must add OkHttp themselves.
 `./gradlew lintDebug` currently fails on a pre-existing source issue:
 
 ```
-trackit-core/src/main/kotlin/com/devstree/trackit/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
+trackit-core/src/main/kotlin/com/devstree/traker/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
 ```
 
 This is a code problem, not a build-config problem — the fix is a version guard or a
@@ -624,8 +624,8 @@ Reproduce the whole CI run locally:
 ## 10. Why there is no `build-logic/`
 
 An earlier revision used a `build-logic` composite build with four convention plugins
-(`trackit.kotlin.jvm.library`, `trackit.android.library`, `trackit.android.application`,
-`trackit.hilt`). It was removed and the configuration inlined into each module.
+(`traker.kotlin.jvm.library`, `traker.android.library`, `traker.android.application`,
+`traker.hilt`). It was removed and the configuration inlined into each module.
 
 The trade: shared config is now repeated across four Android modules instead of living
 in one plugin. In exchange, the build has no second Gradle build to compile, no

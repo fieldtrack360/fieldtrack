@@ -49,11 +49,11 @@ kotlin {
 }
 
 dependencies {
-    // :trackit-geo arrives transitively — trackit-core exposes it with `api`.
-    api(project(":trackit-core"))
-    api(project(":trackit-maps"))
-    api(project(":trackit-sync"))
-    api(project(":trackit-snap"))
+    // :fieldtrack-geo arrives transitively — fieldtrack-core exposes it with `api`.
+    api(project(":fieldtrack-core"))
+    api(project(":fieldtrack-maps"))
+    api(project(":fieldtrack-sync"))
+    api(project(":fieldtrack-snap"))
 }
 
 // Publishing — coordinates, POM, sources and javadoc jars. See the script for why it

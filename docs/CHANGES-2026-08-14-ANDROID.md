@@ -1,4 +1,4 @@
-# TrackIt Android — change review, 14 Aug 2026
+# Traker Android — change review, 14 Aug 2026
 
 This is the Android-side follow-up to the iOS review in
 [`CHANGES-2026-08-13-IOS.md`](CHANGES-2026-08-13-IOS.md).
@@ -13,7 +13,7 @@ Important context:
 
 ## 1. Licensing gate
 
-New target area: `trackit-core/src/main/kotlin/com/devstree/trackit/license/`.
+New target area: `trackit-core/src/main/kotlin/com/devstree/traker/license/`.
 
 ### New types
 
@@ -41,28 +41,28 @@ New target area: `trackit-core/src/main/kotlin/com/devstree/trackit/license/`.
 
 ### Wiring
 
-- `TrackIt.ready()` now runs a license check before config resolution or any state mutation.
-- `TrackItConfig.license: String?` was added as a transient override.
-- `TrackItConfig.Builder.license(_:)` was added for Java-friendly setup.
+- `Traker.ready()` now runs a license check before config resolution or any state mutation.
+- `TrakerConfig.license: String?` was added as a transient override.
+- `TrakerConfig.Builder.license(_:)` was added for Java-friendly setup.
 - New `ErrorCode` values were added:
   - `LICENSE_MISSING`
   - `LICENSE_INVALID`
   - `LICENSE_BUNDLE_MISMATCH`
-- `TrackIt.state.value.providerState` now tracks `ProviderChange` events.
-- `TrackIt.state.value.motionState` now tracks `MotionChange` events.
-- `TrackItEvent.Heartbeat(atMs)` is now emitted by `HealthLoop` after each check when a session is open.
+- `Traker.state.value.providerState` now tracks `ProviderChange` events.
+- `Traker.state.value.motionState` now tracks `MotionChange` events.
+- `TrakerEvent.Heartbeat(atMs)` is now emitted by `HealthLoop` after each check when a session is open.
 
 ### Behaviour to check
 
-- Token format: `TRACKIT-<base64url payload>.<base64url signature>`.
+- Token format: `TRAKER-<base64url payload>.<base64url signature>`.
 - The signature is verified against the encoded payload bytes, not a re-serialised JSON string.
 - Debuggable installs are waived.
 - Release builds require a valid token or manifest metadata entry.
 
 ### Tests
 
-- `trackit-core/src/test/kotlin/com/devstree/trackit/license/LicenseTokenTest.kt`
-  - confirms `TrackItConfig.license` is not persisted
+- `trackit-core/src/test/kotlin/com/devstree/traker/license/LicenseTokenTest.kt`
+  - confirms `TrakerConfig.license` is not persisted
   - checks the token shape parser
   - checks version rejection
 
@@ -85,9 +85,9 @@ These items were already implemented in this repo before the licensing pass:
 - `stopTimeoutMin`
 - `getCurrentLocation()`
 - geofence CRUD and event history
-- `TrackItEvent.Heartbeat`
-- `TrackItState.providerState`
-- `TrackItState.motionState`
+- `TrakerEvent.Heartbeat`
+- `TrakerState.providerState`
+- `TrakerState.motionState`
 
 So unlike the iOS change review, there was no broad motion/config port to make here.
 
@@ -112,33 +112,33 @@ So unlike the iOS change review, there was no broad motion/config port to make h
 
 | Parameter | Where | What it does |
 |---|---|---|
-| `TrackItConfig.license` | `TrackItConfig` / `TrackItConfig.Builder.license(...)` | Supplies a release token at startup. Debuggable installs are waived. |
-| `TrackItState.providerState` | `TrackIt.state` | Mirrors the latest provider snapshot from `ProviderChange` events. |
-| `TrackItState.motionState` | `TrackIt.state` | Mirrors the latest motion state from `MotionChange` events. |
-| `TrackItEvent.Heartbeat(atMs)` | `TrackIt.events` | Emits a control-plane heartbeat after the watchdog check when a session is open. |
-| `ErrorCode.LICENSE_MISSING` | `TrackItResult.Error` / `TrackItEvent.Error` | Returned when a release build starts without a token. |
-| `ErrorCode.LICENSE_INVALID` | `TrackItResult.Error` / `TrackItEvent.Error` | Returned when the token format, payload, signature, or key id is wrong. |
-| `ErrorCode.LICENSE_BUNDLE_MISMATCH` | `TrackItResult.Error` / `TrackItEvent.Error` | Returned when the token was issued for a different app id. |
+| `TrakerConfig.license` | `TrakerConfig` / `TrakerConfig.Builder.license(...)` | Supplies a release token at startup. Debuggable installs are waived. |
+| `TrakerState.providerState` | `Traker.state` | Mirrors the latest provider snapshot from `ProviderChange` events. |
+| `TrakerState.motionState` | `Traker.state` | Mirrors the latest motion state from `MotionChange` events. |
+| `TrakerEvent.Heartbeat(atMs)` | `Traker.events` | Emits a control-plane heartbeat after the watchdog check when a session is open. |
+| `ErrorCode.LICENSE_MISSING` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when a release build starts without a token. |
+| `ErrorCode.LICENSE_INVALID` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when the token format, payload, signature, or key id is wrong. |
+| `ErrorCode.LICENSE_BUNDLE_MISMATCH` | `TrakerResult.Error` / `TrakerEvent.Error` | Returned when the token was issued for a different app id. |
 
 ### What it does
 
 - Fails `ready()` before any config is persisted if the token is missing or invalid.
-- Keeps `TrackIt.state.value.providerState` and `TrackIt.state.value.motionState` current for UI and diagnostics.
+- Keeps `Traker.state.value.providerState` and `Traker.state.value.motionState` current for UI and diagnostics.
 - Emits heartbeat events so the sample can show liveness, not just tracking state.
 - Keeps the token out of persisted config so `reset = false` cannot resurrect a stale release token.
 
 ### How to use it
 
 ```kotlin
-val config = TrackItConfig.builder()
-    .license(BuildConfig.TRACKIT_LICENSE.takeIf { it.isNotBlank() })
+val config = TrakerConfig.builder()
+    .license(BuildConfig.TRAKER_LICENSE.takeIf { it.isNotBlank() })
     .provider(LocationProviderType.FUSED)
     .accuracyProfile(AccuracyProfile.BALANCED)
     .build()
 
 when (val result = trackIt.ready(config)) {
-    is TrackItResult.Ok -> Unit
-    is TrackItResult.Error -> Log.e("TrackIt", "${result.code}: ${result.message}")
+    is TrakerResult.Ok -> Unit
+    is TrakerResult.Error -> Log.e("Traker", "${result.code}: ${result.message}")
 }
 
 viewModelScope.launch {
@@ -150,9 +150,9 @@ viewModelScope.launch {
 viewModelScope.launch {
     trackIt.events.collect { event ->
         when (event) {
-            is TrackItEvent.ProviderChange -> println("provider changed")
-            is TrackItEvent.MotionChange -> println("motion changed")
-            is TrackItEvent.Heartbeat -> println("heartbeat at ${event.atMs}")
+            is TrakerEvent.ProviderChange -> println("provider changed")
+            is TrakerEvent.MotionChange -> println("motion changed")
+            is TrakerEvent.Heartbeat -> println("heartbeat at ${event.atMs}")
             else -> Unit
         }
     }

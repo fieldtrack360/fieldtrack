@@ -1,6 +1,6 @@
 # Edge Case Catalogue
 
-Every condition TrackIt must handle, with the trigger, the observable symptom if unhandled, the handling, and where it is verified. IDs are referenced from [PLAN.md](PLAN.md) and [API.md](API.md).
+Every condition Traker must handle, with the trigger, the observable symptom if unhandled, the handling, and where it is verified. IDs are referenced from [PLAN.md](PLAN.md) and [API.md](API.md).
 
 **Columns:** `#` · **Trigger** — what happens in the world · **Unhandled symptom** — what the user or the data sees · **Handling** — the SDK's response · **Owner** — module/class · **Test** — how it's proven.
 
@@ -12,7 +12,7 @@ Test tiers: **T1** pure JVM (`trackit-geo`, fixture replay) · **T2** Robolectri
 
 | # | Trigger | Unhandled symptom | Handling | Owner | Test |
 |---|---|---|---|---|---|
-| EC-01 | `start()` with no location permission at all | Crash (`SecurityException`) or silent no-op | Return `TrackItResult.Error(PERMISSION_DENIED)`; never throw; never start the service | `PermissionManager` | T2 |
+| EC-01 | `start()` with no location permission at all | Crash (`SecurityException`) or silent no-op | Return `TrakerResult.Error(PERMISSION_DENIED)`; never throw; never start the service | `PermissionManager` | T2 |
 | EC-02 | Only `ACCESS_COARSE_LOCATION` granted (user picked "Approximate") | ~1–3 km accuracy fixes pollute the track and pass no gate | Detect via `Granularity`; emit `ProviderChange(accuracy=COARSE)`; refuse to start in `CONTINUOUS`/`ADAPTIVE`, allow only if host explicitly opts in | `PermissionManager`, `ProviderStateMonitor` | T2, T4 |
 | EC-03 | Fine granted, background **not** granted (Android 10+) | Reference impl gives *zero* tracking (see [A16](SOURCE-AUDIT.md)) | Degrade to `FOREGROUND_ONLY`: track while app visible, pause on background, emit `Error(BACKGROUND_PERMISSION_MISSING)`, auto-resume on grant | `PermissionManager` | T2, T3 |
 | EC-04 | Background permission requested in the same prompt as fine (Android 11+) | OS silently denies; prompt never shown | Two-step ladder enforced in code: fine first, then background only after fine is granted **and** after a rationale screen | `PermissionManager` | T3 |
@@ -102,7 +102,7 @@ The nine classes from the reference spec, plus what the audit added.
 | # | Trigger | Unhandled symptom | Handling | Owner | Test |
 |---|---|---|---|---|---|
 | EC-62 | `startForeground` called while the app is backgrounded (API 31+) | `ForegroundServiceStartNotAllowedException` → crash, then ANR for "did not call startForeground" | Catch **both** that and `SecurityException` (API 34+), stop the service cleanly, let the restore worker re-promote when the app is next eligible (pattern at `AttendanceLoggerService.kt:925-954`). Never crash-loop | `TrackingService` | T3 |
-| EC-63 | Process killed by the OS mid-session | Filter restarts cold; first fix accepted blind | `filter_state` + `track_session` persisted; `ready()` restores both; `START_STICKY` restarts the service | `TrackIt`, `TrackingService` | T2, T3 |
+| EC-63 | Process killed by the OS mid-session | Filter restarts cold; first fix accepted blind | `filter_state` + `track_session` persisted; `ready()` restores both; `START_STICKY` restarts the service | `Traker`, `TrackingService` | T2, T3 |
 | EC-64 | Service restarted by the OS with a **null** Intent | Service comes back unconfigured | Re-read the persisted session + config on null-intent restart instead of relying on Intent redelivery ([A14](SOURCE-AUDIT.md)) | `TrackingService` | T2 |
 | EC-65 | Device reboots with a session open | Tracking silently stops | `BOOT_COMPLETED` receiver → if `startOnBoot` and a session is open, re-arm watchdog and restore the service | `BootReceiver` | T3, T4 |
 | EC-66 | App force-stopped by the user | Everything stops; nothing can restart it | Correct and required by policy. On next app launch, `ready()` detects an open session and emits `SessionInterrupted` so the host can ask | `SessionManager` | T4 |
@@ -111,26 +111,26 @@ The nine classes from the reference spec, plus what the audit added.
 | EC-69 | OEM battery manager (Xiaomi/Oppo/Vivo/Samsung) silently kills the service | Long unexplained gaps | 60 s watchdog + expedited restore worker + 20 s wake lock; surface `Error(TRACKER_DEAD)` after 30 min moving / 60 min stationary with no raw fix | `Watchdog` | T4 |
 | EC-70 | Watchdog fires while the user is legitimately parked | Spurious "tracking interrupted" nudges | Liveness is judged on the **raw fix clock**, updated pre-filter on every fix — never on upload or accept recency, because stationary uploads nothing by design | `Watchdog` | T1, T4 |
 | EC-71 | `WorkManager` periodic work stuck `BLOCKED`/`FAILED` | Backstop never runs | Health loop inspects `WorkInfo` state every 2 min and cancels+restarts (pattern at `AttendanceLoggerService.kt:442-451`) | `HealthLoop` | T2 |
-| EC-72 | Two `start()` calls in a row | Two services, two streams | `start()` is idempotent; returns the existing `TrackSession` | `TrackIt` | T2 |
+| EC-72 | Two `start()` calls in a row | Two services, two streams | `start()` is idempotent; returns the existing `TrackSession` | `Traker` | T2 |
 | EC-73 | `stop()` while a fix is mid-pipeline | Point written after the session closed | Ingest channel closed first, drained, *then* teardown; late fixes dropped with `Session Closed` | `FixIngestor` | T2 |
-| EC-74 | `stop()` called twice / when never started | Exception | No-op, returns `null` | `TrackIt` | T2 |
-| EC-75 | Host calls SDK methods before `init()`/`ready()` | `UninitializedPropertyAccessException` | Every entry point checks and returns `Error(NOT_READY)` | `TrackIt` | T2 |
+| EC-74 | `stop()` called twice / when never started | Exception | No-op, returns `null` | `Traker` | T2 |
+| EC-75 | Host calls SDK methods before `init()`/`ready()` | `UninitializedPropertyAccessException` | Every entry point checks and returns `Error(NOT_READY)` | `Traker` | T2 |
 | EC-76 | Notification channel deleted by the user | FGS notification invisible; on some OEMs the service is killed | Re-create the channel on every service start; detect `IMPORTANCE_NONE` and emit a diagnostic | `NotificationFactory` | T3 |
-| EC-77 | Host passes a notification with no small icon | `IllegalArgumentException` inside `startForeground` | Validate `NotificationConfig` in `ready()` and fail fast with a clear message, not at service start | `TrackItConfig` | T2 |
+| EC-77 | Host passes a notification with no small icon | `IllegalArgumentException` inside `startForeground` | Validate `NotificationConfig` in `ready()` and fail fast with a clear message, not at service start | `TrakerConfig` | T2 |
 
 ## 6. Storage & data integrity
 
 | # | Trigger | Unhandled symptom | Handling | Owner | Test |
 |---|---|---|---|---|---|
 | EC-78 | Disk full | Insert throws, fix lost, possible crash | Catch `SQLiteFullException`; emit `Error(STORAGE_FULL)`; drop the oldest synced/expired rows and retry once | `RoomPointStore` | T2 |
-| EC-79 | DB corrupted | Crash loop on every start | `RoomDatabase.Callback.onCorruption` → recreate; emit `Error(STORAGE_RESET)` | `TrackItDatabase` | T2 |
+| EC-79 | DB corrupted | Crash loop on every start | `RoomDatabase.Callback.onCorruption` → recreate; emit `Error(STORAGE_RESET)` | `TrakerDatabase` | T2 |
 | EC-80 | Long session, hundreds of thousands of rows | `getPoints()` OOM | All queries paged; `observePoints` is a paged `Flow`; `buildTrack` streams by session/time window | DAOs | T2 |
 | EC-81 | `maxDaysToPersist` prunes rows still needed for an open session | Track has a hole | Pruning never touches rows belonging to an **open** session | `PruneWorker` | T2 |
 | EC-82 | Two writers (service + backstop) insert the same fix | Duplicate points | `uuid` derived from `(sessionId, elapsedRealtimeNanos)`; `INSERT … ON CONFLICT IGNORE` | `RoomPointStore` | T2 |
-| EC-83 | SDK upgraded, schema changed | Destructive migration wipes user data | `exportSchema = true`, committed schemas, explicit `Migration` classes, migration tests. **Never** `fallbackToDestructiveMigration()` in a library | `TrackItDatabase` | T2 |
-| EC-84 | Host app also uses Room | Database name collision | DB file name `trackit-<packageName>.db`, own `RoomDatabase` instance, no shared `Migration` registry | `TrackItDatabase` | T2 |
-| EC-85 | Host reads points while the ingestor writes | Inconsistent snapshots | WAL + `Flow` queries; readers never block writers | `TrackItDatabase` | T2 |
-| EC-86 | `insertPoint()` called by the host with a bogus point | Corrupt track | Same validation as a real fix (coords, accuracy, time); rejected with a typed error | `TrackIt` | T2 |
+| EC-83 | SDK upgraded, schema changed | Destructive migration wipes user data | `exportSchema = true`, committed schemas, explicit `Migration` classes, migration tests. **Never** `fallbackToDestructiveMigration()` in a library | `TrakerDatabase` | T2 |
+| EC-84 | Host app also uses Room | Database name collision | DB file name `traker-<packageName>.db`, own `RoomDatabase` instance, no shared `Migration` registry | `TrakerDatabase` | T2 |
+| EC-85 | Host reads points while the ingestor writes | Inconsistent snapshots | WAL + `Flow` queries; readers never block writers | `TrakerDatabase` | T2 |
+| EC-86 | `insertPoint()` called by the host with a bogus point | Corrupt track | Same validation as a real fix (coords, accuracy, time); rejected with a typed error | `Traker` | T2 |
 | EC-87 | Decision log grows unbounded on a long trip | DB bloat | Ring-capped by count **and** `decisionRetentionDays`; `persistDecisions` can be turned off | `PruneWorker` | T2 |
 
 ## 7. Time & clock
@@ -157,7 +157,7 @@ The nine classes from the reference spec, plus what the audit added.
 | EC-98 | Home GPS scatter of 150–185 m | Excursion detector false-positives a "walk" | Two AND-gates: consecutive-points *and* speed floor; isolated spikes fail the first, slow drift fails the second (phantom-leg guard already zeroes its max) | `Clusters` | T1 |
 | EC-99 | Segment with no intermediate samples but real displacement (blackout while driving) | Whole silent gap attributed to travel → phantom hours | Carry-forward: bound implied travel to `clamp(dist / 5.0 m/s, 60 s, 300 s)` (`:1095-1103`); render drive-window and dwell-window separately | `Clusters` | T1 |
 | EC-100 | Snap API unavailable / returns empty | Whole track lost | Never propagates: raw geometry plus `warnings: ["snap_unavailable"]` and a `SNAP_UNAVAILABLE` event. `OsrmSnapProvider` degrades **per chunk**, so a five-request trace losing one to a 429 keeps the other four. "Not requested" and "asked and could not answer" are different `RoadGeometry` values — collapsing them would make the warning meaningless | `TrackBuilder`, `OsrmSnapProvider` | T1 |
-| EC-100a | Host draws a **live** map with a `RoadSnapProvider` installed | A matching request per accepted fix. `buildTrack` fetches road geometry every call, and observing the point stream — the reason the API is a `Flow` — means calling it on every fix. At the 4 s turn-burst cadence a twenty-minute drive is ~300 rebuilds, each re-matching the whole trace from coordinate one. Against a self-hosted OSRM merely wasteful; against a hosted one it is how a host finds their rate limit. Invisible in any single-call test | Cache **chunks**, not traces: a growing track is a different trace every time but its leading chunks are byte-identical, so a redraw costs one request instead of one per 90 coordinates. LRU, bounded (a `TrackIt` lives as long as the process). Empty results are deliberately **not** cached — empty means transient failure, and caching it would freeze one timeout into a stretch of road that renders raw for the rest of the session, which is the opposite of what EC-100's per-chunk degradation assumes | `ChunkCache`, `OsrmSnapProvider` | T1 |
+| EC-100a | Host draws a **live** map with a `RoadSnapProvider` installed | A matching request per accepted fix. `buildTrack` fetches road geometry every call, and observing the point stream — the reason the API is a `Flow` — means calling it on every fix. At the 4 s turn-burst cadence a twenty-minute drive is ~300 rebuilds, each re-matching the whole trace from coordinate one. Against a self-hosted OSRM merely wasteful; against a hosted one it is how a host finds their rate limit. Invisible in any single-call test | Cache **chunks**, not traces: a growing track is a different trace every time but its leading chunks are byte-identical, so a redraw costs one request instead of one per 90 coordinates. LRU, bounded (a `Traker` lives as long as the process). Empty results are deliberately **not** cached — empty means transient failure, and caching it would freeze one timeout into a stretch of road that renders raw for the rest of the session, which is the opposite of what EC-100's per-chunk degradation assumes | `ChunkCache`, `OsrmSnapProvider` | T1 |
 | EC-101 | Snapped road is 200 m from the raw fix (parallel service road, tunnel) | User teleported onto the wrong street | Keep raw when off-road distance > 80 m; only inject road geometry when **both** endpoints are on-road. Protected bookends are never snapped and cannot anchor an injected span either | `Snapper` | T1 |
 | EC-102 | Road geometry revisits a coordinate (roundabout) | `indexOf` sub-path lookup returns the wrong span ([A11](SOURCE-AUDIT.md)) | Closest-point search returns an **index** and scans forward from the previous match; sub-path is `subList(i+1, j)` | `Snapper` | T1 |
 | EC-102a | Snapped track drawn with raw-derived segments and arrows | Coloured spans and arrows float beside the road the polyline draws — the [A9](SOURCE-AUDIT.md) divergence class | Segment polylines and arrow anchors are sliced out of the snapped path by **source index**, never by position: injection changes every position in the list | `TrackBuilder` | T1 |
@@ -180,26 +180,26 @@ The nine classes from the reference spec, plus what the audit added.
 
 | # | Trigger | Unhandled symptom | Handling | Owner | Test |
 |---|---|---|---|---|---|
-| EC-112 | The host UI and a background collector both listen for events | Reference-style single-callback fields overwrite each other | `SharedFlow` with replay 0 and unlimited subscribers — never a `var callback` | `TrackIt.events` | T2 |
-| EC-113 | Host `Activity`/`ViewModel` is destroyed and recreated (rotation, process restore) | A collector leaks, or the new instance never re-subscribes and events vanish | Events are cold on the host side: collect in a lifecycle-scoped coroutine, and re-read authoritative state via `TrackIt.state` on resubscribe. Native state is always the source of truth, never a replayed event buffer | `TrackIt.events` | T2 |
-| EC-114 | Host process has no UI on screen (backgrounded, activity finished) | Custom host work stops running; developer assumes capture stopped too | Capture, filtering and storage run in `trackit-core` inside the foreground service and **never depend on a host collector being alive**. A host that wants work with no UI collects `TrackIt.events` from an application- or service-scoped `CoroutineScope` | design | T3 |
-| EC-115 | Host collector throws | Exception cancels the shared scope, all delivery stops | Emission is isolated per subscriber; a throwing collector is logged and dropped, never propagated back into the ingestor | `TrackIt.events` | T2 |
-| EC-116 | Host passes an out-of-range config value | Undefined behaviour deep in the provider | `TrackItConfig.validate()` runs in `ready()` and fails fast with a typed error naming the field (EC-77, EC-120, EC-121) | `TrackItConfig` | T2 |
-| EC-117 | Host app upgraded; a persisted enum name is no longer known | Crash on deserialise | Unknown enum values decode to `UNKNOWN` and are preserved verbatim on re-encode | `TrackItConverters` | T1 |
-| EC-118 | Very large `getPoints()` result held by the host | OOM / frozen UI | Queries are paged (EC-80); `buildTrack` output is the intended input for rendering, not the raw point list | `TrackIt` | T2 |
+| EC-112 | The host UI and a background collector both listen for events | Reference-style single-callback fields overwrite each other | `SharedFlow` with replay 0 and unlimited subscribers — never a `var callback` | `Traker.events` | T2 |
+| EC-113 | Host `Activity`/`ViewModel` is destroyed and recreated (rotation, process restore) | A collector leaks, or the new instance never re-subscribes and events vanish | Events are cold on the host side: collect in a lifecycle-scoped coroutine, and re-read authoritative state via `Traker.state` on resubscribe. Native state is always the source of truth, never a replayed event buffer | `Traker.events` | T2 |
+| EC-114 | Host process has no UI on screen (backgrounded, activity finished) | Custom host work stops running; developer assumes capture stopped too | Capture, filtering and storage run in `trackit-core` inside the foreground service and **never depend on a host collector being alive**. A host that wants work with no UI collects `Traker.events` from an application- or service-scoped `CoroutineScope` | design | T3 |
+| EC-115 | Host collector throws | Exception cancels the shared scope, all delivery stops | Emission is isolated per subscriber; a throwing collector is logged and dropped, never propagated back into the ingestor | `Traker.events` | T2 |
+| EC-116 | Host passes an out-of-range config value | Undefined behaviour deep in the provider | `TrakerConfig.validate()` runs in `ready()` and fails fast with a typed error naming the field (EC-77, EC-120, EC-121) | `TrakerConfig` | T2 |
+| EC-117 | Host app upgraded; a persisted enum name is no longer known | Crash on deserialise | Unknown enum values decode to `UNKNOWN` and are preserved verbatim on re-encode | `TrakerConverters` | T1 |
+| EC-118 | Very large `getPoints()` result held by the host | OOM / frozen UI | Queries are paged (EC-80); `buildTrack` output is the intended input for rendering, not the raw point list | `Traker` | T2 |
 
 ## 10. Configuration & API misuse
 
 | # | Trigger | Unhandled symptom | Handling | Owner | Test |
 |---|---|---|---|---|---|
-| EC-119 | Host sets `distanceFilter > 0` | **Directly causes stationary drift** — the OS only wakes on noise exceeding the filter, so every update looks like movement | Default `0f`; a non-zero value logs a `WARN` naming the consequence and is recorded in the config snapshot | `TrackItConfig` | T2 |
-| EC-120 | `intervalMs` set below `fastestIntervalMs` | OS clamps unpredictably | Validate and normalise in the builder | `TrackItConfig` | T2 |
-| EC-121 | `heartbeatIntervalSec` < `intervalMs` | Heartbeat fires every fix; stationary suppression defeated | Validate `heartbeat ≥ 5 × interval` | `TrackItConfig` | T2 |
-| EC-121a | `turnBurstIntervalMs` set slower than the tier it accelerates | The "faster" tier is slower than what it replaces, so arming the burst quietly makes turn geometry **worse** — a regression that reads as a feature in the config and produces no error anywhere | Validate `turnBurstIntervalMs <= vehicularIntervalMs` (or `intervalMs` when adaptive cadence is off), and `> 0`. Skipped entirely when `turnBurst = false` | `TrackItConfig` | T2 |
-| EC-122 | `setConfig()` called while tracking | Half-applied config, provider restarted mid-fix | Applied atomically; provider restart is debounced; the config snapshot on the session records the change with a timestamp | `TrackIt` | T2 |
-| EC-123 | `ready()` called twice with different config | Ambiguous state | Second call applies as `setConfig`; documented | `TrackIt` | T2 |
+| EC-119 | Host sets `distanceFilter > 0` | **Directly causes stationary drift** — the OS only wakes on noise exceeding the filter, so every update looks like movement | Default `0f`; a non-zero value logs a `WARN` naming the consequence and is recorded in the config snapshot | `TrakerConfig` | T2 |
+| EC-120 | `intervalMs` set below `fastestIntervalMs` | OS clamps unpredictably | Validate and normalise in the builder | `TrakerConfig` | T2 |
+| EC-121 | `heartbeatIntervalSec` < `intervalMs` | Heartbeat fires every fix; stationary suppression defeated | Validate `heartbeat ≥ 5 × interval` | `TrakerConfig` | T2 |
+| EC-121a | `turnBurstIntervalMs` set slower than the tier it accelerates | The "faster" tier is slower than what it replaces, so arming the burst quietly makes turn geometry **worse** — a regression that reads as a feature in the config and produces no error anywhere | Validate `turnBurstIntervalMs <= vehicularIntervalMs` (or `intervalMs` when adaptive cadence is off), and `> 0`. Skipped entirely when `turnBurst = false` | `TrakerConfig` | T2 |
+| EC-122 | `setConfig()` called while tracking | Half-applied config, provider restarted mid-fix | Applied atomically; provider restart is debounced; the config snapshot on the session records the change with a timestamp | `Traker` | T2 |
+| EC-123 | `ready()` called twice with different config | Ambiguous state | Second call applies as `setConfig`; documented | `Traker` | T2 |
 | EC-124 | Config persisted from a previous SDK version has unknown keys | Deserialise failure blocks startup | Forward-compatible decoding; unknown keys dropped with a log | `ConfigStore` | T2 |
-| EC-125 | Host expects `stopOnTerminate=true` default (as the reviewed design document proposes) | Tracking silently dies on swipe-away | Default is **`false`** with `startOnBoot=true` — for a background tracking SDK the opposite defaults are a footgun | `TrackItConfig` | doc |
+| EC-125 | Host expects `stopOnTerminate=true` default (as the reviewed design document proposes) | Tracking silently dies on swipe-away | Default is **`false`** with `startOnBoot=true` — for a background tracking SDK the opposite defaults are a footgun | `TrakerConfig` | doc |
 
 ## 11. Device & OEM specifics (field matrix)
 

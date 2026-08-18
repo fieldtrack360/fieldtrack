@@ -37,7 +37,7 @@ stored `GeofenceEvent`.
 
 **Already shipped, and repeatedly mistaken for missing:** `SyncEngine.syncNow()`
 and `.requestSync()`. Both are public and predate this cycle, which is why they
-appear in no commit here — but a competitor comparison marked TrackIt ❌ on
+appear in no commit here — but a competitor comparison marked Traker ❌ on
 "manual sync command" twice, so it is worth writing down where someone will find
 it.
 
@@ -130,8 +130,8 @@ Duplicate entries are dropped so a re-delivered region state cannot restart the
 dwell clock.
 
 **Three features were built and never connected.** `onChangePace` was fully
-handled by the state machine with zero callers. `TrackItState.providerState` was
-declared, documented and written by nothing. `TrackItEvent.heartbeat` was fired by
+handled by the state machine with zero callers. `TrakerState.providerState` was
+declared, documented and written by nothing. `TrakerEvent.heartbeat` was fired by
 nothing. `EventCoverageTests` now fails the build for any event case with no
 emitter or published field with no writer.
 

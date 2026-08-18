@@ -1,6 +1,6 @@
-# TrackIt SDK Publishing Guide
+# Traker SDK Publishing Guide
 
-This document explains how to build, verify, and publish the TrackIt SDK artifacts for the sample app or another Android project. The complete R8 policy is in [PROGUARD-SETUP.md](PROGUARD-SETUP.md).
+This document explains how to build, verify, and publish the Traker SDK artifacts for the sample app or another Android project. The complete R8 policy is in [PROGUARD-SETUP.md](PROGUARD-SETUP.md).
 
 ## Local Development Workflow
 
@@ -59,13 +59,13 @@ dependencies {
 
 ## Versioning
 
-The TrackIt SDK uses [Semantic Versioning](https://semver.org/) (Major.Minor.Patch).
+The Traker SDK uses [Semantic Versioning](https://semver.org/) (Major.Minor.Patch).
 
 ### How to Update the Version
 The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle/libs.versions.toml).
 
 1.  Open `gradle/libs.versions.toml`.
-2.  Locate the `trackit` variable in the `[versions]` section:
+2.  Locate the `traker` variable in the `[versions]` section:
     ```toml
     [versions]
     trackit = "0.1.1-alpha01"
@@ -74,7 +74,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 4.  Run `./gradlew publishToMavenLocal` (or `publish`) to build artifacts with the new version.
 
 ### When to Update the Version
-- **Major (1.0.0)**: When you make incompatible API changes (e.g., changing a method signature in `TrackIt` or removing a property from `TrackItConfig`).
+- **Major (1.0.0)**: When you make incompatible API changes (e.g., changing a method signature in `Traker` or removing a property from `TrakerConfig`).
 - **Minor (0.2.0)**: When you add functionality in a backwards-compatible manner (e.g., adding a new `AccuracyProfile` or a new field in `TrackPoint`).
 - **Patch (0.1.1)**: When you make backwards-compatible bug fixes.
 
@@ -83,7 +83,7 @@ The source of truth for the SDK version is [gradle/libs.versions.toml](../gradle
 JitPack builds the SDK directly from the GitHub repository.
 
 ### 1. Configuration
-The repository includes a [jitpack.yml](file:///home/user/Mitesh/Devstree/trackit/jitpack.yml) to ensure JitPack uses **JDK 17**, which is required by Gradle 9 and AGP 9.
+The repository includes a [jitpack.yml](file:///home/user/Mitesh/Devstree/traker/jitpack.yml) to ensure JitPack uses **JDK 17**, which is required by Gradle 9 and AGP 9.
 
 ```yaml
 jdk:
@@ -117,13 +117,13 @@ dependencies {
 
 ## Production / Remote Publishing
 
-To push artifacts to a remote Maven repository, provide the destination URL and credentials. Prefer the environment variables `TRACKIT_MAVEN_URL`, `TRACKIT_MAVEN_USER`, and `TRACKIT_MAVEN_TOKEN` in CI so credentials never enter shell history.
+To push artifacts to a remote Maven repository, provide the destination URL and credentials. Prefer the environment variables `TRAKER_MAVEN_URL`, `TRAKER_MAVEN_USER`, and `TRAKER_MAVEN_TOKEN` in CI so credentials never enter shell history.
 
 ```bash
 ./gradlew publish \
-  -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
-  -PtrackitMavenUser=YOUR_USER \
-  -PtrackitMavenToken=YOUR_TOKEN
+  -PtrakerMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
+  -PtrakerMavenUser=YOUR_USER \
+  -PtrakerMavenToken=YOUR_TOKEN
 ```
 
 ## Implementation Details
@@ -135,4 +135,4 @@ The publishing logic is centralized in [gradle/publish.gradle.kts](../gradle/pub
 - POM metadata (licenses, developers, SCM).
 - Mandatory release-obfuscation verification before every Maven publish task.
 
-R8 mapping files are private release artifacts under `trackit-<module>/build/outputs/mapping/release/mapping.txt`. Archive them in restricted release storage; never put them in the public Maven repository.
+R8 mapping files are private release artifacts under `traker-<module>/build/outputs/mapping/release/mapping.txt`. Archive them in restricted release storage; never put them in the public Maven repository.

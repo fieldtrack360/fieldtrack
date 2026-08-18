@@ -4,15 +4,15 @@
 
 Three axes are audited, and they are different questions:
 
-- **Part A — spec conformance.** [reference/capture-and-plotting-spec.md](reference/capture-and-plotting-spec.md) describes behaviour TrackIt set out to reproduce. What of it is not reproduced?
-- **Part B — self-conformance.** TrackIt's own public surface promises things. What does it promise and not do?
+- **Part A — spec conformance.** [reference/capture-and-plotting-spec.md](reference/capture-and-plotting-spec.md) describes behaviour Traker set out to reproduce. What of it is not reproduced?
+- **Part B — self-conformance.** Traker's own public surface promises things. What does it promise and not do?
 - **Part C — source protection.** The published artifacts are intended to protect the implementation. What actually reaches a consumer?
 
 Part B matters more than it looks. A missing spec feature is a known absence; a config field that reads as supported and silently does nothing is a *false* affordance, and a host has no way to discover it except in the field.
 
 Part C was added 2026-08-10 and produced the most consequential single finding in this document. The R8 configuration is careful, thoroughly reasoned and correctly applied — to the wrong module.
 
-> **On the source document.** `Location-Tracking-and-Plotting-RN-Spec.md`, circulated separately, is the pre-strip original of the in-tree spec — the version that still targeted React Native across iOS and Android. Diffed against `reference/capture-and-plotting-spec.md` it produces 32 hunks, every one of them platform framing: the §26.1 library table, the §26.2 iOS strategy, the §26.4 TypeScript module layout, and two provenance notes TrackIt added. **Every algorithm, constant, threshold and rendering rule is identical.** It introduces no requirement this document does not already cover, and it is not a second source of truth.
+> **On the source document.** `Location-Tracking-and-Plotting-RN-Spec.md`, circulated separately, is the pre-strip original of the in-tree spec — the version that still targeted React Native across iOS and Android. Diffed against `reference/capture-and-plotting-spec.md` it produces 32 hunks, every one of them platform framing: the §26.1 library table, the §26.2 iOS strategy, the §26.4 TypeScript module layout, and two provenance notes Traker added. **Every algorithm, constant, threshold and rendering rule is identical.** It introduces no requirement this document does not already cover, and it is not a second source of truth.
 
 **Verdict legend**
 
@@ -51,7 +51,7 @@ Part C was added 2026-08-10 and produced the most consequential single finding i
 | [G-20](#g-20) | API | BROKEN CHAIN | `persistDecisions = false` has no effect |
 | [G-21](#g-21) | API | BROKEN CHAIN | `cadenceTierMs` is plumbed end to end and read by nothing |
 | [G-22](#g-22) | API | MISSING | 14 further config fields are declared and unread |
-| [G-23](#g-23) | API | MISSING | `TrackItState.motionState` never updates |
+| [G-23](#g-23) | API | MISSING | `TrakerState.motionState` never updates |
 | [G-24](#g-24) | API | MISSING | `Watchdog.Action.ReportDead` is returned and not handled |
 | [G-25](#g-25) | API | DIVERGENT | `ProviderStateMonitor` watches one AppOp and is never stopped |
 | [G-26](#g-26) | Build | MISSING | `trackit-bridge` does not exist; the React Native package cannot compile |
@@ -59,7 +59,7 @@ Part C was added 2026-08-10 and produced the most consequential single finding i
 | [G-28](#g-28) | Sample | MISSING | `installRoadSnapping()` is an empty stub |
 | [G-29](#g-29) | Publishing | **EXPOSURE** | **`trackit-geo` ships completely unobfuscated. R8 never runs on it** |
 | [G-30](#g-30) | Publishing | EXPOSURE | Kotlin `@Metadata` hands over the API and its default values without decompilation |
-| [G-31](#g-31) | Publishing | EXPOSURE | `TrackItConstants` is `public`, so its defaults *are* the shipped tuning table |
+| [G-31](#g-31) | Publishing | EXPOSURE | `TrakerConstants` is `public`, so its defaults *are* the shipped tuning table |
 | [G-32](#g-32) | Publishing | MISSING | The R8 `mapping.txt` is not archived per release, so field crashes cannot be retraced |
 | [G-33](#g-33) | React Native | EXPOSURE | The RN Android module ships as Kotlin source, necessarily. Correctly mitigated, nowhere recorded |
 | [G-34](#g-34) | React Native | MISSING | The npm package has no `files` allowlist and no `.npmignore` |
@@ -115,7 +115,7 @@ Cost is diagnostic, not functional — but this is the field that answers "did t
 
 **Verdict: MISSING.** §10 specifies segments: an ENTER closes any open segment and opens `{activityType, startTimeMs, isOngoing}`, an EXIT closes the matching one, and segments older than 24 h are auto-closed on restore.
 
-The storage for this is complete. `ActivitySegmentEntity` (`data/db/Entities.kt:233-240`), `ActivitySegmentDao` with `insert` / `openSegment()` / `close(id, endTimeMs)` / `autoCloseStale(cutoffMs, nowMs)` / `range(from, to)` (`data/db/Daos.kt:178-195`), and a graph binding (`di/TrackItGraph.kt:135`).
+The storage for this is complete. `ActivitySegmentEntity` (`data/db/Entities.kt:233-240`), `ActivitySegmentDao` with `insert` / `openSegment()` / `close(id, endTimeMs)` / `autoCloseStale(cutoffMs, nowMs)` / `range(from, to)` (`data/db/Daos.kt:178-195`), and a graph binding (`di/TrakerGraph.kt:135`).
 
 **Nothing in the module calls any of it.** `ActivityTransitionReceiver` emits an event and requests a capture; it does not open or close a segment.
 
@@ -152,9 +152,9 @@ Two separate places in the spec require the SDK to drive its own sync:
 
 `HealthLoop.runCheck()` (`trackit-core/.../service/HealthLoop.kt:60-83`) checks the open session and the backstop worker's `WorkInfo`, and stops. `Watchdog.tick()` returns `RestoreService` or `ReportDead` and has no sync action in its vocabulary.
 
-`SyncConfig.autoSync` (`trackit-sync/.../TrackItSync.kt:26`) — documented as "upload as points arrive" — is read nowhere. Repo-wide, the only references to `autoSync` are its own declaration and KDoc.
+`SyncConfig.autoSync` (`trackit-sync/.../TrakerSync.kt:26`) — documented as "upload as points arrive" — is read nowhere. Repo-wide, the only references to `autoSync` are its own declaration and KDoc.
 
-Nothing outside `TrackItSync` itself calls `requestSync()` or `syncNow()`. **A host that configures sync and never calls `syncNow()` accumulates rows forever.** The queue, batching, backoff and 401 teardown all work; nothing pulls the trigger.
+Nothing outside `TrakerSync` itself calls `requestSync()` or `syncNow()`. **A host that configures sync and never calls `syncNow()` accumulates rows forever.** The queue, batching, backoff and 401 teardown all work; nothing pulls the trigger.
 
 ### G-5 — The AR snapshot is cancelled but never requested {#g-5}
 
@@ -168,7 +168,7 @@ Nothing outside `TrackItSync` itself calls `requestSync()` or `syncNow()`. **A h
 
 **Verdict: MISSING.** §10 sets snapshot confidence ≥ 50 and (per §26.1) transition confidence ≥ 75.
 
-`ActivityTransitionReceiver.kt:38` emits `TrackItEvent.ActivityChange(activity, confidence = 0)` — the literal is hardcoded. No transition is filtered on confidence. `MotionConfig.activityConfidenceMin = 75` and `snapshotConfidenceMin = 50` are declared and unread.
+`ActivityTransitionReceiver.kt:38` emits `TrakerEvent.ActivityChange(activity, confidence = 0)` — the literal is hardcoded. No transition is filtered on confidence. `MotionConfig.activityConfidenceMin = 75` and `snapshotConfidenceMin = 50` are declared and unread.
 
 Low-confidence transitions therefore reach `MotionController` and can move the state machine. Bounded in practice — §8's rule that AR may only *accelerate* a transition and never gate capture (EC-53) holds regardless — but a spurious `IN_VEHICLE` at 30 % confidence from a phone on a desk beside a road still cancels a stop-pending and re-arms the vehicular tier (EC-55).
 
@@ -219,13 +219,13 @@ All four are `trackit-maps` against §23. None is load-bearing; together they ar
 
 Points survive session end, logout and a 401 until the TTL prune worker reaches them — `maxDaysToPersist` days later, 7 by default.
 
-This is arguably correct for TrackIt: the spec's wipe exists because the reference uploaded everything and treated the device as a staging buffer, whereas TrackIt is offline-first and the device is the record. **But the divergence is undocumented**, `TrackItSync.tearDown()`'s own comment claims the clear exists "so one user's positions don't leak into the next login", and that is not what the call does. Either implement the wipe or correct the claim — the present state is the one combination that is indefensible.
+This is arguably correct for Traker: the spec's wipe exists because the reference uploaded everything and treated the device as a staging buffer, whereas Traker is offline-first and the device is the record. **But the divergence is undocumented**, `TrakerSync.tearDown()`'s own comment claims the clear exists "so one user's positions don't leak into the next login", and that is not what the call does. Either implement the wipe or correct the claim — the present state is the one combination that is indefensible.
 
 ### G-10 — `activityStatus` is synthesised at upload, never stored {#g-10}
 
 **Verdict: DIVERGENT.** §9 requires the point to carry `activityStatus = "<locationType>@<movementStatus>"` and notes "the server stores this verbatim; the plotting side parses it back."
 
-TrackIt stores `movementStatus` as its own typed column and composes the string only when building a `SyncPoint`. Cleaner as a schema — a parsed enum beats a string that has to be split — but it means the value is not recoverable from a stored point, and a host round-tripping through the sync payload gets a field the local DB cannot reproduce.
+Traker stores `movementStatus` as its own typed column and composes the string only when building a `SyncPoint`. Cleaner as a schema — a parsed enum beats a string that has to be split — but it means the value is not recoverable from a stored point, and a host round-tripping through the sync payload gets a field the local DB cannot reproduce.
 
 ### G-14 — Total distance uses a different rule {#g-14}
 
@@ -233,13 +233,13 @@ TrackIt stores `movementStatus` as its own typed column and composes the string 
 
 `TrackBuilder.statsOf()` sums `distanceMeters` across travel clusters, where each cluster's distance came from `SpeedStats.compute()` — which counts **every** leg's distance including the ones excluded from speed statistics.
 
-Two different numbers, both defensible. The spec's rule discards short and rapid legs as jitter; TrackIt's counts them and relies on the acceptance pipeline having already removed the jitter at capture. TrackIt's is probably the better answer given its filter, and it is not the specified one, and nothing records the choice.
+Two different numbers, both defensible. The spec's rule discards short and rapid legs as jitter; Traker's counts them and relies on the acceptance pipeline having already removed the jitter at capture. Traker's is probably the better answer given its filter, and it is not the specified one, and nothing records the choice.
 
 ## Out of scope — not gaps
 
 Excluded by locked decisions in [PLAN.md](PLAN.md) §0 and §2, listed so the absence is not rediscovered as a defect:
 
-- §11.3 fetch shape · §14 fetch flow · §15 multi-device attribution — TrackIt is single-user and offline-first; there is no server to fetch from
+- §11.3 fetch shape · §14 fetch flow · §15 multi-device attribution — Traker is single-user and offline-first; there is no server to fetch from
 - Punch bookends (`PUNCH_IN` / `PUNCH_OUT` / `AUTO_PUNCH_OUT`) and every attendance concept
 - §24 timeline UI rendering — the SDK ships data, the host ships UI
 - Reverse geocoding and all address fields — optional enrichment, deliberately off
@@ -251,7 +251,7 @@ Excluded by locked decisions in [PLAN.md](PLAN.md) §0 and §2, listed so the ab
 
 Spec behaviour intentionally replaced. Recorded here so a future reader does not file them as gaps.
 
-| § | Spec | TrackIt | Recorded in |
+| § | Spec | Traker | Recorded in |
 |---|---|---|---|
 | 6 | Scalar position-only Kalman | Constant-velocity filter | spec §6 note, EC-44a |
 | 4 | Fixed 60 s request, no per-state modulation | Four cadence tiers + turn burst | PLAN §4, EC-45 |
@@ -269,15 +269,15 @@ Net-new capability with no spec counterpart: step corroboration · significant-m
 
 # Part B — Self-conformance
 
-Gaps against TrackIt's own public surface. Every one of these is a host-visible affordance that does nothing.
+Gaps against Traker's own public surface. Every one of these is a host-visible affordance that does nothing.
 
 ### G-19 — The foreground-service notification cannot be configured {#g-19}
 
-**Verdict: MISSING.** `ServiceConfig` declares `notificationTitle`, `notificationText`, `notificationChannelId`, `notificationChannelName` and `notificationSmallIconResName` (`TrackItConfig.kt:517-521`), with builder setters `notification(title, text)`, `notificationChannel(id, name)` and `notificationSmallIconResName(...)` (`:337-343`).
+**Verdict: MISSING.** `ServiceConfig` declares `notificationTitle`, `notificationText`, `notificationChannelId`, `notificationChannelName` and `notificationSmallIconResName` (`TrakerConfig.kt:517-521`), with builder setters `notification(title, text)`, `notificationChannel(id, name)` and `notificationSmallIconResName(...)` (`:337-343`).
 
 `TrackingService.buildNotification()` (`service/TrackingService.kt:149-167`) reads none of them. It uses its own `CHANNEL_ID`, `CHANNEL_NAME`, `DEFAULT_TITLE`, `DEFAULT_TEXT` constants and `android.R.drawable.ic_menu_mylocation`.
 
-Every host therefore ships a notification reading "Tracking active / Recording your location" with a stock Android icon, and no configuration changes it. This is the SDK's most visible surface — it is on screen for the entire session — and it is the one a host cannot brand. Note also that `TrackItConfig.validate()` has no rule for `notificationSmallIconResName`, so EC-77 ("validate `NotificationConfig` in `ready()` and fail fast") is unimplemented as well.
+Every host therefore ships a notification reading "Tracking active / Recording your location" with a stock Android icon, and no configuration changes it. This is the SDK's most visible surface — it is on screen for the entire session — and it is the one a host cannot brand. Note also that `TrakerConfig.validate()` has no rule for `notificationSmallIconResName`, so EC-77 ("validate `NotificationConfig` in `ready()` and fail fast") is unimplemented as well.
 
 ### G-20 — `persistDecisions = false` has no effect {#g-20}
 
@@ -305,15 +305,15 @@ The stated consumer — the departure ladder — was in fact solved a different 
 | `ServiceConfig` | `stopOnTerminate`, `wakeLockMs` |
 | `PersistenceConfig` | `maxRecords` |
 
-`MotionConfig.heartbeatIntervalSec` is validated but never applied — the heartbeat cadence is `TrackItConstants.heartbeatSec`.
+`MotionConfig.heartbeatIntervalSec` is validated but never applied — the heartbeat cadence is `TrakerConstants.heartbeatSec`.
 
-Worth separating: `stopTimeoutMin` and `motionTriggerDelayMs` are not merely unread, they are **shadowed**. `MotionStateMachine` takes both as constructor parameters with sensible defaults (300 000 ms and 0), and `TrackItGraph.kt:124` constructs it with **no arguments**. A host setting `stopTimeoutMin = 2` gets 5 minutes and no error.
+Worth separating: `stopTimeoutMin` and `motionTriggerDelayMs` are not merely unread, they are **shadowed**. `MotionStateMachine` takes both as constructor parameters with sensible defaults (300 000 ms and 0), and `TrakerGraph.kt:124` constructs it with **no arguments**. A host setting `stopTimeoutMin = 2` gets 5 minutes and no error.
 
-### G-23 — `TrackItState.motionState` never updates {#g-23}
+### G-23 — `TrakerState.motionState` never updates {#g-23}
 
-**Verdict: MISSING.** `TrackItState` (`domain/model/TrackSession.kt:112`) declares `motionState: MotionState = STOPPED`. `TrackIt` updates `isReady`, `isTracking`, `currentSessionId` and `providerState`, never this. A host polling `trackIt.state.value.motionState` reads `STOPPED` for the entire life of the process.
+**Verdict: MISSING.** `TrakerState` (`domain/model/TrackSession.kt:112`) declares `motionState: MotionState = STOPPED`. `Traker` updates `isReady`, `isTracking`, `currentSessionId` and `providerState`, never this. A host polling `trackIt.state.value.motionState` reads `STOPPED` for the entire life of the process.
 
-Motion *is* observable, via `TrackItEvent.MotionChange` — but §3.13/EC-113's own guidance is "re-read authoritative state via `TrackIt.state` on resubscribe; native state is always the source of truth, never a replayed event buffer". For motion state that guidance is currently wrong.
+Motion *is* observable, via `TrakerEvent.MotionChange` — but §3.13/EC-113's own guidance is "re-read authoritative state via `Traker.state` on resubscribe; native state is always the source of truth, never a replayed event buffer". For motion state that guidance is currently wrong.
 
 ### G-24 — `Watchdog.Action.ReportDead` is not handled {#g-24}
 
@@ -334,11 +334,11 @@ Benign today — the watchdog itself emits `Error(TRACKER_DEAD, …)` before ret
 
 Consequences:
 
-- `packages/react-native-trackit/.../TrackItModule.kt:1` imports `com.devstree.trackit.bridge.TrackItJson`. **The React Native module cannot compile.**
-- The Java `TrackItClient` callback facade described in the README and PLAN §0 does not exist, so there is no non-`suspend`, non-`Flow` surface for Java hosts.
+- `packages/react-native-traker/.../TrakerModule.kt:1` imports `com.devstree.traker.bridge.TrakerJson`. **The React Native module cannot compile.**
+- The Java `TrakerClient` callback facade described in the README and PLAN §0 does not exist, so there is no non-`suspend`, non-`Flow` surface for Java hosts.
 - `trackit-rn/` contains only `src/verification/AndroidManifest.xml` and has **no `build.gradle.kts`**, so the README's `:trackit-rn:verifyReactNativeSourcesCompiled` task does not exist either.
-- `packages/react-native-trackit/` has no `package.json`, no TypeScript, no podspec — the npm package is three Kotlin files.
-- `docs/CROSS-PLATFORM.md`, cited from the README, PLAN §0 and `TrackItGraph`'s KDoc, is absent.
+- `packages/react-native-traker/` has no `package.json`, no TypeScript, no podspec — the npm package is three Kotlin files.
+- `docs/CROSS-PLATFORM.md`, cited from the README, PLAN §0 and `TrakerGraph`'s KDoc, is absent.
 
 The RN bridge surface itself is well designed and complete as source — 26 methods, two events, JSON-string envelopes chosen specifically to avoid `ReadableMap`'s Long→double precision loss. It simply has nothing to sit on.
 
@@ -346,7 +346,7 @@ The RN bridge surface itself is well designed and complete as source — 26 meth
 
 **Verdict: MISSING — blocking.** There is no `src/test` or `src/androidTest` anywhere in the repository, and none has ever been added (`git log --all --diff-filter=A` matches zero such paths). `trackit-geo/src` contains only `main`.
 
-Test dependencies are declared in every module. Named test classes are cited as evidence throughout the docs — `TrackItGraphTest` (PLAN §0, `TrackItGraph` KDoc), `MixedModeTraceTest` (PLAN §9, EDGE-CASES acceptance criterion 3a), `GoldenWireTest` (`TrackItModule` KDoc) — and none of them exists.
+Test dependencies are declared in every module. Named test classes are cited as evidence throughout the docs — `TrakerGraphTest` (PLAN §0, `TrakerGraph` KDoc), `MixedModeTraceTest` (PLAN §9, EDGE-CASES acceptance criterion 3a), `GoldenWireTest` (`TrakerModule` KDoc) — and none of them exists.
 
 This is the load-bearing one. PLAN §9's entire risk mitigation is "fixture-first: phase 1 ends with golden files before any Android code exists. Any constant change that flips a golden verdict fails CI." The `FixtureReplay` harness is built and correct; **no fixture corpus is committed and nothing replays it.** Every acceptance criterion in EDGE-CASES ("steady 2 hours ⇒ exactly one stored point", "same fixture replayed twice ⇒ byte-identical decision sequence") is currently unverified.
 
@@ -372,7 +372,7 @@ So the sample's `:trackit-snap` and `okhttp` dependencies are dead, the "Snap" c
 
 # Part C — Source protection
 
-The published artifacts are meant to expose the public contract and nothing else. `trackit-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.devstree.trackit.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
+The published artifacts are meant to expose the public contract and nothing else. `trackit-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.devstree.traker.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
 
 The publishing script is equally careful: **no sources jar anywhere**, with the reasoning recorded — and specifically for the engine, *"trackit-geo is the algorithm module, and a -sources.jar IS the algorithm. This is the artifact with the most to lose from a sources jar."*
 
@@ -392,10 +392,10 @@ Four modules are minified — core, maps, snap, sync. The fifth is not, and it i
 |---|---|
 | `trackit-core` — service plumbing, DI graph, Room wiring, permission checks | **`AcceptancePipeline`** — 1074 lines, all seven stages, every gate |
 | `trackit-maps` — bitmap drawing, polyline calls | **`KalmanFilter`** — the constant-velocity model and its covariance propagation |
-| `trackit-snap` — HTTP and chunking | **`TrackItConstants`** — all 60-odd field-tuned values |
+| `trackit-snap` — HTTP and chunking | **`TrakerConstants`** — all 60-odd field-tuned values |
 | `trackit-sync` — queue and retry | **The whole plotting plane** — consolidation, clusters, snapper, spline, arrows |
 
-The Android plumbing — reimplementable by any competent Android developer from the public docs — is flattened into `com.devstree.trackit.internal`. The engine, which is the accumulated output of three generations of field work, ships with original class names, original method names, original field names and original package structure.
+The Android plumbing — reimplementable by any competent Android developer from the public docs — is flattened into `com.devstree.traker.internal`. The engine, which is the accumulated output of three generations of field work, ships with original class names, original method names, original field names and original package structure.
 
 **It is worse than plain Java bytecode**, for the reason in [G-30](#g-30).
 
@@ -411,15 +411,15 @@ And it reaches every consumer: `trackit-core/build.gradle.kts:79` declares `api(
 
 Every Kotlin class carries a `@kotlin.Metadata` annotation holding a protobuf description of the *source-level* declaration: package, class and member names, full generic signatures, nullability, property vs. field, default-argument presence, and the shape of data classes. It exists so that a Kotlin consumer gets named arguments, default values and null-safety across module boundaries — the same reason `trackit-core/proguard-rules.pro` deliberately keeps `*Annotation*`, and it is right to.
 
-The consequence for an unobfuscated JAR is that reading it needs no decompiler. `kotlinx-metadata-jvm` parses the annotation directly and reconstructs the declaration list. For `TrackItConstants` — a `data class` whose entire content is constructor parameters with default values — that recovers the parameter names, and the defaults are plain constants in the synthetic `<init>$default` bytecode.
+The consequence for an unobfuscated JAR is that reading it needs no decompiler. `kotlinx-metadata-jvm` parses the annotation directly and reconstructs the declaration list. For `TrakerConstants` — a `data class` whose entire content is constructor parameters with default values — that recovers the parameter names, and the defaults are plain constants in the synthetic `<init>$default` bytecode.
 
 So the field-tuned table is readable with a library call and no reverse engineering at all: `accuracyMovingMax = 30f`, `turnBurstEnterDegPerSec = 1.5f`, `qAccelTurning = 2.0f`, `persistAdvanceM = 5.0`, and the rest.
 
-### G-31 — `TrackItConstants` is `public`, and its defaults are the product {#g-31}
+### G-31 — `TrakerConstants` is `public`, and its defaults are the product {#g-31}
 
 **Verdict: EXPOSURE.**
 
-`TrackItConstants.kt:18` — `public data class TrackItConstants(...)` with a default for every one of ~60 parameters.
+`TrakerConstants.kt:18` — `public data class TrakerConstants(...)` with a default for every one of ~60 parameters.
 
 It is `public` for a defensible reason, recorded in its own KDoc: a data class rather than a file of `const val`s so the fixture harness can sweep one constant and re-run a recorded day. That is a real requirement.
 
@@ -427,7 +427,7 @@ It is also the single most valuable artifact in the repository. Each value has a
 
 The sweep requirement does **not** require `public`. It requires visibility from the test source set, which in Gradle is the same compilation unit — Kotlin `internal` is visible to `src/test` of the same module. `internal` would satisfy the harness and remove the type from the published surface.
 
-Blocked in practice by G-29 and G-36: `internal` in Kotlin compiles to public bytecode with mangled *function* names only, and it does not span Gradle modules — `trackit-core` needs `TrackItConstants` and is a different module, so it must stay `public` today.
+Blocked in practice by G-29 and G-36: `internal` in Kotlin compiles to public bytecode with mangled *function* names only, and it does not span Gradle modules — `trackit-core` needs `TrakerConstants` and is a different module, so it must stay `public` today.
 
 Worth contrasting with the iOS port, where this is solved cleanly: Swift's `package` access level spans targets within one package while staying absent from the distributed module interface. Kotlin has no equivalent. That is a genuine platform difference, not an oversight in either design.
 
@@ -439,7 +439,7 @@ Worth contrasting with the iOS port, where this is solved cleanly: Swift's `pack
 
 That mapping file is a **build output**. It is regenerated on every build, it is not committed, it is not attached to any publication, and BUILD.md references `mapping/release/` only for the sample app's own R8 run (§5.6, around line 459).
 
-So the retrace path the rules were written to preserve does not exist for a published artifact: when a host sends an obfuscated stack trace from `com.devstree.trackit.internal.a.b()`, there is nothing to map it against unless someone still has the exact build tree.
+So the retrace path the rules were written to preserve does not exist for a published artifact: when a host sends an obfuscated stack trace from `com.devstree.traker.internal.a.b()`, there is nothing to map it against unless someone still has the exact build tree.
 
 **Fix:** archive `mapping.txt` per module per release, keyed by version, alongside the published artifacts and never with them. Cheap, and it is the difference between a field crash report being actionable and being noise.
 
@@ -449,12 +449,12 @@ So the retrace path the rules were written to preserve does not exist for a publ
 
 React Native Android modules are compiled by the **host application's** Gradle build (autolinking points at the package's `android/` directory). The Kotlin therefore ships as source in the npm tarball. There is no binary option; this is how RN works.
 
-What ships: `TrackItModule.kt` (284 lines), `TrackItPackage.kt`, `TrackItSpec.kt`. Every RN consumer reads them.
+What ships: `TrakerModule.kt` (284 lines), `TrakerPackage.kt`, `TrakerSpec.kt`. Every RN consumer reads them.
 
-**The architecture already handles this correctly**, and it deserves to be said rather than left as an unexamined exposure. `TrackItModule.kt:3` imports exactly one TrackIt symbol:
+**The architecture already handles this correctly**, and it deserves to be said rather than left as an unexamined exposure. `TrakerModule.kt:3` imports exactly one Traker symbol:
 
 ```kotlin
-import com.devstree.trackit.bridge.TrackItJson
+import com.devstree.traker.bridge.TrakerJson
 ```
 
 Nothing else. The module is a thin JSON facade — argument marshalling, promise settling, event emission — over `trackit-bridge`, which is a published, R8-obfuscated AAR. **The engine is not in the npm package and cannot be.** A reader of the RN source learns the method list and the envelope shape, both of which are public API anyway.
@@ -465,7 +465,7 @@ This is the right shape for a bridge, arrived at for other reasons (`ReadableMap
 
 **Verdict: MISSING.**
 
-`packages/react-native-trackit/` contains three Kotlin files and nothing else — no `package.json`, no `.npmignore`, no podspec ([G-26](#g-26)).
+`packages/react-native-traker/` contains three Kotlin files and nothing else — no `package.json`, no `.npmignore`, no podspec ([G-26](#g-26)).
 
 When the package is created, this matters immediately: **npm's default is to publish everything in the directory** except a short built-in ignore list. Without an explicit `files` allowlist, a build that leaves `android/build/`, a local `.xcconfig`, a `.env`, test fixtures or a `local.properties` in the tree publishes all of it — irreversibly, to a public registry.
 

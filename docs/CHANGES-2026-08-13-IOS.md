@@ -1,4 +1,4 @@
-# TrackIt iOS — change review, 13 Aug 2026
+# Traker iOS — change review, 13 Aug 2026
 
 Everything that landed on `main` that day, grouped by area, with the exact
 declarations to review. Test count moved **682 → 769**, all passing.
@@ -7,7 +7,7 @@ declarations to review. Test count moved **682 → 769**, all passing.
 
 ## 1. Licensing
 
-New target area: `TrackIt/Sources/TrackItCore/License/`.
+New target area: `Traker/Sources/TrakerCore/License/`.
 
 ### New types
 
@@ -30,17 +30,17 @@ New target area: `TrackIt/Sources/TrackItCore/License/`.
 
 ### Wiring
 
-- `TrackIt.ready()` gains **step 0**: `LicenseGate.check(explicit: config.license)` runs
+- `Traker.ready()` gains **step 0**: `LicenseGate.check(explicit: config.license)` runs
   before anything is mutated or persisted. Verdicts are cached per token, so the
   cryptography runs once per process.
-- `TrackItConfig.license: String?` — overrides the `TrackItLicense` Info.plist key.
+- `TrakerConfig.license: String?` — overrides the `TrackItLicense` Info.plist key.
   **Excluded from `Codable` on purpose** so `reset: false` cannot resurrect a stale token.
-- `TrackItConfigBuilder.license(_ value: String?) -> Builder`
+- `TrakerConfigBuilder.license(_ value: String?) -> Builder`
 - Three new `ErrorCode` cases: `.licenseMissing`, `.licenseInvalid`, `.licenseBundleMismatch`.
 
 ### Behaviour to check
 
-- Token format `TRACKIT-<base64url payload>.<base64url signature>`; the Ed25519 signature
+- Token format `TRAKER-<base64url payload>.<base64url signature>`; the Ed25519 signature
   covers the **encoded payload string's bytes**, never a re-serialisation.
 - Simulator and debuggable installs (`get-task-allow`) are waived. App Store, TestFlight,
   ad-hoc and enterprise enforce.
@@ -51,7 +51,7 @@ New target area: `TrackIt/Sources/TrackItCore/License/`.
 - The signature-failure message no longer says "tampered" — a re-keyed token and an
   edited payload are indistinguishable to the verifier.
 
-**Tests:** `TrackItCoreTests/LicenseTests.swift` — 18 cases (tampering, impostor keys,
+**Tests:** `TrakerCoreTests/LicenseTests.swift` — 18 cases (tampering, impostor keys,
 unknown kid, future payload version, prefix collisions, missing-vs-invalid split).
 
 ---
@@ -61,7 +61,7 @@ unknown kid, future payload version, prefix collisions, missing-vs-invalid split
 All six default to the SDK's existing behaviour — an upgrading host that changes
 nothing gets exactly what it had.
 
-### New `TrackItConfig` fields + builder methods
+### New `TrakerConfig` fields + builder methods
 
 | Config property | Builder method | Default |
 |---|---|---|
@@ -87,7 +87,7 @@ Points to review:
 **Not ported (deliberate):** `useSignificantMotion` (hardware wake-up sensor, no iOS wake path)
 and `stepBatchLatencyMs` (CMPedometer takes no batch-latency parameter).
 
-### New pipeline stages in `TrackItGeo/Filter/AcceptancePipeline.swift`
+### New pipeline stages in `TrakerGeo/Filter/AcceptancePipeline.swift`
 
 - **Stage 2b — accelerometer veto.** For devices where CMPedometer is absent (iPads, older
   hardware) and stage 2a is skipped entirely. Subordinate to 2a by design.
@@ -131,15 +131,15 @@ Constants to review: `accelerometerIntervalSec = 0.1`, `accelerometerStillVarian
 
 ### `MotionController` reentrancy guard
 
-With `motion.stopOnStationary`, the state-change callback reaches `TrackIt.stop()`, which
+With `motion.stopOnStationary`, the state-change callback reaches `Traker.stop()`, which
 reenters `stop()` on this actor. Actors are reentrant, so teardown completed and then `handle()`
 resumed and called `enterStationary()` for a closed session — reconfiguring a released manager
 via `captureStream.onStationary()`. A guard now returns if the controller is no longer running.
 
-### `TrackIt.changePace(isMoving:)` made public
+### `Traker.changePace(isMoving:)` made public
 
 ```swift
-public func changePace(isMoving: Bool) async -> TrackItResult<Void>
+public func changePace(isMoving: Bool) async -> TrakerResult<Void>
 ```
 
 `MotionController.onChangePace` existed, was documented "From the host", was handled by the
@@ -166,19 +166,19 @@ already takes. Uses `private final class SingleResume` to guarantee one resume.
 
 ## 3. Two members that were declared, documented and never written
 
-- **`TrackItState.providerState`** — documented as "written by `ProviderStateMonitor`" and
+- **`TrakerState.providerState`** — documented as "written by `ProviderStateMonitor`" and
   written by nothing, so every view bound to it read a permanent default of *authorization
   denied*. Two writes fix it and **both are needed**: one inside `monitor.onChange` ahead of
   the `becameUsable` guard (that guard rejects every change except a re-grant, and a host needs
   the downgrade most), and one immediately after installing the handler (because `start()`
   publishes its first snapshot synchronously, before any handler exists).
-- **`TrackItEvent.heartbeat(atMs:)`** — declared in the enum, listed in the public API doc,
+- **`TrakerEvent.heartbeat(atMs:)`** — declared in the enum, listed in the public API doc,
   required by the sample-app spec, fired by nothing on either platform. Now emitted by
   `HealthLoop` on each tick with a session open, **after** the watchdog has judged — a
   heartbeat sent ahead of the check would claim health the loop had not established.
 
-**`TrackItCoreTests/EventCoverageTests.swift`** — scans the sources for any `TrackItEvent` case
-with no emitter and any published `TrackItState` field with no writer. Both scans were vacuous
+**`TrakerCoreTests/EventCoverageTests.swift`** — scans the sources for any `TrakerEvent` case
+with no emitter and any published `TrakerState` field with no writer. Both scans were vacuous
 when first written (one matched a doc comment, the other an unrelated private property of the
 same name) and were rewritten until reverting each fix made them fail.
 
@@ -204,7 +204,7 @@ silently reverted to the default.
 ## 5. `getCurrentLocation()`
 
 ```swift
-public func getCurrentLocation(feedIngestor: Bool = false) async -> TrackItResult<TrackFix>
+public func getCurrentLocation(feedIngestor: Bool = false) async -> TrakerResult<TrackFix>
 ```
 
 One fix without a session — for a map centre or a check-in. Backed by `OneShotProvider`, which
@@ -215,10 +215,10 @@ gains `func capture(...)` and `enum Failure` cases `.busy`, `.denied`, `.timedOu
 
 ## 6. Geofences
 
-### Public API on `TrackIt`
+### Public API on `Traker`
 
 ```swift
-public func addGeofence(_ fence: Geofence) async -> TrackItResult<Geofence>
+public func addGeofence(_ fence: Geofence) async -> TrakerResult<Geofence>
 public func getGeofences() async -> [Geofence]
 public func removeGeofence(id: String) async -> Bool
 public func removeAllGeofences() async -> Int
@@ -259,7 +259,7 @@ public struct GeofenceEvent: Sendable, Equatable, Identifiable {
 }
 ```
 
-New events: `TrackItEvent.geofenceEnter(GeofenceEvent)`, `.geofenceExit(GeofenceEvent)`,
+New events: `TrakerEvent.geofenceEnter(GeofenceEvent)`, `.geofenceExit(GeofenceEvent)`,
 `.geofenceDwell(GeofenceEvent)`.
 
 ### Design points to review
@@ -336,7 +336,7 @@ That opened a second door: entries now arrive from the transition callback, from
 would restart the dwell clock, so a device that never moved would have its dwell pushed further
 away every time iOS spoke up. **An entry whose fence is already recorded as entered is dropped.**
 
-**Tests:** `TrackItCoreTests/GeofenceTests.swift`.
+**Tests:** `TrakerCoreTests/GeofenceTests.swift`.
 
 ---
 
@@ -374,7 +374,7 @@ public var isConfigured: Bool { self.endpoint != nil }
 - Remembering the flag host-side would be wrong: a 401 tears the configuration down without the
   host doing anything, so any remembered value drifts the moment the credential dies.
 
-**Tests:** `TrackItSyncTests/SyncResponseStreamTests.swift` — the target held a scaffold
+**Tests:** `TrakerSyncTests/SyncResponseStreamTests.swift` — the target held a scaffold
 placeholder and now holds 7 tests, including multi-batch reporting order.
 
 ---
@@ -402,7 +402,7 @@ build the user actually has — and that build is Release. Wrapping `exportFixtu
 alongside `FixtureReplay` meant the only build able to see the anomaly was the one with no
 recorder compiled into it.
 
-- `TrackIt.exportFixture` and `Fixture` now compile in Release. The method returns a `String` of
+- `Traker.exportFixture` and `Fixture` now compile in Release. The method returns a `String` of
   JSON; the fixture types stay `package`, so with `.package.swiftinterface` deleted at package
   time they appear in **no shipped interface**. A host receives JSON and not one declaration
   describing it.
@@ -440,7 +440,7 @@ Verified against the shipped **1.0.1 XCFrameworks**, not the source package: `ex
   `initialCentre: GeoPoint?`, applied once and only while no frame has been rendered.
   `TrackView.fit()` falls back to the device position and reports on the map when it cannot —
   a map sitting on a continent because authorization was refused looks identical to a broken map.
-  Both use `TrackIt.getCurrentLocation()` rather than MapKit's `.userLocation` camera; a blue dot
+  Both use `Traker.getCurrentLocation()` rather than MapKit's `.userLocation` camera; a blue dot
   from a second `CLLocationManager` would be a position the sample got from somewhere other than
   the SDK it exists to demonstrate.
   *(Worth keeping: the first attempt was a no-op because the guard read `lastSequence == 0`, but
@@ -452,11 +452,11 @@ Verified against the shipped **1.0.1 XCFrameworks**, not the source package: `ex
   captured, captured but all rejected, stored but not enough to draw.
 - `HomeView` gains a **"One fix"** button for `getCurrentLocation()`, enabled while stopped —
   being callable without a session is the whole point of that API.
-- The fixture recorder is no longer gated on `TRACKIT_SDK_DEBUG`, so it is present in both
+- The fixture recorder is no longer gated on `TRAKER_SDK_DEBUG`, so it is present in both
   package modes, exactly as a host's own build has it.
 - `Info.plist` carries a real licence token, so the sample is wired exactly the way the
   documentation tells a host to wire one.
-- Exhaustive switches over `SegmentType` and `TrackItEvent` now carry `@unknown default`, which
+- Exhaustive switches over `SegmentType` and `TrakerEvent` now carry `@unknown default`, which
   the binary framework boundary requires. The first README example omitted it — it would have
   been a compile error in every host that copied the snippet.
 
@@ -476,7 +476,7 @@ Verified against the shipped **1.0.1 XCFrameworks**, not the source package: `ex
 ## Review checklist
 
 - [ ] Ed25519 verification covers the encoded payload bytes, never a re-serialisation
-- [ ] `TrackItConfig.license` stays out of `Codable`
+- [ ] `TrakerConfig.license` stays out of `Codable`
 - [ ] Stage 2c (barometer) is evaluated **before** 2a and 2b, not as a withdrawal
 - [ ] `nil` from either sensor probe skips the stage rather than asserting stillness
 - [ ] `DeviceMotionProbe` accumulator is lock-guarded, no actor hop at 10 Hz

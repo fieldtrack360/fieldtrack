@@ -1,19 +1,19 @@
-# TrackIt ProGuard and R8 Setup
+# Traker ProGuard and R8 Setup
 
 ## Purpose
 
-TrackIt publishes minified release AARs so an app receives a usable SDK API without receiving readable implementation class names, package structure, debug logs, or source archives. This raises the cost of reverse engineering; it does not encrypt bytecode, hide runtime constants, or make client-side secrets safe.
+Traker publishes minified release AARs so an app receives a usable SDK API without receiving readable implementation class names, package structure, debug logs, or source archives. This raises the cost of reverse engineering; it does not encrypt bytecode, hide runtime constants, or make client-side secrets safe.
 
 ## Release Artifacts
 
 | Module | Published form | Stable integration package | Obfuscated implementation package |
 |---|---|---|---|
-| `trackit-geo` | R8-minified AAR | `com.devstree.trackit.geo.*` for supported types | `tr.dev.geo` |
-| `trackit-core` | R8-minified AAR | `com.devstree.trackit.*` supported API | `tr.dev.core` |
+| `trackit-geo` | R8-minified AAR | `com.devstree.traker.geo.*` for supported types | `tr.dev.geo` |
+| `trackit-core` | R8-minified AAR | `com.devstree.traker.*` supported API | `tr.dev.core` |
 | `trackit-maps` | R8-minified AAR | Three renderer entry points and option types | Private methods obfuscated; all helper classes optimized away |
 | `trackit-snap` | R8-minified AAR | `OsrmSnapProvider` | `tr.dev.snap` |
 | `trackit-sync` | R8-minified AAR | Sync configuration, transport, queue, and facade types | `tr.dev.sync` |
-| `trackit-all` | Empty umbrella AAR | No classes | Not applicable |
+| `traker-all` | Empty umbrella AAR | No classes | Not applicable |
 
 `trackit-geo` still contains pure Kotlin source with no Android imports. Android library packaging is used only so AGP can run R8 and include consumer rules in the published artifact.
 
@@ -21,26 +21,26 @@ TrackIt publishes minified release AARs so an app receives a usable SDK API with
 
 Each code-bearing module has two distinct rule files:
 
-- `proguard-rules.pro` runs while TrackIt builds its own release AAR. It protects the supported API, preserves reflection entry points, strips logs, and repackages implementation.
+- `proguard-rules.pro` runs while Traker builds its own release AAR. It protects the supported API, preserves reflection entry points, strips logs, and repackages implementation.
 - `consumer-rules.pro` is embedded in the AAR and merged into a consuming application's R8 pass. It must contain only rules required for runtime correctness in the host.
 
-Do not put broad rules such as `-keep class com.devstree.trackit.** { *; }` in consumer rules. That would disable shrinking and obfuscation for the complete SDK inside every host app.
+Do not put broad rules such as `-keep class com.devstree.traker.** { *; }` in consumer rules. That would disable shrinking and obfuscation for the complete SDK inside every host app.
 
 ## Stable API Policy
 
 Names remain unchanged when at least one of these is true:
 
 - The Android sample imports the type or calls the member.
-- Another independently published TrackIt module references the binary name.
+- Another independently published Traker module references the binary name.
 - Android, Room, WorkManager, or serialization constructs the type by name or generated contract.
 - The type is a documented host extension seam, such as `TrackLogger`, `RoadSnapProvider`, or `SyncTransport`.
 
 Everything else may be optimized, shortened, repackaged, or removed. When adding a supported sample API, update the module's build-time rules and the required API list in `VerifyReleaseObfuscationTask` in the root [build.gradle.kts](../build.gradle.kts).
 
-Some names must remain visible for runtime loading. In core these include manifest components, `ListenableWorker` subclasses, `TrackItDatabase`, and `TrackItDatabase_Impl`. Hiding those names without also rewriting the host's merged manifest or reflective lookup would break the SDK.
+Some names must remain visible for runtime loading. In core these include manifest components, `ListenableWorker` subclasses, `TrakerDatabase`, and `TrakerDatabase_Impl`. Hiding those names without also rewriting the host's merged manifest or reflective lookup would break the SDK.
 
 If you inspect the release AAR in an IDE, you will still see the kept API and framework seams
-under `com.devstree.trackit.*`. That is expected. The obfuscated implementation classes and
+under `com.devstree.traker.*`. That is expected. The obfuscated implementation classes and
 helper methods are repackaged under `tr.dev.core`, and the release mapping is what retraces
 them back to source names.
 
@@ -63,7 +63,7 @@ All SDK logger calls are inside lazy `sdkLog` blocks. During release optimizatio
 
 Do not add a direct `logger.d`, `logger.w`, `Log.*`, `println`, or `printStackTrace` call. Use the module's `sdkLog` wrapper and add a forbidden marker to the verifier when introducing a new logging vocabulary.
 
-Structured host-facing events such as `TrackItEvent.Error` are API, not logs. Their documented error codes and messages remain available at runtime.
+Structured host-facing events such as `TrakerEvent.Error` are API, not logs. Their documented error codes and messages remain available at runtime.
 
 ## Publishing Security
 
@@ -71,7 +71,7 @@ Structured host-facing events such as `TrackItEvent.Error` are API, not logs. Th
 - Javadoc JARs contain rendered public API HTML and assets, but no `.kt` or `.java` source entries.
 - R8 mappings are not embedded in AARs or Maven publications.
 - Mapping files are required to retrace production stack traces and must be archived in restricted release storage.
-- Repository credentials come from Gradle properties or `TRACKIT_MAVEN_*` environment variables and must never be committed.
+- Repository credentials come from Gradle properties or `TRAKER_MAVEN_*` environment variables and must never be committed.
 - API keys, auth tokens, encryption keys, and server secrets cannot be protected by obfuscation. Do not ship them in the SDK.
 
 ## Verification Workflow
@@ -100,7 +100,7 @@ Every Maven publish task depends on this verification. The minified sample relea
 Each minified module writes:
 
 ```text
-trackit-<module>/build/outputs/mapping/release/
+traker-<module>/build/outputs/mapping/release/
 ```
 
 Keep at least `mapping.txt`, the SDK version, commit SHA, and artifact checksums together. Use the mapping from the exact released module version when retracing a crash; mappings from a rebuild are not interchangeable.

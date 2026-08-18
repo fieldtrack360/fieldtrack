@@ -43,11 +43,11 @@ import org.gradle.api.publish.maven.tasks.AbstractPublishToMaven
  *
  * ```bash
  * ./gradlew publish \
- *   -PtrackitMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
- *   -PtrackitMavenUser=… -PtrackitMavenToken=…
+ *   -PtrakerMavenUrl=https://maven.pkg.github.com/fieldtrack360/fieldtrack \
+ *   -PtrakerMavenUser=… -PtrakerMavenToken=…
  * ```
  *
- * or via `TRACKIT_MAVEN_URL` / `TRACKIT_MAVEN_USER` / `TRACKIT_MAVEN_TOKEN` in the
+ * or via `TRAKER_MAVEN_URL` / `TRAKER_MAVEN_USER` / `TRAKER_MAVEN_TOKEN` in the
  * environment, which is what CI should use.
  *
  * **No credential has a default and none is read from a file in this repository.** That
@@ -65,16 +65,16 @@ val catalog = extensions
 
 // Respect properties passed by JitPack or CLI, with defaults from the catalog.
 group = "com.github.fieldtrack360.fieldtrack"
-version = (findProperty("version") as? String)?.takeIf { it != "unspecified" } ?: catalog.findVersion("trackit").get().requiredVersion
+version = (findProperty("version") as? String)?.takeIf { it != "unspecified" } ?: catalog.findVersion("traker").get().requiredVersion
 
 /** Property first, environment second. CI sets the environment; a developer sets neither. */
 fun setting(property: String, environment: String): String? =
     (findProperty(property) as String?)?.takeIf { it.isNotBlank() }
         ?: System.getenv(environment)?.takeIf { it.isNotBlank() }
 
-val remoteUrl = setting("trackitMavenUrl", "TRACKIT_MAVEN_URL")
-val remoteUser = setting("trackitMavenUser", "TRACKIT_MAVEN_USER")
-val remoteToken = setting("trackitMavenToken", "TRACKIT_MAVEN_TOKEN")
+val remoteUrl = setting("trakerMavenUrl", "TRAKER_MAVEN_URL")
+val remoteUser = setting("trakerMavenUser", "TRAKER_MAVEN_USER")
+val remoteToken = setting("trakerMavenToken", "TRAKER_MAVEN_TOKEN")
 
 // Every module declares `android { publishing { singleVariant("release") } }` locally.
 // A script plugin is compiled against Gradle's API, so AGP's `LibraryExtension` and
@@ -120,7 +120,7 @@ afterEvaluate {
         repositories {
             if (remoteUrl != null) {
                 maven {
-                    name = "trackit"
+                    name = "traker"
                     setUrl(remoteUrl)
                     if (remoteUser != null && remoteToken != null) {
                         credentials {
@@ -147,16 +147,16 @@ tasks.withType<AbstractPublishToMaven>().configureEach {
 /** Kept here rather than in six build files, for the reason the whole file exists. */
 fun pomDescription(module: String): String = when (module) {
     "trackit-geo" ->
-        "TrackIt engine — Kalman filter, acceptance pipeline, motion state machine and " +
+        "Traker engine — Kalman filter, acceptance pipeline, motion state machine and " +
             "plotting. Pure Kotlin source packaged as an R8-obfuscated Android AAR."
     "trackit-core" ->
-        "TrackIt — background location tracking and track plotting for Android. " +
+        "Traker — background location tracking and track plotting for Android. " +
             "The capture stack, Room storage and the public SDK surface."
-    "trackit-maps" -> "TrackIt — Google Maps rendering for tracks built by trackit-core."
-    "trackit-sync" -> "TrackIt — optional HTTP upload with a retry queue."
-    "trackit-snap" -> "TrackIt — optional road snapping against an OSRM server."
+    "trackit-maps" -> "Traker — Google Maps rendering for tracks built by trackit-core."
+    "trackit-sync" -> "Traker — optional HTTP upload with a retry queue."
+    "trackit-snap" -> "Traker — optional road snapping against an OSRM server."
     "fieldtrack" ->
-        "TrackIt — umbrella artifact. Depending on this pulls in every TrackIt module " +
+        "Traker — umbrella artifact. Depending on this pulls in every Traker module " +
             "(core, geo, maps, sync, snap) transitively; no code of its own."
-    else -> "TrackIt — $module"
+    else -> "Traker — $module"
 }

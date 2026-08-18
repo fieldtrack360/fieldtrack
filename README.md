@@ -7,12 +7,12 @@ Background location tracking and track plotting SDK for Android.
 - **Offline-first.** Room storage, no backend required. HTTP sync is a separate optional module.
 - **Plotting is the product.** `buildTrack()` returns a ready-to-draw polyline: encoded geometry, per-segment speed bands, stop nodes, and **precomputed arrow anchors with bearings** — as portable JSON or GeoJSON, drawable by any map library.
 - **Turn geometry, five ways.** Adaptive cadence at speed, a turn-burst sampling tier, bearing-change force-capture, cornering process noise so a constant-velocity filter stops predicting straight through a turn, and a centripetal Catmull-Rom spline through every vertex so a 120 m leg is a curve and not a chord — all offline and on by default. Map-matching is optional on top: install a `RoadSnapProvider` (one ships in `trackit-snap`, against OSRM) and the polyline follows the road, with an 80 m guard so a parallel service road never gets to relocate the user. No provider, no network, no key: the track still renders.
-- **Every decision has one home.** Algorithms live in `trackit-geo` as pure Kotlin with no Android imports, so the whole engine runs in local unit tests with no emulator. It is packaged as an Android AAR so release bytecode can be R8-obfuscated. Constants live in one `TrackItConstants`. `Arrows.place()` feeds both the map renderer and the JSON export, so the drawn track and the exported track cannot disagree.
+- **Every decision has one home.** Algorithms live in `trackit-geo` as pure Kotlin with no Android imports, so the whole engine runs in local unit tests with no emulator. It is packaged as an Android AAR so release bytecode can be R8-obfuscated. Constants live in one `TrakerConstants`. `Arrows.place()` feeds both the map renderer and the JSON export, so the drawn track and the exported track cannot disagree.
 - **Every fix is answerable.** A decision log records why each fix was accepted, skipped or rejected, with reason strings as API. Any accuracy complaint replays deterministically as a JVM test.
 
 **Android only, Kotlin only.** No iOS and no Flutter, permanently. The engine runs on Android and nowhere else. `trackit-geo` keeps a pure-Kotlin source boundary for local testing; its published form is an AAR, not a multiplatform artifact.
 
-Namespace com.devstree.trackit and Maven group com.github.fieldtrack360.fieldtrack. minSdk 26, compileSdk 37, JDK 17.
+Namespace com.devstree.traker and Maven group com.github.fieldtrack360.fieldtrack. minSdk 26, compileSdk 37, JDK 17.
 
 ## Status
 
@@ -35,7 +35,7 @@ Known gaps, stated rather than discovered:
 - **Room migrations are untested.** The database is at v4 and all three migrations are hand-written and additive, but `MigrationTestHelper` needs the schema directory in androidTest assets, which AGP 9 currently rejects ([BUILD.md](docs/BUILD.md) §7).
 - **The platform `LocationManager` source has no instrumented test.** It ships — `GeolocationConfig.providerType` selects `GPS_ONLY`, `NETWORK_ONLY` or `PASSIVE`, none of which need Play Services, which is the remedy EC-19 previously had none for — but registration has only been covered at the config level on the JVM, never on a device.
 - **`./gradlew lintDebug` is red** on one pre-existing `InlinedApi` error in `TrackingService`. Every other check passes.
-- **[API.md](docs/API.md) §10 is partly ahead of the code.** Several target entries (`setConfig`, `changePace`, `insertPoint`, `deletePoints`, `requestPermission`, `exportFixture`) are not on `TrackIt` yet. Android exposes `getCurrentLocation()` for the one-shot location operation.
+- **[API.md](docs/API.md) §10 is partly ahead of the code.** Several target entries (`setConfig`, `changePace`, `insertPoint`, `deletePoints`, `requestPermission`, `exportFixture`) are not on `Traker` yet. Android exposes `getCurrentLocation()` for the one-shot location operation.
 
 ## Modules
 
@@ -52,13 +52,13 @@ Dependency direction, with nothing pointing backwards: `sample-android`, `tracki
 
 ## Using it
 
-**No DI framework, no Gradle plugin, no annotation processor.** The whole integration is one call. The graph is wired by hand in `di/TrackItGraph.kt`; an earlier revision shipped Hilt inside `trackit-core` and required every host to apply the Hilt plugin and annotate its `Application` with `@HiltAndroidApp` — that was removed, and the reasoning is in [PLAN.md](docs/PLAN.md) §0.
+**No DI framework, no Gradle plugin, no annotation processor.** The whole integration is one call. The graph is wired by hand in `di/TrakerGraph.kt`; an earlier revision shipped Hilt inside `trackit-core` and required every host to apply the Hilt plugin and annotate its `Application` with `@HiltAndroidApp` — that was removed, and the reasoning is in [PLAN.md](docs/PLAN.md) §0.
 
 ```kotlin
-val trackIt = TrackIt.getInstance(context)   // idempotent, one per process
+val trackIt = Traker.getInstance(context)   // idempotent, one per process
 
 suspend fun begin() {
-    trackIt.ready(TrackItConfig())          // resolves config, restores filter state
+    trackIt.ready(TrakerConfig())          // resolves config, restores filter state
     trackIt.start(tag = "commute")
 }
 

@@ -1,6 +1,6 @@
 # Source Audit — reference location stack
 
-Findings from a line-by-line read of the reference implementation (2026-07-30). Every item cites `file:line` within the reference source tree. These are the things TrackIt must **fix**, not port. Each has a corresponding entry in [EDGE-CASES.md](EDGE-CASES.md).
+Findings from a line-by-line read of the reference implementation (2026-07-30). Every item cites `file:line` within the reference source tree. These are the things Traker must **fix**, not port. Each has a corresponding entry in [EDGE-CASES.md](EDGE-CASES.md).
 
 Verdict legend: **DEFECT** = wrong behaviour, reproducible · **HAZARD** = correct today, breaks under a plausible change · **SMELL** = works, but must not be carried into a public SDK.
 
@@ -28,7 +28,7 @@ and into `MapUtils.getMovementSpeed` (`utility/googleMap/MapUtils.kt:37`) which 
 - the point comes **from the database** (see A2);
 - the OS delivers a **cached** fix on resume — the 60 s `elapsedRealtimeNanos` gate at `providers/BackgroundLocationProvider.kt:325-329` catches this, but only on the background stream, not on the one-shot path.
 
-**TrackIt fix.** `TrackFix` carries three clocks and the filter uses the monotonic one:
+**Traker fix.** `TrackFix` carries three clocks and the filter uses the monotonic one:
 `timeMs` (= `Location.getTime()`, wall clock, for storage/display), `elapsedRealtimeNanos` (**all Δt, gaps, and age arithmetic**), `receivedAtMs` (diagnostics only). Wall-clock time never participates in filter math.
 
 ---
@@ -54,7 +54,7 @@ lastKnownLocation = (LocationRepository.getLastInsertedLocation()?.toLatLng()
 
 **Note the asymmetry:** `CompanyAttendanceMediator.getLastKnown()` (`ui/company/network/repo/CompanyAttendanceMediator.kt:286-292`) returns a *persisted* `LatLng` whose `startTime` round-tripped through ObjectBox, so it is correct. The DB path is wrong and the mediator path is right, and the service prefers the wrong one.
 
-**TrackIt fix.** `filter_state` is a first-class persisted row (position, variance, timestamp, origin, movingMode, recovery-pending, motion state). `ready()` restores it before any fix is processed. The anchor's timestamp is the stored fix timestamp, always.
+**Traker fix.** `filter_state` is a first-class persisted row (position, variance, timestamp, origin, movingMode, recovery-pending, motion state). `ready()` restores it before any fix is processed. The anchor's timestamp is the stored fix timestamp, always.
 
 ---
 
@@ -69,7 +69,7 @@ Both then call `isKalmanFilteredLocation(past = …, kalman = kalmanFilter)` aga
 
 **Consequence.** `distanceMoved`, `timeDeltaSec`, `calcSpeedMps`, and every gate derived from them differ depending on which entry point happened to run. `getLastKnown()` is only updated on attendance-record writes, so it lags the last inserted fix; a worker-delivered fix is therefore judged against a stale anchor while the shared Kalman state reflects the fresher one. Interleaved, the two disagree about how far the user moved.
 
-**TrackIt fix.** One `FixIngestor` actor with a single `Channel<TrackFix>`. Stream, one-shot, backstop, and manual insert all send to that channel. `past` is a field of the actor, never re-derived per call site.
+**Traker fix.** One `FixIngestor` actor with a single `Channel<TrackFix>`. Stream, one-shot, backstop, and manual insert all send to that channel. `past` is a field of the actor, never re-derived per call site.
 
 ---
 
@@ -87,7 +87,7 @@ The request sets `setMaxUpdateDelayMillis(60_000L)` (`providers/base/LocationPro
 
 **Interaction with A5:** iterating the batch as-is would immediately hit the 500 ms burst gate, because that gate is keyed on delivery time. So the two bugs mask each other, and fixing one without the other makes things worse.
 
-**TrackIt fix.** Iterate `locationResult.locations` sorted by `elapsedRealtimeNanos`; the burst gate keys on fix time, so a legitimate batch passes and a genuine double-fire does not.
+**Traker fix.** Iterate `locationResult.locations` sorted by `elapsedRealtimeNanos`; the burst gate keys on fix time, so a legitimate batch passes and a genuine double-fire does not.
 
 ---
 
@@ -106,7 +106,7 @@ Two problems:
 1. **It is a static field on an `object`**, shared by the service and the worker — global mutable state with no synchronisation, mutated from `Dispatchers.Main.immediate` (service) and `Dispatchers.Default` (worker).
 2. **It measures the interval between *processing* calls, not between *fixes*.** Two fixes 45 s apart delivered in one batch are 2 ms apart by this clock and the second is rejected as a "burst".
 
-**TrackIt fix.** Burst gate compares `fix.elapsedRealtimeNanos` against the previous *fix's* elapsed nanos. The dedupe key is `elapsedRealtimeNanos`, which is unique per fix and monotonic.
+**Traker fix.** Burst gate compares `fix.elapsedRealtimeNanos` against the previous *fix's* elapsed nanos. The dedupe key is `elapsedRealtimeNanos`, which is unique per fix and monotonic.
 
 ---
 
@@ -120,7 +120,7 @@ Two problems:
 
 "Rarely overlap" is a scheduling assumption, not an invariant — the 15-min worker and the 60 s stream *will* collide roughly once per hour by construction.
 
-**TrackIt fix.** No shared mutable filter. State lives inside the single ingest actor; `@Volatile` disappears; the state object is an immutable `data class` replaced wholesale per fix, which also makes it trivially serialisable to `filter_state`.
+**Traker fix.** No shared mutable filter. State lives inside the single ingest actor; `@Volatile` disappears; the state object is an immutable `data class` replaced wholesale per fix, which also makes it trivially serialisable to `filter_state`.
 
 ---
 
@@ -136,7 +136,7 @@ val predictedVariance = (kalman.getVariance() +
 
 Also note the gate re-implements the prediction inline instead of using a `predictedSigma()` helper, so the two copies of the maths can drift.
 
-**TrackIt fix.** `predictSigma(atNanos, q)` takes `q` explicitly; the gate passes the Q it computed for *this* fix from `effectiveSpeed`, before the accept decision.
+**Traker fix.** `predictSigma(atNanos, q)` takes `q` explicitly; the gate passes the Q it computed for *this* fix from `effectiveSpeed`, before the accept decision.
 
 ---
 
@@ -151,7 +151,7 @@ var hasSpeed: Boolean = true,
 
 Stage 1.5 rejects a fix when `!hasSpeed && !hasBearing` (`LocationUtil.kt:218`). Any construction path that forgets to set these — and `LatLngFactory.create()` is such a path, used by `Location.toLatLng()` — yields a point that claims hardware speed and bearing it never had. The NLP-fallback gate, the single most important defence against WiFi-positioning teleports, silently becomes a no-op.
 
-**TrackIt fix.** `hasSpeed` / `hasBearing` default to **`false`** and are populated only by the `android.location.Location` mapper. A fix with no flags is treated as network-derived, which is the safe direction.
+**Traker fix.** `hasSpeed` / `hasBearing` default to **`false`** and are populated only by the `android.location.Location` mapper. A fix with no flags is treated as network-derived, which is the safe direction.
 
 ---
 
@@ -164,7 +164,7 @@ Stage 1.5 rejects a fix when `!hasSpeed && !hasBearing` (`LocationUtil.kt:218`).
 
 The first runs on initial draw, the second on the zoom-change path (`MapOverlayUtils.kt:464-492`), so arrow density visibly changes after the first pinch even when returning to the original zoom. Arrow half-length also differs (`±0.01 m` vs `±0.1 m`, lines 418-419 vs 546-547).
 
-**TrackIt fix.** One pure `Arrows.place(path, zoom, options): List<ArrowAnchor>` in `trackit-geo`, unit-tested, and it is the same function that produces the `arrows[]` array in the exported JSON. Renderers cannot diverge from the export because there is one implementation.
+**Traker fix.** One pure `Arrows.place(path, zoom, options): List<ArrowAnchor>` in `trackit-geo`, unit-tested, and it is the same function that produces the `arrows[]` array in the exported JSON. Renderers cannot diverge from the export because there is one implementation.
 
 ---
 
@@ -176,7 +176,7 @@ The first runs on initial draw, the second on the zoom-change path (`MapOverlayU
 
 Re-running the pipeline on the same list therefore produces different output the second time — snapped coordinates get re-snapped, node numbers get reassigned. It also makes `activityStatus` do double duty as both a captured field (`"gps@moving"`) and a render tag (`"snapped_to_road"`, `"raw_punch"`, `"rounded_curve"`).
 
-**TrackIt fix.** `trackit-geo` is pure: every stage takes `List<TrackPoint>` and returns a new list. Render tags live in a separate `RenderTag` enum on the output type, never on the stored point.
+**Traker fix.** `trackit-geo` is pure: every stage takes `List<TrackPoint>` and returns a new list. Render tags live in a separate `RenderTag` enum on the output type, never on the stored point.
 
 ---
 
@@ -191,7 +191,7 @@ if (startIndex == -1 || endIndex == -1 || startIndex >= endIndex) return emptyLi
 
 `start`/`end` come from `findClosestOnPath`, which returns an element of `path`, so `indexOf` usually succeeds — but `LatLng.equals` is value equality on doubles, and a road geometry that revisits a coordinate (roundabout, out-and-back spur) returns the **first** match, so the sub-path can be empty or reversed. Cost is O(n) per lookup inside an O(n) loop over raw points, i.e. O(n²) per chunk on top of the O(n²) already in `findClosestOnPath`.
 
-**TrackIt fix.** `findClosestOnPath` returns `(index, point, distance)`; the sub-path is a plain `subList(i+1, j)`.
+**Traker fix.** `findClosestOnPath` returns `(index, point, distance)`; the sub-path is a plain `subList(i+1, j)`.
 
 ---
 
@@ -201,7 +201,7 @@ if (startIndex == -1 || endIndex == -1 || startIndex >= endIndex) return emptyLi
 
 If that intent never arrives — permission revoked between register and delivery, GMS unavailable, process killed before the broadcast — nothing cancels it and GMS keeps firing at maximum rate for the life of the app. The KDoc names the consequence: *"draining battery and flooding the receiver"*.
 
-**TrackIt fix.** Arm a 30 s watchdog alongside the snapshot request that cancels it unconditionally, plus cancel in `stop()` and in the service's `onDestroy`.
+**Traker fix.** Arm a 30 s watchdog alongside the snapshot request that cancels it unconditionally, plus cancel in `stop()` and in the service's `onDestroy`.
 
 ---
 
@@ -218,7 +218,7 @@ private fun triggerImmediateLocationCapture() {
 
 The `running` guard makes this *usually* safe, because starting an already-foreground service is allowed. But `running` is a plain `var` on a companion object set in `onStartCommand` and cleared in `onDestroy` (`AttendanceLoggerService.kt:1031, 1009`) — between the OS killing the service and `onDestroy` running, `running` is stale `true`, and `startForegroundService` from a background broadcast then throws `ForegroundServiceStartNotAllowedException`. There is no try/catch at this call site.
 
-**TrackIt fix.** Force-capture is delivered over an in-process `MutableSharedFlow` that the running service collects. No `Intent`, no FGS start, nothing to throw. If the service is not running there is simply no collector.
+**Traker fix.** Force-capture is delivered over an in-process `MutableSharedFlow` that the running service collects. No `Intent`, no FGS start, nothing to throw. If the service is not running there is simply no collector.
 
 ---
 
@@ -226,7 +226,7 @@ The `running` guard makes this *usually* safe, because starting an already-foreg
 
 `LocationService.onStartCommand` returns `START_STICKY_COMPATIBILITY` (`utility/location/service/LocationService.kt:63`), as do two branches of `AttendanceLoggerService` (`AttendanceLoggerService.kt:169, 177`). That mode restarts the service but **does not redeliver the Intent and does not guarantee `onStartCommand` is called** — so an action-dispatched service silently comes back in an unconfigured state.
 
-**TrackIt fix.** `START_STICKY` with a state machine that re-reads its intent from persisted config on a null-intent restart. `stopWithTask="false"` as in `AndroidManifest.xml:579`.
+**Traker fix.** `START_STICKY` with a state machine that re-reads its intent from persisted config on a null-intent restart. `stopWithTask="false"` as in `AndroidManifest.xml:579`.
 
 ---
 
@@ -242,7 +242,7 @@ if (!hasMoved) {
 
 Both branches return `false`. A stationary fix with materially better accuracy is always dropped. This function is not on the tracking path — it gates `LocationService` (meeting auto-attend, `LocationService.kt:88`) — but it is exported as a public utility and reads as if the accuracy branch does something.
 
-**TrackIt fix.** Not ported. Its job (pick the better of two fixes) belongs to the acceptance pipeline.
+**Traker fix.** Not ported. Its job (pick the better of two fixes) belongs to the acceptance pipeline.
 
 ---
 
@@ -260,7 +260,7 @@ Called in `onCreate` (`:119-122`); if false the service stops immediately. On An
 
 That is a defensible product decision for attendance. It is the wrong default for a general-purpose SDK.
 
-**TrackIt fix.** Three-tier degradation, surfaced as `ProviderState`:
+**Traker fix.** Three-tier degradation, surfaced as `ProviderState`:
 `FULL` (background granted) → continuous background tracking · `FOREGROUND_ONLY` → track while the app is visible, emit `Error(BACKGROUND_PERMISSION_MISSING)`, auto-resume on grant · `NONE` → refuse `start()` with a typed error.
 
 ---
@@ -269,7 +269,7 @@ That is a defensible product decision for attendance. It is the wrong default fo
 
 `Location.isMock` (API 31+) / `isFromMockProvider` is never consulted in the capture path. The spec's own §13.9 lists this as a "recommended addition". For an SDK sold on data integrity it is table stakes.
 
-**TrackIt fix.** `mockLocationPolicy = FLAG | REJECT | ALLOW`, default `FLAG`; the flag is persisted on the point and exported in the JSON.
+**Traker fix.** `mockLocationPolicy = FLAG | REJECT | ALLOW`, default `FLAG`; the flag is persisted on the point and exported in the JSON.
 
 ---
 
@@ -292,21 +292,21 @@ The stage is described as the last line of defence against stationary drift, and
 
 Worth being precise about where the damage happens: the capture pipeline stored all 28 points correctly. This is a plotting-plane defect, and it is invisible from the capture logs — which is why it survived a full field diagnosis that had already fixed five real capture bugs.
 
-**TrackIt fix.** A moving point (`speedMps ≥ 1.0 m/s`, or `movementStatus == MOVING`) never joins a dwell, and the radius is measured from the group's **first** point rather than a mean that chases it. The centroid is still the mean and still reports the dwell's position — it no longer decides membership (EC-139).
+**Traker fix.** A moving point (`speedMps ≥ 1.0 m/s`, or `movementStatus == MOVING`) never joins a dwell, and the radius is measured from the group's **first** point rather than a mean that chases it. The centroid is still the mean and still reports the dwell's position — it no longer decides membership (EC-139).
 
-Related, same stage: §17 reads dwell off the group's own first and last points. That is honest only if sampling continued throughout, and the pipeline deliberately does the opposite — an hour parked can leave two fixes 30 s apart and report 30 s, so the stop is never plotted. TrackIt measures a dwell to the start of the next group; the recorded span is only the floor (EC-139a).
+Related, same stage: §17 reads dwell off the group's own first and last points. That is honest only if sampling continued throughout, and the pipeline deliberately does the opposite — an hour parked can leave two fixes 30 s apart and report 30 s, so the stop is never plotted. Traker measures a dwell to the start of the next group; the recorded span is only the floor (EC-139a).
 
 ---
 
 ## A20 — GAP: nothing recognises a stop that was recorded as silence rather than as points
 
-Not a defect in the reference so much as a hole between two of its stages, and the hole only opens because TrackIt's capture side is more aggressive than the reference's.
+Not a defect in the reference so much as a hole between two of its stages, and the hole only opens because Traker's capture side is more aggressive than the reference's.
 
 Once a device settles, the acceptance gates reject almost everything. A stop therefore leaves no cluster for §19 to classify — it leaves a *hole* between two fixes that both belong to the drive. Net displacement across that hole clears the 100 m travel threshold easily, so the span reads as travel however it is classified as a whole, and the plotted line runs through the car park at an average speed nobody drove.
 
 §18's **gap-stop protection** looks like the answer and is not. It asks whether a silence should stop a node cluster from ending, and its answer *suppresses a boundary*; it never creates a stop segment. It also requires ten minutes (`GAP_STOP_SEC`), and on the capture that motivated this the stop was six.
 
-**TrackIt fix.** `Clusters.build` splits a span at a **dwell gap**: `Δt ≥ 180 s` **and** implied speed `≤ 35 m/min`. Implied speed rather than a radius, because the first fix good enough to catch a departure is rarely the one at the kerb — 158 m out on the capture — while 158 m in 363 s is 0.44 m/s whatever the geometry. A genuine blackout at 8 m/s stays travel and A-side carry-forward (EC-99) still owns it (EC-140).
+**Traker fix.** `Clusters.build` splits a span at a **dwell gap**: `Δt ≥ 180 s` **and** implied speed `≤ 35 m/min`. Implied speed rather than a radius, because the first fix good enough to catch a departure is rarely the one at the kerb — 158 m out on the capture — while 158 m in 363 s is 0.44 m/s whatever the geometry. A genuine blackout at 8 m/s stays travel and A-side carry-forward (EC-99) still owns it (EC-140).
 
 The speed bar is **derived** from §18's `GAP_SPEED_M_PER_MIN`, not restated. Two constants that both mean "too slow to have been travelling" are one edit away from disagreeing and nothing in the build would notice. The durations differ on purpose: a timeline node has to earn its place and ten minutes is a fair price, but a six-minute stop still has to stop the line being drawn through it.
 

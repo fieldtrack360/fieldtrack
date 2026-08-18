@@ -27,13 +27,13 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "trackit"
+rootProject.name = "traker"
 
-include(":trackit-geo")
-include(":trackit-core")
-include(":trackit-maps")
-include(":trackit-sync")
-include(":trackit-snap")
+include(":fieldtrack-geo")
+include(":fieldtrack-core")
+include(":fieldtrack-maps")
+include(":fieldtrack-sync")
+include(":fieldtrack-snap")
 include(":fieldtrack")
 
 // Exclude sample app from JitPack builds to avoid dependency resolution issues

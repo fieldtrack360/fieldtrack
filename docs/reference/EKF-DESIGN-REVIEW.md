@@ -3,7 +3,7 @@
 Source: an externally authored SDK design document, shared for review.
 Reviewed 2026-07-30 against the production reference implementation and the field-verified spec in [capture-and-plotting-spec.md](capture-and-plotting-spec.md).
 
-**Overall:** structurally sound as a *project* document — module layout, testing tiers, docs plan, release process and privacy section are all reasonable and TrackIt keeps several of them. As an *engineering* design for background location on Android it is unsound: the core filter choice is wrong for the sampling rate, and the entire stationary-drift problem — the single hardest thing this domain has — is absent. A build following it would demo well and fail in the field.
+**Overall:** structurally sound as a *project* document — module layout, testing tiers, docs plan, release process and privacy section are all reasonable and Traker keeps several of them. As an *engineering* design for background location on Android it is unsound: the core filter choice is wrong for the sampling rate, and the entire stationary-drift problem — the single hardest thing this domain has — is absent. A build following it would demo well and fail in the field.
 
 Findings ordered by severity.
 
@@ -23,9 +23,9 @@ The production system uses a deliberately **scalar** Kalman filter — one varia
 
 If the goal is genuine turn geometry, the answer is more samples (adaptive cadence at speed) plus map-matching at render time — not a richer motion model over the same sparse data.
 
-> **Editorial note, added after implementation.** This section is left as written — it is a review of a third-party design and the argument against CTRV still holds. But TrackIt no longer ships the scalar filter this paragraph endorses, and the reasoning is worth separating:
+> **Editorial note, added after implementation.** This section is left as written — it is a review of a third-party design and the argument against CTRV still holds. But Traker no longer ships the scalar filter this paragraph endorses, and the reasoning is worth separating:
 >
-> - The objections above are to **CTRV specifically**: a turn-rate state `ψ̇` that is unobservable at 60 s, so the prediction curves in an invented direction. TrackIt now uses **constant velocity**, which carries no turn state and can only extrapolate a straight line. Neither objection transfers.
+> - The objections above are to **CTRV specifically**: a turn-rate state `ψ̇` that is unobservable at 60 s, so the prediction curves in an invented direction. Traker now uses **constant velocity**, which carries no turn state and can only extrapolate a straight line. Neither objection transfers.
 > - The premise moved. This was written against 60 s sampling; the prescription in the last line — *more samples at speed* — shipped as adaptive cadence and the turn-burst tier, and 12 s (4 s while turning) is what makes velocity observable.
 > - What this review did not anticipate is that the scalar filter has a defect of its own. With no term for a moving target it lags a fixed amount every fix; on a straight 40 km/h road that cost **one rejected fix in four**, each recovered by a forced reset that visibly jumped the track. See [API.md](../API.md) §4 and EC-44a.
 >
@@ -67,7 +67,7 @@ Two problems.
 - *forced reset* counts consecutive rejections and re-seeds after N;
 - *settle detection* counts stationary fixes to exit moving-mode.
 
-None can be written as `(Fix) -> ValidationResult`. The correct signature is `(fix, past, state) -> (verdict, newState)`, which is what TrackIt uses.
+None can be written as `(Fix) -> ValidationResult`. The correct signature is `(fix, past, state) -> (verdict, newState)`, which is what Traker uses.
 
 ### C4 — No network-positioning (NLP) rejection, and no speed/bearing validity handling
 
@@ -106,7 +106,7 @@ val startOnBoot: Boolean = false,
 val maxHorizontalAccuracy: Float = 50f,
 ```
 
-- `stopOnTerminate = true` + `startOnBoot = false` means tracking silently dies when the user swipes the app away or reboots — for an SDK whose purpose is background tracking, the defaults disable the product. In fairness both are inherited verbatim from the incumbent SDK, where they are a deliberate conservative choice its documentation tells you to flip; this document copies them without saying so. TrackIt inverts both and documents the inversion ([SDK-COMPARISON.md §4](../SDK-COMPARISON.md)). (`distanceFilterMeters = 0f` is correct, and notably the only default that is.)
+- `stopOnTerminate = true` + `startOnBoot = false` means tracking silently dies when the user swipes the app away or reboots — for an SDK whose purpose is background tracking, the defaults disable the product. In fairness both are inherited verbatim from the incumbent SDK, where they are a deliberate conservative choice its documentation tells you to flip; this document copies them without saying so. Traker inverts both and documents the inversion ([SDK-COMPARISON.md §4](../SDK-COMPARISON.md)). (`distanceFilterMeters = 0f` is correct, and notably the only default that is.)
 - A flat 50 m accuracy ceiling is wrong in both directions: too loose for a stationary user (the reference uses 40 m) and too tight while driving (85 m, because fast legitimate displacement needs headroom). Accuracy ceilings must vary by motion state.
 
 ### S3 — Activity Recognition used as a validation gate
@@ -134,7 +134,7 @@ It is also unrecoverable: you cannot re-run an improved filter over historical d
 
 These contradict. Hilt is an annotation processor plus a Gradle plugin plus a runtime; forcing it on every consumer is exactly the version-conflict problem the other bullet is trying to avoid. An SDK should use constructor injection and a single manual composition root, with zero DI framework in its public surface.
 
-> **Superseded for TrackIt (2026-07-31).** This finding was overruled by an explicit product decision: TrackIt uses Hilt *inside* `trackit-core`, not only in the sample. The criticism above still stands on its merits — every consuming app now inherits the Hilt runtime, must apply the Hilt Gradle plugin, and must annotate its `Application` with `@HiltAndroidApp`, and an app on a different DI framework cannot consume the SDK without adopting Hilt. The trade was accepted for consistent constructor injection across the `domain`/`data`/`service` layering. Recorded in [PLAN.md](../PLAN.md) §0. The rest of S5 — keeping Retrofit and any HTTP client out of core — is unchanged and still enforced: `trackit-core` never touches the network.
+> **Superseded for Traker (2026-07-31).** This finding was overruled by an explicit product decision: Traker uses Hilt *inside* `trackit-core`, not only in the sample. The criticism above still stands on its merits — every consuming app now inherits the Hilt runtime, must apply the Hilt Gradle plugin, and must annotate its `Application` with `@HiltAndroidApp`, and an app on a different DI framework cannot consume the SDK without adopting Hilt. The trade was accepted for consistent constructor injection across the `domain`/`data`/`service` layering. Recorded in [PLAN.md](../PLAN.md) §0. The rest of S5 — keeping Retrofit and any HTTP client out of core — is unchanged and still enforced: `trackit-core` never touches the network.
 
 Similarly `RouteSnapshotApi` pulls Retrofit + OkHttp + a converter into every consumer for a feature many will not use. That belongs in an optional artifact.
 
@@ -171,16 +171,16 @@ That produces straight lines cutting every corner, no stop consolidation (a 2-ho
 | M7 | *"Foreground `LocationTrackingService` (not WorkManager)"* is right, but there is no mention of `ForegroundServiceStartNotAllowedException` (API 31+), the API 34 `SecurityException` for location-typed FGS, `foregroundServiceType`, `POST_NOTIFICATIONS`, or the two-stage background-permission ladder. These are where background-location SDKs actually break. |
 | M8 | No `elapsedRealtimeNanos`. `fixFreshnessMs = 10_000` implies comparing wall-clock timestamps, which is wrong on clock changes and on batched delivery. |
 | M9 | No mention of `LocationResult.getLocations()` vs `lastLocation`, so batched fixes will be dropped — the same defect the reference implementation has ([A4](../SOURCE-AUDIT.md)). |
-| M10 | Privacy section is good and TrackIt adopts its spirit (no transmission without opt-in; the SDK is offline-first by default). "Geofenced private zones" is a genuinely good idea worth adding to the roadmap. |
+| M10 | Privacy section is good and Traker adopts its spirit (no transmission without opt-in; the SDK is offline-first by default). "Geofenced private zones" is a genuinely good idea worth adding to the roadmap. |
 
 ---
 
-## What TrackIt takes from it
+## What Traker takes from it
 
 Not everything here is wrong, and some of it is better organised than the reference:
 
 - **Session as a first-class entity** (`LocationSessionEntity`, `sessionId` on every point) — adopted.
-- **`FixValidator` with a `Reject(reason)` type** — the *reason* idea is right and matches the reference's reason vocabulary. TrackIt keeps the typed verdict, drops the stateless-list structure (C3).
+- **`FixValidator` with a `Reject(reason)` type** — the *reason* idea is right and matches the reference's reason vocabulary. Traker keeps the typed verdict, drops the stateless-list structure (C3).
 - **Testing tiers** (unit / integration / device, in-memory Room, MockWebServer, manufacturer-specific battery tests) — adopted almost verbatim, plus fixture replay.
 - **Docs plan** (KDoc + Dokka to GitHub Pages, developer guide, compelling example app) — adopted.
 - **Semantic versioning + automated publication** — adopted, private-registry variant.
