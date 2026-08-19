@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker.sync"
+    namespace = "com.field360.traker.sync"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 

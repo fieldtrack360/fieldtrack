@@ -9,12 +9,12 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
--keep public class com.devstree.traker.maps.ArrowIcons { public protected *; }
--keep public class com.devstree.traker.maps.TrackRenderer { public protected *; }
--keep public class com.devstree.traker.maps.TrackRenderer$RendererOptions { public protected *; }
--keep public class com.devstree.traker.maps.LiveTrackRenderer { public protected *; }
--keep public class com.devstree.traker.maps.LiveTrackRenderer$Options { public protected *; }
--keep public class com.devstree.traker.maps.LiveTrackRenderer$CameraFollowMode { public protected *; }
+-keep public class com.field360.traker.maps.ArrowIcons { public protected *; }
+-keep public class com.field360.traker.maps.TrackRenderer { public protected *; }
+-keep public class com.field360.traker.maps.TrackRenderer$RendererOptions { public protected *; }
+-keep public class com.field360.traker.maps.LiveTrackRenderer { public protected *; }
+-keep public class com.field360.traker.maps.LiveTrackRenderer$Options { public protected *; }
+-keep public class com.field360.traker.maps.LiveTrackRenderer$CameraFollowMode { public protected *; }
 
 -assumenosideeffects class android.util.Log {
     public static int v(...);

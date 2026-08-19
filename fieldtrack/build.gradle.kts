@@ -9,7 +9,7 @@ plugins {
 // listing every module. Every dependency below is `api` on purpose — the entire point
 // is to re-export them to the consumer's compile classpath.
 android {
-    namespace = "com.devstree.fieldtrack"
+    namespace = "com.field360.fieldtrack"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 

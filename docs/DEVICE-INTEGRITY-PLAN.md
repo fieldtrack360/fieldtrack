@@ -27,7 +27,7 @@ Six checks requested:
 
 Rule that governs all of them: **enforcement only in release. A debuggable host app is
 fully waived.** This mirrors `LicenseEnvironment.isWaived()` in
-`fieldtrack-core/src/main/kotlin/com/devstree/traker/license/LicenseGate.kt:44`, which
+`fieldtrack-core/src/main/kotlin/com/field360/tracker/license/LicenseGate.kt:44`, which
 already waives licensing when `ApplicationInfo.FLAG_DEBUGGABLE` is set. The integrity
 layer reuses that exact predicate, so there is one definition of "debug" in the SDK.
 
@@ -50,12 +50,12 @@ layer reuses that exact predicate, so there is one definition of "debug" in the 
 
 ## 2. Architecture
 
-New package `com.devstree.traker.integrity` inside `fieldtrack-core`. No new runtime
+New package `com.field360.tracker.integrity` inside `fieldtrack-core`. No new runtime
 module — the layer must be able to gate `ready()`/`start()`, and a gate that a host can
 choose not to depend on is not a gate.
 
 ```
-fieldtrack-core/src/main/kotlin/com/devstree/traker/integrity/
+fieldtrack-core/src/main/kotlin/com/field360/tracker/integrity/
 ├── IntegrityModels.kt      // public: IntegritySignal, IntegrityFinding, IntegrityReport, IntegrityPolicy
 ├── IntegrityProbe.kt       // internal port: fun probe(): IntegrityFinding?   (one per check)
 ├── IntegrityEvaluator.kt   // internal: runs probes, applies policy, produces IntegrityReport
@@ -296,7 +296,7 @@ Current schema version is 6 (`data/db/TrackerDatabase.kt:21`, `fieldtrack-core/s
 - Bump `@Database(version = 7)`, add an explicit `Migration(6, 7)` — the file already
   states destructive migration is never used (`TrackerDatabase.kt:22-25`), so this is
   mandatory, not optional.
-- Export `7.json` into `fieldtrack-core/schemas/com.devstree.traker.data.db.TrackerDatabase/`
+- Export `7.json` into `fieldtrack-core/schemas/com.field360.tracker.data.db.TrackerDatabase/`
   and commit it.
 - Map through `Mappers.kt` and expose on the public `TrackPoint` (`fieldtrack-geo`
   `model/TrackPoint.kt`) as `val integrityFlags: Int = 0` — defaulted, so it is a

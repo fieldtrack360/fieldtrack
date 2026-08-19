@@ -38,33 +38,33 @@
 
 # Root API types are listed explicitly so generated BuildConfig, logging helpers,
 # serializers and enum switch tables are not accidentally treated as host API.
--keep public class com.devstree.traker.AccuracyConfig { public protected *; }
--keep public class com.devstree.traker.AccuracyConfig$Companion { public protected *; }
--keep public class com.devstree.traker.AccuracyProfile { public protected *; }
--keep public class com.devstree.traker.DesiredAccuracy { public protected *; }
--keep public class com.devstree.traker.GeolocationConfig { public protected *; }
--keep public class com.devstree.traker.GeolocationConfig$Companion { public protected *; }
--keep public class com.devstree.traker.LocationProviderType { public protected *; }
--keep public class com.devstree.traker.MotionConfig { public protected *; }
--keep public class com.devstree.traker.MotionConfig$Companion { public protected *; }
--keep public class com.devstree.traker.PersistenceConfig { public protected *; }
--keep public class com.devstree.traker.PersistenceConfig$Companion { public protected *; }
--keep public class com.devstree.traker.RawFix { public protected *; }
--keep public class com.devstree.traker.RawPoint { public protected *; }
--keep public class com.devstree.traker.SensorConfig { public protected *; }
--keep public class com.devstree.traker.SensorConfig$Companion { public protected *; }
--keep public class com.devstree.traker.ServiceConfig { public protected *; }
--keep public class com.devstree.traker.ServiceConfig$Companion { public protected *; }
--keep public class com.devstree.traker.Tracker { public protected *; }
--keep public class com.devstree.traker.Tracker$Companion { public protected *; }
--keep public class com.devstree.traker.TrackerArtifacts { public protected *; }
--keep public class com.devstree.traker.TrackerArtifacts$Companion { public protected *; }
--keep public class com.devstree.traker.TrackerConfig { public protected *; }
--keep public class com.devstree.traker.TrackerConfig$Builder { public protected *; }
--keep public class com.devstree.traker.TrackerConfig$Companion { public protected *; }
--keep public class com.devstree.traker.TrackingMode { public protected *; }
--keep public class com.devstree.traker.SecurityConfig { public protected *; }
--keep public class com.devstree.traker.SecurityConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.AccuracyConfig { public protected *; }
+-keep public class com.field360.tracker.AccuracyConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.AccuracyProfile { public protected *; }
+-keep public class com.field360.tracker.DesiredAccuracy { public protected *; }
+-keep public class com.field360.tracker.GeolocationConfig { public protected *; }
+-keep public class com.field360.tracker.GeolocationConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.LocationProviderType { public protected *; }
+-keep public class com.field360.tracker.MotionConfig { public protected *; }
+-keep public class com.field360.tracker.MotionConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.PersistenceConfig { public protected *; }
+-keep public class com.field360.tracker.PersistenceConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.RawFix { public protected *; }
+-keep public class com.field360.tracker.RawPoint { public protected *; }
+-keep public class com.field360.tracker.SensorConfig { public protected *; }
+-keep public class com.field360.tracker.SensorConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.ServiceConfig { public protected *; }
+-keep public class com.field360.tracker.ServiceConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.Tracker { public protected *; }
+-keep public class com.field360.tracker.Tracker$Companion { public protected *; }
+-keep public class com.field360.tracker.TrackerArtifacts { public protected *; }
+-keep public class com.field360.tracker.TrackerArtifacts$Companion { public protected *; }
+-keep public class com.field360.tracker.TrackerConfig { public protected *; }
+-keep public class com.field360.tracker.TrackerConfig$Builder { public protected *; }
+-keep public class com.field360.tracker.TrackerConfig$Companion { public protected *; }
+-keep public class com.field360.tracker.TrackingMode { public protected *; }
+-keep public class com.field360.tracker.SecurityConfig { public protected *; }
+-keep public class com.field360.tracker.SecurityConfig$Companion { public protected *; }
 
 # The device-integrity model, and ONLY the model. The probes, the evaluator and the
 # monitor are internal and stay renamed and repackaged — an anti-tamper layer whose class
@@ -73,49 +73,49 @@
 # Those internals live in `integrity.internal`, not in this package, and must stay there:
 # R8 renames but refuses to REPACKAGE a class that shares a package with a pinned class
 # and is reachable from a pinned member's signature (Tracker's constructor takes the
-# monitor). The result was `com/devstree/traker/integrity/a.class` shipping in the API
+# monitor). The result was `com/field360/tracker/integrity/a.class` shipping in the API
 # package, which verifyReleaseObfuscation rejects.
--keep public class com.devstree.traker.integrity.IntegritySignal { public protected *; }
--keep public class com.devstree.traker.integrity.IntegrityPolicy { public protected *; }
--keep public class com.devstree.traker.integrity.IntegrityFinding { public protected *; }
--keep public class com.devstree.traker.integrity.IntegrityFinding$Companion { public protected *; }
--keep public class com.devstree.traker.integrity.IntegrityReport { public protected *; }
--keep public class com.devstree.traker.integrity.IntegrityReport$Companion { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegritySignal { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegrityPolicy { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegrityFinding { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegrityFinding$Companion { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegrityReport { public protected *; }
+-keep public class com.field360.tracker.integrity.IntegrityReport$Companion { public protected *; }
 
 # The model and repository seams hosts and siblings consume. Generated serializers are
 # deliberately omitted: companion serializer() methods remain stable, implementations
 # are renamed and repackaged.
--keep public class com.devstree.traker.domain.model.ErrorCode { public protected *; }
--keep public class com.devstree.traker.domain.model.GeofenceTransition { public protected *; }
--keep public class com.devstree.traker.domain.model.LocationAccuracy { public protected *; }
--keep public class com.devstree.traker.domain.model.PermissionTier { public protected *; }
--keep public class com.devstree.traker.domain.model.PointQuery { public protected *; }
--keep public class com.devstree.traker.domain.model.PointQuery$Companion { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerGeofence { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerGeofence$Companion { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerGeofenceEvent { public protected *; }
--keep public class com.devstree.traker.domain.model.ProviderState { public protected *; }
--keep public class com.devstree.traker.domain.model.BatteryInfo { public protected *; }
--keep public class com.devstree.traker.domain.model.BatteryInfo$Companion { public protected *; }
--keep public class com.devstree.traker.domain.model.PowerSource { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerEvent { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerEvent$* { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerResult { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerResult$* { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackerState { public protected *; }
--keep public class com.devstree.traker.domain.model.TrackSession { public protected *; }
--keep public class com.devstree.traker.domain.repository.** { public protected *; }
+-keep public class com.field360.tracker.domain.model.ErrorCode { public protected *; }
+-keep public class com.field360.tracker.domain.model.GeofenceTransition { public protected *; }
+-keep public class com.field360.tracker.domain.model.LocationAccuracy { public protected *; }
+-keep public class com.field360.tracker.domain.model.PermissionTier { public protected *; }
+-keep public class com.field360.tracker.domain.model.PointQuery { public protected *; }
+-keep public class com.field360.tracker.domain.model.PointQuery$Companion { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerGeofence { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerGeofence$Companion { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerGeofenceEvent { public protected *; }
+-keep public class com.field360.tracker.domain.model.ProviderState { public protected *; }
+-keep public class com.field360.tracker.domain.model.BatteryInfo { public protected *; }
+-keep public class com.field360.tracker.domain.model.BatteryInfo$Companion { public protected *; }
+-keep public class com.field360.tracker.domain.model.PowerSource { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerEvent { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerEvent$* { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerResult { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerResult$* { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackerState { public protected *; }
+-keep public class com.field360.tracker.domain.model.TrackSession { public protected *; }
+-keep public class com.field360.tracker.domain.repository.** { public protected *; }
 
 # The permission ladder — PermissionManager and its nested BackgroundRequest hierarchy.
 # The package also holds the internal ProviderStateMonitor, which is why this is a class
 # glob and not a package glob.
--keep public class com.devstree.traker.permission.PermissionManager { public protected *; }
--keep public class com.devstree.traker.permission.PermissionManager$* { public protected *; }
+-keep public class com.field360.tracker.permission.PermissionManager { public protected *; }
+-keep public class com.field360.tracker.permission.PermissionManager$* { public protected *; }
 
 # The two motion types on the public surface. Everything else in the package —
 # controllers, wake sources, the sensor probe — is wiring.
--keep public class com.devstree.traker.motion.DeviceSensors { public protected *; }
--keep public class com.devstree.traker.motion.MotionQuality { public protected *; }
+-keep public class com.field360.tracker.motion.DeviceSensors { public protected *; }
+-keep public class com.field360.tracker.motion.MotionQuality { public protected *; }
 
 # ── reflective entry points ─────────────────────────────────────────────────
 #
@@ -123,10 +123,10 @@
 # rules above decided. AGP derives some of these from the manifest; they are restated
 # here so this file is correct on its own rather than correct because of a tool
 # behaviour nobody remembers.
--keep class com.devstree.traker.service.TrackingService { <init>(); }
--keep class com.devstree.traker.service.BootReceiver { <init>(); }
--keep class com.devstree.traker.motion.ActivityTransitionReceiver { <init>(); }
--keep class com.devstree.traker.motion.StationaryFenceReceiver { <init>(); }
+-keep class com.field360.tracker.service.TrackingService { <init>(); }
+-keep class com.field360.tracker.service.BootReceiver { <init>(); }
+-keep class com.field360.tracker.motion.ActivityTransitionReceiver { <init>(); }
+-keep class com.field360.tracker.motion.StationaryFenceReceiver { <init>(); }
 
 # WorkManager's default factory instantiates workers reflectively by class name
 # (BackstopWorker, RestoreWorker, PruneWorker). The dependency ships an equivalent
@@ -157,7 +157,7 @@
 # Most SDK logging goes through the TrackLogger port rather than android.util.Log
 # directly. Mark both methods side-effect-free so R8 also removes the string construction
 # feeding those calls. The sample still receives structured TrackerEvent diagnostics.
--assumenosideeffects class com.devstree.traker.geo.port.TrackLogger {
+-assumenosideeffects class com.field360.traker.geo.port.TrackLogger {
     public void d(java.lang.String, java.lang.String);
     public void w(java.lang.String, java.lang.String);
 }

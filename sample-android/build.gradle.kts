@@ -42,30 +42,30 @@ val osrmBaseUrl: String = localProperties.getProperty("OSRM_BASE_URL", "")
 
 /**
  * Optional Tracker release license token, from `local.properties` — e.g.
- * `TRACKIT_LICENSE=TRACKIT-...`.
+ * `TRACKER_LICENSE=TRACKIT-...`.
  *
  * Blank is a valid development state because debuggable installs are waived by the SDK.
  * Release builds still need a token, whether that comes from this field or from the
  * `TrackItLicense` manifest meta-data entry.
  */
-val trackItLicense: String = localProperties.getProperty("TRACKIT_LICENSE", "")
+val trackerLicense: String = localProperties.getProperty("TRACKER_LICENSE", "")
 
 android {
-    namespace = "com.devstree.fieldtrack.sample"
+    namespace = "com.field360.fieldtrack.sample"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.devstree.fieldtrack.sample"
+        applicationId = "com.field360.fieldtrack.sample"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 1
         versionName = "0.1.1-alpha01"
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
-        manifestPlaceholders["TRACKIT_LICENSE"] = trackItLicense
+        manifestPlaceholders["TRACKER_LICENSE"] = trackerLicense
         buildConfigField("String", "MAPS_API_KEY", "\"$mapsApiKey\"")
         buildConfigField("String", "OSRM_BASE_URL", "\"$osrmBaseUrl\"")
-        buildConfigField("String", "TRACKIT_LICENSE", "\"$trackItLicense\"")
+        buildConfigField("String", "TRACKER_LICENSE", "\"$trackerLicense\"")
     }
 
     buildFeatures {
@@ -112,6 +112,10 @@ kotlin {
 dependencies {
     // Linked as a project dependency for local development and JitPack builds.
     // Transitive dependencies are resolved via the sub-project's definitions.
+    //
+    // The published artifact (`libs.fieldtrack`) is deliberately not used here: it still
+    // ships the pre-rename `com.devstree.traker` namespace, so the sample cannot compile
+    // against it until a tag carrying `com.field360.*` is published.
     implementation(project(":fieldtrack"))
 
 
@@ -119,7 +123,6 @@ dependencies {
     // provider supplies the client — that is the artifact's whole bargain: no host
     // inherits an HTTP stack it did not ask for.
     implementation(libs.okhttp)
-
 
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.material3)

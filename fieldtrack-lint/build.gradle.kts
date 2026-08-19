@@ -41,6 +41,6 @@ tasks.jar {
     manifest {
         // How lint finds the registry inside the jar. Without it the checks are packaged
         // and silently never run — the failure mode this attribute exists to prevent.
-        attributes("Lint-Registry-v2" to "com.devstree.traker.lint.FieldTrackIssueRegistry")
+        attributes("Lint-Registry-v2" to "com.field360.traker.lint.FieldTrackIssueRegistry")
     }
 }

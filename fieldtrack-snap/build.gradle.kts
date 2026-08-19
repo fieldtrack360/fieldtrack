@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker.snap"
+    namespace = "com.field360.traker.snap"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 

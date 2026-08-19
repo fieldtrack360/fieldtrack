@@ -2,7 +2,7 @@
 #
 # Nothing. The previous rule here was:
 #
-#     -keep class com.devstree.traker.sync.** { *; }
+#     -keep class com.field360.traker.sync.** { *; }
 #
 # which kept every class and every member in the module, including `SyncQueue`'s internals
 # and the OkHttp transport a host may not even be using. It was written for

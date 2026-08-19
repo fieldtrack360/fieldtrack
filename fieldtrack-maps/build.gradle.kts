@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker.maps"
+    namespace = "com.field360.traker.maps"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 

@@ -2,7 +2,7 @@
 #
 # These are *consumer* rules: they are merged into the host's R8 configuration, so every
 # line here constrains somebody else's build. That is the reason this file is short and
-# specific rather than a `-keep class com.devstree.traker.** { *; }`. A blanket keep on
+# specific rather than a `-keep class com.field360.tracker.** { *; }`. A blanket keep on
 # an SDK this size would add several hundred KB to every host's APK to protect against a
 # handful of reflective lookups, and it would hide the next one rather than document it.
 #
@@ -44,7 +44,7 @@
 #
 # `<fields>` is what preserves the constant names; `values()`/`valueOf()` keep the
 # accessors a host may call on a name it persisted itself.
--keepclassmembers,allowoptimization enum com.devstree.traker.** {
+-keepclassmembers,allowoptimization enum com.field360.tracker.** {
     <fields>;
     public static **[] values();
     public static ** valueOf(java.lang.String);

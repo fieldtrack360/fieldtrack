@@ -10,7 +10,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application
-        android:name="com.devstree.fieldtrack.sample.SampleApplication"
+        android:name="com.field360.fieldtrack.sample.SampleApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -28,8 +28,8 @@
 
         <!-- Optional release license token for the SDK. Blank is fine in debug builds. -->
         <meta-data
-            android:name="TrackItLicense"
-            android:value="${TRACKIT_LICENSE}" />
+            android:name="TrackerLicense"
+            android:value="${TRACKER_LICENSE}" />
 
         <!-- Lets the capture log be shared to Drive/mail/adb-less laptops. Read-only,
              not exported, and scoped to the external files dir only. -->
@@ -44,7 +44,7 @@
         </provider>
 
         <activity
-            android:name="com.devstree.fieldtrack.sample.MainActivity"
+            android:name="com.field360.fieldtrack.sample.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

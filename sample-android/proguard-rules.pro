@@ -4,7 +4,7 @@
 # `isMinifyEnabled = false`, which meant every `consumer-rules.pro` in this repository was
 # shipped to hosts having never once been executed. Rules that are never exercised are
 # guesses, and the guesses were wrong: the core rules kept a package that does not exist
-# (`com.devstree.fieldtrack.db`, actual name `data.db`), and nothing anywhere preserved the
+# (`com.field360.fieldtrack.db`, actual name `data.db`), and nothing anywhere preserved the
 # enum constant names that stored points are read back by.
 #
 # So this app is the SDK's R8 test. `./gradlew :sample-android:assembleRelease` runs the
@@ -25,4 +25,4 @@
 
 # The sample writes a plain-text capture log that is pulled off the device and read by a
 # person hours later. Its `BuildConfig` fields are read into that file's header.
--keep class com.devstree.fieldtrack.sample.BuildConfig { *; }
+-keep class com.field360.fieldtrack.sample.BuildConfig { *; }

@@ -2,7 +2,7 @@
 
 Concrete code for every public surface and every load-bearing internal. This is the contract Kotlin and Java host apps consume.
 
-Namespace `com.devstree.traker` (Maven group `com.github.fieldtrack360.fieldtrack`). Toolchain matched to the reference app: AGP 9.3.1, Kotlin 2.4.10, Gradle 9.7.0, `compileSdk 37`, `minSdk 26`, JVM target 17.
+Namespace `com.field360.tracker` (Maven group `com.github.fieldtrack360.fieldtrack`). Toolchain matched to the reference app: AGP 9.3.1, Kotlin 2.4.10, Gradle 9.7.0, `compileSdk 37`, `minSdk 26`, JVM target 17.
 
 ---
 
@@ -37,7 +37,7 @@ Consequence: a behaviour change is a one-file change in `fieldtrack-geo`, proven
 ## 2. Core types (`fieldtrack-geo`)
 
 ```kotlin
-package com.devstree.traker.geo.model
+package com.field360.traker.geo.model
 
 /** A raw sample handed to the pipeline. Platform-agnostic; produced by FixMapper. */
 data class TrackFix(
@@ -176,7 +176,7 @@ Heuristic Gate · Session Closed · Mock Location · Invalid Coordinates · Stal
 ## 3. Ports — what `fieldtrack-geo` needs from the platform
 
 ```kotlin
-package com.devstree.traker.geo.port
+package com.field360.traker.geo.port
 
 interface PointStore {
     suspend fun lastPoint(sessionId: String): TrackPoint?
@@ -254,7 +254,7 @@ So the process noise is raised to a lateral **2.0 m/s²** while the model is pro
 Two things it deliberately does not do. It does not fire when either the filter's speed or the measured speed is below `turnBurstMinSpeed` — a near-stationary phone's heading swings through the full circle on multipath alone, and boosting there would widen the correction on exactly the fixes the six stationary defences exist to suppress. And **it never reaches the gate**, which keeps the straight-line `q`: a corner is a reason to track harder, not an amnesty for fixes that would otherwise be rejected, and a turn is where multipath off the buildings on the inside of it is worst. One value driving both would have made every corner a quiet exception (EC-45a).
 
 ```kotlin
-package com.devstree.traker.geo.filter
+package com.field360.traker.geo.filter
 
 object KalmanFilter {
     const val MIN_ACCURACY = 1f
@@ -298,7 +298,7 @@ The off-diagonal `dt²/2` term is the mechanism by which a *position* correction
 Signature and stage order. The stage bodies port `LocationUtil.isKalmanFilteredLocation` (`LocationUtil.kt:172-669`) verbatim; **the order is load-bearing and must not change** — burst before anything mutates the last-fix clock, NLP before state determination (an NLP fix has no speed and would masquerade as stationary), recovery before the sigma gate (a post-gap fix would otherwise burn the reject counter).
 
 ```kotlin
-package com.devstree.traker.geo.filter
+package com.field360.traker.geo.filter
 
 class AcceptancePipeline(private val c: TrackerConstants = TrackerConstants.Default) {
 
@@ -407,7 +407,7 @@ data class TrackerConstants(
 Fixes [A3](SOURCE-AUDIT.md), [A5](SOURCE-AUDIT.md), [A6](SOURCE-AUDIT.md) and EC-52 in one place.
 
 ```kotlin
-package com.devstree.traker.core.capture
+package com.field360.tracker.core.capture
 
 internal class FixIngestor(
     private val store: PointStore,
@@ -463,7 +463,7 @@ internal class FixIngestor(
 ## 7. Location sources — batching, staleness, fallback
 
 ```kotlin
-package com.devstree.traker.core.provider
+package com.field360.tracker.core.provider
 
 internal object LocationRequests {
     fun stream(cfg: GeolocationConfig, vehicular: Boolean): LocationRequest =
@@ -694,7 +694,7 @@ data class FilterStateEntity(
 ## 10. Public API
 
 ```kotlin
-package com.devstree.traker
+package com.field360.tracker
 
 object Tracker {
     fun init(app: Application)
@@ -1215,7 +1215,7 @@ Wire format, spacing rules and the GeoJSON mapping are specified in [POLYLINE-JS
 <!-- <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" /> -->
 
 <service
-    android:name="com.devstree.traker.core.service.TrackingService"
+    android:name="com.field360.tracker.core.service.TrackingService"
     android:exported="false"
     android:foregroundServiceType="location"
     android:permission="android.permission.FOREGROUND_SERVICE_LOCATION"

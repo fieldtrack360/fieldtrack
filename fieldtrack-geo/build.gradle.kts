@@ -10,7 +10,7 @@ plugins {
  * pure Kotlin; Android library packaging is used so R8 can protect the published code.
  */
 android {
-    namespace = "com.devstree.traker.geo"
+    namespace = "com.field360.traker.geo"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {

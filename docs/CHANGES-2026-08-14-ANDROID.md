@@ -13,7 +13,7 @@ Important context:
 
 ## 1. Licensing gate
 
-New target area: `fieldtrack-core/src/main/kotlin/com/devstree/traker/license/`.
+New target area: `fieldtrack-core/src/main/kotlin/com/field360/tracker/license/`.
 
 ### New types
 
@@ -61,7 +61,7 @@ New target area: `fieldtrack-core/src/main/kotlin/com/devstree/traker/license/`.
 
 ### Tests
 
-- `fieldtrack-core/src/test/kotlin/com/devstree/traker/license/LicenseTokenTest.kt`
+- `fieldtrack-core/src/test/kotlin/com/field360/tracker/license/LicenseTokenTest.kt`
   - confirms `TrackerConfig.license` is not persisted
   - checks the token shape parser
   - checks version rejection

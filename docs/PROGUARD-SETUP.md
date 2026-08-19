@@ -8,8 +8,8 @@ Tracker publishes minified release AARs so an app receives a usable SDK API with
 
 | Module | Published form | Stable integration package | Obfuscated implementation package |
 |---|---|---|---|
-| `fieldtrack-geo` | R8-minified AAR | `com.devstree.traker.geo.*` for supported types | `tr.dev.geo` |
-| `fieldtrack-core` | R8-minified AAR | `com.devstree.traker.*` supported API | `tr.dev.core` |
+| `fieldtrack-geo` | R8-minified AAR | `com.field360.traker.geo.*` for supported types | `tr.dev.geo` |
+| `fieldtrack-core` | R8-minified AAR | `com.field360.tracker.*` supported API | `tr.dev.core` |
 | `fieldtrack-maps` | R8-minified AAR | Three renderer entry points and option types | Private methods obfuscated; all helper classes optimized away |
 | `fieldtrack-snap` | R8-minified AAR | `OsrmSnapProvider` | `tr.dev.snap` |
 | `fieldtrack-sync` | R8-minified AAR | Sync configuration, transport, queue, and facade types | `tr.dev.sync` |
@@ -24,7 +24,7 @@ Each code-bearing module has two distinct rule files:
 - `proguard-rules.pro` runs while Tracker builds its own release AAR. It protects the supported API, preserves reflection entry points, strips logs, and repackages implementation.
 - `consumer-rules.pro` is embedded in the AAR and merged into a consuming application's R8 pass. It must contain only rules required for runtime correctness in the host.
 
-Do not put broad rules such as `-keep class com.devstree.traker.** { *; }` in consumer rules. That would disable shrinking and obfuscation for the complete SDK inside every host app.
+Do not put broad rules such as `-keep class com.field360.tracker.** { *; }` in consumer rules. That would disable shrinking and obfuscation for the complete SDK inside every host app.
 
 ## Stable API Policy
 
@@ -40,7 +40,7 @@ Everything else may be optimized, shortened, repackaged, or removed. When adding
 Some names must remain visible for runtime loading. In core these include manifest components, `ListenableWorker` subclasses, `TrackerDatabase`, and `TrackerDatabase_Impl`. Hiding those names without also rewriting the host's merged manifest or reflective lookup would break the SDK.
 
 If you inspect the release AAR in an IDE, you will still see the kept API and framework seams
-under `com.devstree.traker.*`. That is expected. The obfuscated implementation classes and
+under `com.field360.tracker.*`. That is expected. The obfuscated implementation classes and
 helper methods are repackaged under `tr.dev.core`, and the release mapping is what retraces
 them back to source names.
 
@@ -57,7 +57,7 @@ Kotlin serialization generates descriptors containing wire keys. R8 may rename a
 
 ## Device Integrity Types
 
-The `com.devstree.traker.integrity` package is kept **selectively**: the model a host reads
+The `com.field360.tracker.integrity` package is kept **selectively**: the model a host reads
 (`IntegritySignal`, `IntegrityPolicy`, `IntegrityFinding`, `IntegrityReport`) plus
 `SecurityConfig`. The probes, the evaluator and the monitor are internal and stay renamed
 and repackaged with everything else — an anti-tamper layer whose class names survive

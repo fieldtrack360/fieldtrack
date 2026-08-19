@@ -128,7 +128,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker.<module>"
+    namespace = "com.field360.tracker.<module>"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 
@@ -178,7 +178,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker.geo"
+    namespace = "com.field360.traker.geo"
     compileSdk = libs.versions.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
@@ -377,7 +377,7 @@ protect runtime behavior during the host application's separate R8 pass.
 ### The rules are short on purpose
 
 A consumer rule constrains **somebody else's** build. A blanket
-`-keep class com.devstree.traker.** { *; }` would add hundreds of KB to every host's APK
+`-keep class com.field360.tracker.** { *; }` would add hundreds of KB to every host's APK
 to protect against a handful of reflective lookups, and would hide the next one instead of
 documenting it. Three of these files therefore keep nothing at all, and say why.
 
@@ -399,7 +399,7 @@ by construction.
 ### The one rule that is ours
 
 ```proguard
--keepclassmembers,allowoptimization enum com.devstree.traker.** {
+-keepclassmembers,allowoptimization enum com.field360.tracker.** {
     <fields>;
     public static **[] values();
     public static ** valueOf(java.lang.String);
@@ -429,7 +429,7 @@ build configuration that ships.
 It used to be `isMinifyEnabled = false`, which meant every `consumer-rules.pro` in this
 repository was shipped to hosts having **never once been executed**. Rules that are never
 exercised are guesses, and these guesses were wrong: `fieldtrack-core` kept
-`com.devstree.traker.db.**`, a package that does not exist — the real name is `data.db` —
+`com.field360.tracker.db.**`, a package that does not exist — the real name is `data.db` —
 and nothing anywhere preserved the enum names above.
 
 The artifact audit runs first, then the locally published sample release exercises the
@@ -570,7 +570,7 @@ either shipped implementation must add OkHttp themselves.
 `./gradlew lintDebug` currently fails on a pre-existing source issue:
 
 ```
-fieldtrack-core/src/main/kotlin/com/devstree/traker/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
+fieldtrack-core/src/main/kotlin/com/field360/tracker/service/TrackingService.kt:124: Error: Field requires API level 29 (current min is 26): android.content.pm.ServiceInfo#FOREGROUND_SERVICE_TYPE_LOCATION [InlinedApi]
 ```
 
 This is a code problem, not a build-config problem — the fix is a version guard or a

@@ -10,8 +10,8 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
--keep public class com.devstree.traker.snap.OsrmSnapProvider { public protected *; }
--keep public class com.devstree.traker.snap.OsrmSnapProvider$* { public protected *; }
+-keep public class com.field360.traker.snap.OsrmSnapProvider { public protected *; }
+-keep public class com.field360.traker.snap.OsrmSnapProvider$* { public protected *; }
 
 -assumenosideeffects class android.util.Log {
     public static int v(...);

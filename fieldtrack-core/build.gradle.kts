@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.devstree.traker"
+    namespace = "com.field360.tracker"
 
     compileSdk = libs.versions.compileSdk.get().toInt()
 
@@ -26,7 +26,7 @@ android {
         release {
             buildConfigField("boolean", "SDK_LOGGING_ENABLED", "false")
             // The published AAR ships R8-obfuscated: internals renamed and flattened
-            // into com.devstree.traker.internal, so decompiling the artifact yields
+            // into com.field360.tracker.internal, so decompiling the artifact yields
             // the public contract and little else — whether or not the host minifies.
             // proguard-rules.pro is the build-time config; consumer-rules.pro remains
             // the host-side one, and the two are deliberately separate files.

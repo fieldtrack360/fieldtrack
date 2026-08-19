@@ -1587,7 +1587,7 @@ What this means in practice:
 
 If you hit a `NoSuchMethodError` or a serialization failure after enabling minification in your
 own app, that is a bug worth reporting — do **not** paper over it with
-`-keep class com.devstree.traker.** { *; }`, which would disable shrinking for the whole SDK
+`-keep class com.field360.tracker.** { *; }`, which would disable shrinking for the whole SDK
 inside your APK.
 
 ---

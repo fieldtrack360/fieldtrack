@@ -2,7 +2,7 @@
 
 **v2 — 2026-07-30.** Rewritten after a line-by-line read of the reference implementation. v1 was written from the spec document and contained assumptions; those are gone.
 
-**Package namespace:** `com.devstree.traker` · **Repo:** `~/Work/studio/traker` (separate project, no dependency on the source app) · **Status:** plan, not started.
+**Package namespace:** `com.field360.tracker` · **Repo:** `~/Work/studio/traker` (separate project, no dependency on the source app) · **Status:** plan, not started.
 
 ### Document set
 
@@ -26,8 +26,8 @@
 |---|---|---|
 | Platform scope | **Android only; Kotlin, Java and React Native hosts** | No iOS and no Flutter — a second implementation of the engine is not on the roadmap. React Native **was** in this row and was moved out: it is a transport for the one engine, not another engine, and `fieldtrack-bridge` carries it (CROSS-PLATFORM.md). `fieldtrack-geo` is a plain Kotlin module with no Android dependencies, which keeps the engine 100 % JVM-unit-testable; that is still the reason it stays separate, and it does not become KMP. |
 | Server sync | **Offline-first, sync optional** | `fieldtrack-core` never touches the network. `fieldtrack-sync` is a separate optional artifact. |
-| Distribution | **Private Maven + npm + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six artifacts under `com.devstree.traker`, plus `@devstree/react-native-traker` on npm at the same version, enforced by a build check. BUILD.md §5.5. |
-| Name | **Tracker** / `com.devstree.traker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `fieldtrack-bridge`. |
+| Distribution | **Private Maven + npm + local sample** | `maven-publish` → GitHub Packages / internal Nexus, configured in `gradle/publish.gradle.kts` and driven by URL/credentials from properties or the environment (never from a file in the repo). Six artifacts under `com.field360.tracker`, plus `@devstree/react-native-traker` on npm at the same version, enforced by a build check. BUILD.md §5.5. |
+| Name | **Tracker** / `com.field360.tracker` | Artifacts: `fieldtrack-geo`, `fieldtrack-core`, `fieldtrack-maps`, `fieldtrack-sync`, `fieldtrack-snap`, `fieldtrack-bridge`. |
 | Dependency injection | **None — the graph is wired by hand** | Clean-architecture layering (`domain` / `data` / `service`) stands; it is assembled in one `internal` file, `di/TrackerGraph.kt`, reached through `Tracker.getInstance(context)`. A host applies no Gradle plugin, annotates no `Application`, and runs no annotation processor. **This reverted an earlier decision to ship Hilt inside the SDK**, which had forced every consumer to adopt Hilt — unacceptable for a host whose `Application` class is not its own to annotate, and a hard blocker for the React Native package (CROSS-PLATFORM.md B-1). The position argued in [reference/EKF-DESIGN-REVIEW.md](reference/EKF-DESIGN-REVIEW.md) §S5 stands after all. Cost, accepted knowingly: no compile-time graph verification — `TrackerGraphTest` constructs every member instead. |
 
 **Single user.** One device, one user, explicit `start()` / `stop()`. Every company / employee / branch / punch / attendance / branch-WiFi / floor-detection concept is stripped — see §5 for the exact list.
@@ -208,7 +208,7 @@ Fixture corpus (grows from every T4 run): `steady-indoors-2h` · `urban-drive-30
 traker/
 ├─ settings.gradle.kts · build.gradle.kts · gradle/libs.versions.toml
 ├─ fieldtrack-geo/          # plain Kotlin/JVM library — no Android dependency
-│  └─ main/kotlin/com/devstree/traker/geo/
+│  └─ main/kotlin/com/field360/traker/geo/
 │     ├─ model/   TrackFix, TrackPoint, FilterState, Verdict, FixDecision
 │     ├─ filter/  KalmanFilter, AcceptancePipeline, Validation, TrackerConstants
 │     ├─ motion/  MotionStateMachine, TurnDetector
@@ -218,7 +218,7 @@ traker/
 │     ├─ math/    Haversine, Bearing, Geometry
 │     └─ port/    PointStore, Clock, TrackLogger, RoadSnapProvider
 ├─ fieldtrack-core/         # Android library — the public SDK. Clean architecture, hand-wired graph.
-│  └─ main/kotlin/com/devstree/traker/
+│  └─ main/kotlin/com/field360/tracker/
 │     ├─ Tracker.kt · TrackerConfig.kt          # public surface
 │     ├─ domain/     model/ (TrackSession, TrackerEvent, ProviderState, TrackerResult)
 │     │              repository/ (interfaces only — no Android types)

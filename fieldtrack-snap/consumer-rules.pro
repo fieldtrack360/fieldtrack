@@ -2,7 +2,7 @@
 #
 # Nothing. The previous rule here was:
 #
-#     -keep class com.devstree.traker.snap.** { *; }
+#     -keep class com.field360.traker.snap.** { *; }
 #
 # written for `OsrmMatchResponse` and friends, which are `@Serializable` — and `internal`,
 # so a blanket public keep on them was protecting types no host can name anyway.

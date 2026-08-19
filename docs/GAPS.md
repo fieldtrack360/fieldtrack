@@ -334,7 +334,7 @@ Benign today — the watchdog itself emits `Error(TRACKER_DEAD, …)` before ret
 
 Consequences:
 
-- `packages/react-native-traker/.../TrackerModule.kt:1` imports `com.devstree.traker.bridge.TrackerJson`. **The React Native module cannot compile.**
+- `packages/react-native-traker/.../TrackerModule.kt:1` imports `com.field360.tracker.bridge.TrackerJson`. **The React Native module cannot compile.**
 - The Java `TrackerClient` callback facade described in the README and PLAN §0 does not exist, so there is no non-`suspend`, non-`Flow` surface for Java hosts.
 - `fieldtrack-rn/` contains only `src/verification/AndroidManifest.xml` and has **no `build.gradle.kts`**, so the README's `:fieldtrack-rn:verifyReactNativeSourcesCompiled` task does not exist either.
 - `packages/react-native-traker/` has no `package.json`, no TypeScript, no podspec — the npm package is three Kotlin files.
@@ -372,7 +372,7 @@ So the sample's `:fieldtrack-snap` and `okhttp` dependencies are dead, the "Snap
 
 # Part C — Source protection
 
-The published artifacts are meant to expose the public contract and nothing else. `fieldtrack-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.devstree.traker.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
+The published artifacts are meant to expose the public contract and nothing else. `fieldtrack-core/proguard-rules.pro` says so explicitly, and it is one of the better-reasoned R8 configurations you will read: it keeps by explicit package rather than by visibility (because Kotlin `internal` compiles to public bytecode), it strips `v/d/i` logging *and* the `TrackLogger` interface dispatch feeding it, it repackages everything unkept into `com.field360.tracker.internal` so the package tree stops describing the architecture, and it states in its own header what obfuscation does **not** buy.
 
 The publishing script is equally careful: **no sources jar anywhere**, with the reasoning recorded — and specifically for the engine, *"fieldtrack-geo is the algorithm module, and a -sources.jar IS the algorithm. This is the artifact with the most to lose from a sources jar."*
 
@@ -395,7 +395,7 @@ Four modules are minified — core, maps, snap, sync. The fifth is not, and it i
 | `fieldtrack-snap` — HTTP and chunking | **`TrackerConstants`** — all 60-odd field-tuned values |
 | `fieldtrack-sync` — queue and retry | **The whole plotting plane** — consolidation, clusters, snapper, spline, arrows |
 
-The Android plumbing — reimplementable by any competent Android developer from the public docs — is flattened into `com.devstree.traker.internal`. The engine, which is the accumulated output of three generations of field work, ships with original class names, original method names, original field names and original package structure.
+The Android plumbing — reimplementable by any competent Android developer from the public docs — is flattened into `com.field360.tracker.internal`. The engine, which is the accumulated output of three generations of field work, ships with original class names, original method names, original field names and original package structure.
 
 **It is worse than plain Java bytecode**, for the reason in [G-30](#g-30).
 
@@ -439,7 +439,7 @@ Worth contrasting with the iOS port, where this is solved cleanly: Swift's `pack
 
 That mapping file is a **build output**. It is regenerated on every build, it is not committed, it is not attached to any publication, and BUILD.md references `mapping/release/` only for the sample app's own R8 run (§5.6, around line 459).
 
-So the retrace path the rules were written to preserve does not exist for a published artifact: when a host sends an obfuscated stack trace from `com.devstree.traker.internal.a.b()`, there is nothing to map it against unless someone still has the exact build tree.
+So the retrace path the rules were written to preserve does not exist for a published artifact: when a host sends an obfuscated stack trace from `com.field360.tracker.internal.a.b()`, there is nothing to map it against unless someone still has the exact build tree.
 
 **Fix:** archive `mapping.txt` per module per release, keyed by version, alongside the published artifacts and never with them. Cheap, and it is the difference between a field crash report being actionable and being noise.
 
@@ -454,7 +454,7 @@ What ships: `TrackerModule.kt` (284 lines), `TrackerPackage.kt`, `TrackerSpec.kt
 **The architecture already handles this correctly**, and it deserves to be said rather than left as an unexamined exposure. `TrackerModule.kt:3` imports exactly one Tracker symbol:
 
 ```kotlin
-import com.devstree.traker.bridge.TrackerJson
+import com.field360.tracker.bridge.TrackerJson
 ```
 
 Nothing else. The module is a thin JSON facade — argument marshalling, promise settling, event emission — over `fieldtrack-bridge`, which is a published, R8-obfuscated AAR. **The engine is not in the npm package and cannot be.** A reader of the RN source learns the method list and the envelope shape, both of which are public API anyway.

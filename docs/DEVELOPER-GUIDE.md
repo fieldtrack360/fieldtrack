@@ -182,7 +182,7 @@ snapshot and the event stream from a lifecycle-aware scope:
 appScope.launch {
     when (val result = traker.ready(
         TrackerConfig.builder()
-            .license(BuildConfig.TRACKIT_LICENSE.takeIf { it.isNotBlank() })
+            .license(BuildConfig.TRACKER_LICENSE.takeIf { it.isNotBlank() })
             .build()
     )) {
         is TrackerResult.Ok -> Unit

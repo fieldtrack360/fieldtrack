@@ -1,5 +1,6 @@
 [versions]
 # THE artifact version. Every published module carries it.
+fieldtrack = "v1.0.1-alpha-05"
 traker = "0.1.1-alpha01"
 
 # Toolchain — see docs/API.md §"Toolchain". Verified against Google Maven / Maven Central 2026-07-31.
@@ -42,6 +43,7 @@ truth = "1.4.5"
 
 [libraries]
 # --- Kotlin / coroutines ---
+fieldtrack = { module = "com.github.fieldtrack360.fieldtrack:fieldtrack", version.ref = "fieldtrack" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutines" }

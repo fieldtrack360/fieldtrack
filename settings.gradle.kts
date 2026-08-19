@@ -24,6 +24,8 @@ dependencyResolutionManagement {
         }
         mavenLocal()
         mavenCentral()
+        // JitPack serves the published SDK artifacts (com.github.fieldtrack360.fieldtrack).
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

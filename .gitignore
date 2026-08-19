@@ -20,6 +20,25 @@ captures/
 release/
 out/
 
+# Tests. Nothing under src/test or src/androidTest reaches a published artifact, and the
+# release pipeline runs with -xtest, so they are kept out of the repository.
+**/src/test/
+**/src/androidTest/
+**/src/testFixtures/
+**/src/testDebug/
+**/src/testRelease/
+
+# Test and analysis reports that land outside build/ when a task is pointed elsewhere.
+**/test-results/
+**/reports/
+.kotlin/sessions/
+
+# Scratch and merge leftovers
+*.tmp
+*.bak
+*.orig
+*.rej
+
 # What must STAY tracked, in case a future rule gets careless:
 #   fieldtrack-*/consumer-rules.pro   — shipped with the AAR
 #   fieldtrack-core/schemas/          — Room schemas; migrations are real (EC-83)
