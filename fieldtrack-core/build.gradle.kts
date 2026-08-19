@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -80,8 +81,24 @@ kotlin {
 }
 
 // EC-83 — schemas are committed and migrations are real; never destructive.
+//
+// The Room Gradle plugin owns the export location, and it gives each variant its own
+// subdirectory under the one named here. That separation is the point. Setting
+// `room.schemaLocation` as a KSP argument — which is what this used to do — pointed every
+// variant at a single directory, so `kspDebugKotlin` and `kspReleaseKotlin` generated the
+// same `7.json` at the same time. KSP runs its processors in Gradle worker actions, so
+// `--no-parallel` does not separate them, and whichever task read the file while the other
+// was still writing it died on a half-written document:
+//
+//     JsonDecodingException: Expected end of the array or comma at path: $.database.entities[0]
+//
+// A working tree that already holds valid schemas hides this, because both tasks read a
+// complete file. A fresh clone does not, which is why it surfaced on JitPack first.
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
     arg("room.generateKotlin", "true")
 }
 

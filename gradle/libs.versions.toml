@@ -108,4 +108,8 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+# Owns `room.schemaLocation` so each variant exports to its own directory. Setting the
+# KSP arg by hand pointed every variant at one path, and kspDebug/kspRelease then raced
+# on the same file — see fieldtrack-core/build.gradle.kts.
+room = { id = "androidx.room", version.ref = "room" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
