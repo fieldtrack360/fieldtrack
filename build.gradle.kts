@@ -11,11 +11,31 @@ plugins {
 }
 
 val catalog = extensions.getByType(VersionCatalogsExtension::class.java).named("libs")
-group = "com.github.fieldtrack360.fieldtrack"
-version = catalog.findVersion("traker").get().requiredVersion
+
+/**
+ * Coordinates, from `-Pgroup`/`-Pversion` when the build is driven by CI, otherwise from
+ * the catalog.
+ *
+ * JitPack invokes the build as `-Pgroup=… -Pversion=v…`, and both used to be discarded:
+ * the group was hardcoded, and `findProperty("version")` reads the *project's* version,
+ * which Gradle only sets from the command line on the root project. Every module saw
+ * `unspecified`, fell back to the catalog, and published POMs whose version disagreed
+ * with the tag being built. `providers.gradleProperty` reads the property itself, from
+ * any project, and is configuration-cache safe.
+ */
+val publishGroup: String = providers.gradleProperty("group").orNull
+    ?.takeIf { it.isNotBlank() }
+    ?: "com.github.fieldtrack360.fieldtrack"
+val publishVersion: String = providers.gradleProperty("version").orNull
+    ?.takeIf { it.isNotBlank() && it != "unspecified" }
+    ?: catalog.findVersion("traker").get().requiredVersion
+
+group = publishGroup
+version = publishVersion
 
 subprojects {
-    group = "com.github.fieldtrack360.fieldtrack"
+    group = publishGroup
+    version = publishVersion
 }
 
 tasks.register<VerifyReleaseObfuscationTask>("verifyReleaseObfuscation") {
@@ -58,7 +78,7 @@ tasks.register<ArchiveReleaseMappingsTask>("archiveReleaseMappings") {
     group = "distribution"
     description = "Copies R8 release mappings into local release storage."
     repositoryRoot.set(layout.projectDirectory)
-    version.set(catalog.findVersion("traker").get().requiredVersion)
+    version.set(publishVersion)
     commitSha.set(
         listOfNotNull(
             (findProperty("trakerCommitSha") as String?)?.takeIf { it.isNotBlank() },

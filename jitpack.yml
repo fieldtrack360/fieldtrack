@@ -1,2 +1,27 @@
+# JitPack build configuration.
+#
+# The project's own gradle.properties asks for a 4 GB daemon heap, a 1 GB metaspace and
+# parallel execution across 8 workers. That is right for a workstation and fatal here:
+# a JitPack container has far less memory than that, and `publishToMavenLocal` is the
+# heaviest task graph in the repo — it pulls in verifyReleaseObfuscation,
+# archiveReleaseMappings and verifyReleaseIntegrity, so R8 runs over five modules and
+# Dokka over six before anything is published. The daemon gets killed mid-build and
+# Gradle reports it as "Could not receive a message from the daemon", with the truncated
+# last-build.bin writes that a killed process leaves behind.
+#
+# Properties in GRADLE_USER_HOME take precedence over the project's, so the overrides
+# below apply to JitPack only. Local builds keep the workstation settings untouched.
 jdk:
   - openjdk17
+
+before_install:
+  - mkdir -p "$HOME/.gradle"
+  - |
+    cat >> "$HOME/.gradle/gradle.properties" <<'PROPS'
+    org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+    org.gradle.parallel=false
+    org.gradle.workers.max=2
+    org.gradle.vfs.watch=false
+    kotlin.daemon.jvmargs=-Xmx1g -XX:MaxMetaspaceSize=384m
+    kotlin.incremental=false
+    PROPS
