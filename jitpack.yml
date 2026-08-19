@@ -11,6 +11,10 @@
 #
 # Properties in GRADLE_USER_HOME take precedence over the project's, so the overrides
 # below apply to JitPack only. Local builds keep the workstation settings untouched.
+#
+# The heap is what gets halved; the metaspace stays at 1 GB because Dokka loads the whole
+# Kotlin compiler to generate the javadoc jars and dies with a bare "Metaspace" failure
+# under anything less.
 jdk:
   - openjdk17
 
@@ -18,7 +22,7 @@ before_install:
   - mkdir -p "$HOME/.gradle"
   - |
     cat >> "$HOME/.gradle/gradle.properties" <<'PROPS'
-    org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+    org.gradle.jvmargs=-Xmx2g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
     org.gradle.parallel=false
     org.gradle.workers.max=2
     org.gradle.vfs.watch=false

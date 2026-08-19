@@ -63,16 +63,18 @@ val catalog = extensions
     .getByType(VersionCatalogsExtension::class.java)
     .named("libs")
 
-// Respect properties passed by JitPack or CLI, with defaults from the catalog.
+// Respect the version passed by JitPack or CLI, with the default from the catalog.
 //
 // `findProperty` was not enough. Gradle applies command-line properties to the root
 // project only, so a module asking it for "version" got its own `unspecified` and fell
 // silently back to the catalog — which is how a build invoked with `-Pversion=v1.0.0`
 // published POMs stamped 0.1.1-alpha01. `providers.gradleProperty` reads the property
 // itself, from any project.
-group = providers.gradleProperty("group").orNull
-    ?.takeIf { it.isNotBlank() }
-    ?: "com.github.fieldtrack360.fieldtrack"
+//
+// `-Pgroup` is deliberately NOT respected. JitPack passes the repository owner,
+// `com.github.fieldtrack360`, but a multi-module repository is served under
+// `com.github.<owner>.<repo>` — the coordinate the docs and the version catalog use.
+group = "com.github.fieldtrack360.fieldtrack"
 version = providers.gradleProperty("version").orNull
     ?.takeIf { it.isNotBlank() && it != "unspecified" }
     ?: catalog.findVersion("traker").get().requiredVersion

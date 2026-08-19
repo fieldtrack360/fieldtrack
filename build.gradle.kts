@@ -13,19 +13,26 @@ plugins {
 val catalog = extensions.getByType(VersionCatalogsExtension::class.java).named("libs")
 
 /**
- * Coordinates, from `-Pgroup`/`-Pversion` when the build is driven by CI, otherwise from
- * the catalog.
+ * Coordinates. The version follows `-Pversion` when CI supplies one; the group never
+ * follows `-Pgroup`.
  *
- * JitPack invokes the build as `-Pgroup=… -Pversion=v…`, and both used to be discarded:
- * the group was hardcoded, and `findProperty("version")` reads the *project's* version,
- * which Gradle only sets from the command line on the root project. Every module saw
- * `unspecified`, fell back to the catalog, and published POMs whose version disagreed
- * with the tag being built. `providers.gradleProperty` reads the property itself, from
- * any project, and is configuration-cache safe.
+ * JitPack invokes the build as `-Pgroup=com.github.fieldtrack360 -Pversion=v…`, and the
+ * two properties deserve opposite treatment.
+ *
+ * The version was being discarded: `findProperty("version")` reads the *project's*
+ * version, and Gradle only applies a command-line property to the root project, so every
+ * module saw `unspecified`, fell back to the catalog, and published POMs stamped
+ * 0.1.1-alpha01 for a build of tag v1.0.0 — including the inter-module dependencies,
+ * which then named versions that were never published.
+ * `providers.gradleProperty` reads the property itself, from any project, and is
+ * configuration-cache safe.
+ *
+ * The group is deliberately hardcoded and must stay that way. JitPack passes the *owner*
+ * (`com.github.fieldtrack360`), but a multi-module repository is served under
+ * `com.github.<owner>.<repo>` — honouring the property publishes `com.github.fieldtrack360:fieldtrack`,
+ * which is not the coordinate the docs, the version catalog, or any released artifact use.
  */
-val publishGroup: String = providers.gradleProperty("group").orNull
-    ?.takeIf { it.isNotBlank() }
-    ?: "com.github.fieldtrack360.fieldtrack"
+val publishGroup = "com.github.fieldtrack360.fieldtrack"
 val publishVersion: String = providers.gradleProperty("version").orNull
     ?.takeIf { it.isNotBlank() && it != "unspecified" }
     ?: catalog.findVersion("traker").get().requiredVersion
