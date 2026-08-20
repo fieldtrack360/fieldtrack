@@ -5,6 +5,8 @@ the SDK — you supply a key and handle a few error codes. There is nothing to
 verify, no endpoint to call, and no crypto to write.
 
 Building the SDK itself? That is [`sdk-licensing-flow.md`](sdk-licensing-flow.md).
+Want to understand *why* it works offline? That is
+[`how-the-local-licence-works.md`](how-the-local-licence-works.md), in plain English.
 
 ---
 

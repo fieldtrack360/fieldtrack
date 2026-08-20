@@ -172,6 +172,9 @@ without it (Huawei, AOSP builds), use `LocationProviderType.GPS_ONLY`, `NETWORK_
 Release builds require a license token. Debuggable builds are **waived automatically** — you
 can develop with no token at all.
 
+> New to how this works? [`how-the-local-licence-works.md`](how-the-local-licence-works.md)
+> explains the offline check in plain English, with no prior knowledge assumed.
+
 Supply it either in your manifest:
 
 ```xml

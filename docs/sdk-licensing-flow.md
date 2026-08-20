@@ -7,6 +7,10 @@ of the boundary, and the code for Android, iOS, Flutter and React Native.
 different, much shorter job — that is
 [`client-app-integration.md`](client-app-integration.md).
 
+[`how-the-local-licence-works.md`](how-the-local-licence-works.md) is the same
+offline gate explained without jargon — the page to hand someone who asks "how
+can it check a licence with no internet?".
+
 [`android-kotlin-integration.md`](android-kotlin-integration.md) is the deep
 version for Android; [`api-integration.md`](api-integration.md) is the endpoint
 reference.
