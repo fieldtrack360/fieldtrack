@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -6,6 +7,32 @@ plugins {
     alias(libs.plugins.room)
     alias(libs.plugins.kotlin.serialization)
 }
+
+/**
+ * The licence API root, e.g. `https://licence.example.com/api/v1`. Resolved, in order,
+ * from the Gradle property `fieldtrackLicenseUrl`, the environment variable
+ * `FIELDTRACK_LICENSE_URL`, then `local.properties` — the same `local.properties`
+ * pattern the sample uses for its Maps key, and gitignored for the same reason.
+ *
+ * Blank is a supported state and the default: `LicenseConfig.baseUrl` falls back to the
+ * host manifest, and with neither set the revocation check makes no request at all.
+ *
+ * **This keeps the URL out of version control, not out of the artifact.** It is compiled
+ * into BuildConfig and is readable in any published AAR or installed APK, exactly like
+ * the two public keys next to it. That is fine — an endpoint the device has to reach is
+ * not a secret. Do not put a credential through this field.
+ *
+ * The Gradle property and environment variable exist because CI and JitPack have no
+ * `local.properties`; a release built without one of the three ships with the check
+ * inert and no build failure to say so.
+ */
+val licenseBaseUrl: String = providers.gradleProperty("fieldtrackLicenseUrl").orNull
+    ?: providers.environmentVariable("FIELDTRACK_LICENSE_URL").orNull
+    ?: Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) file.inputStream().use { load(it) }
+    }.getProperty("FIELDTRACK_LICENSE_URL", "")
+
 
 android {
     namespace = "com.field360.tracker"
@@ -16,6 +43,10 @@ android {
         minSdk = libs.versions.minSdk.get().toInt()
         consumerProguardFiles("consumer-rules.pro")
         buildConfigField("boolean", "SDK_LOGGING_ENABLED", "true")
+        // Reported to the licence API as `sdk_version`. Read from the catalog rather than
+        // hardcoded so a release cannot ship claiming to be the previous one.
+        buildConfigField("String", "SDK_VERSION", "\"${libs.versions.fieldtrack.get()}\"")
+        buildConfigField("String", "LICENSE_BASE_URL", "\"$licenseBaseUrl\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -124,6 +155,14 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // Licensing. Gson for the wire, Tink for Ed25519 (java.security has none below
+    // API 33 and minSdk is 26), OkHttp for the one revocation call. All three are
+    // `implementation` rather than `compileOnly`: unlike fieldtrack-sync's optional
+    // transport, the licence check has to work in a host that brought no HTTP client.
+    implementation(libs.gson)
+    implementation(libs.tink.android)
+    implementation(libs.okhttp)
+
     implementation(libs.play.services.location)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
@@ -136,6 +175,11 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.room.testing)
+    // WorkManager needs explicit initialisation under Robolectric: ready() enqueues
+    // two unique workers, and without this getInstance() throws before the licence
+    // check under test is ever reached.
+    testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.okhttp.mockwebserver)
 
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.core)

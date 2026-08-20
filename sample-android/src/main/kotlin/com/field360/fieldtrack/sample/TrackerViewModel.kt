@@ -224,6 +224,12 @@ class TrackerViewModel(
                 } else {
                     "INTEGRITY ${event.report.findings.joinToString { "${it.signal}@${it.policy}" }}"
                 }
+            // Silent in this sample unless a licence URL and response key are configured:
+            // with neither set the SDK makes no call, so no event arrives. That silence
+            // means "not checked", never "licence is fine".
+            is TrackerEvent.LicenseChecked ->
+                "LICENCE ${event.info.status}" +
+                    if (event.info.fromCache) " (cached)" else ""
         }
 
         if (event is TrackerEvent.Location) onPointCollected(event.point)

@@ -19,7 +19,8 @@ come from `gradle/libs.versions.toml`.
 | Kotlin | 2.4.10 | `kotlin` in the catalog. |
 | Android SDK | compileSdk 37 | `local.properties` → `sdk.dir`, or `ANDROID_HOME`. |
 
-`local.properties` is gitignored. It holds `sdk.dir` and, optionally, `MAPS_API_KEY`. Copy
+`local.properties` is gitignored. It holds `sdk.dir` and, optionally, `MAPS_API_KEY` and
+`FIELDTRACK_LICENSE_URL`. Copy
 [`local.properties.template`](../local.properties.template) and fill in what you need.
 
 ### Maps API key
@@ -48,6 +49,40 @@ this repo up and that key has not been rotated, treat it as public.
 Restrict whatever key you use to this app's package name and signing certificate in Google
 Cloud Console. An unrestricted Maps key is billable by anyone who finds it, which is the
 part that makes a leak expensive rather than merely embarrassing.
+
+### Licence API URL
+
+`fieldtrack-core` reads the licence API root at configuration time and injects it as
+`BuildConfig.LICENSE_BASE_URL`, which `LicenseConfig.defaultBaseUrl` returns:
+
+```properties
+# local.properties
+FIELDTRACK_LICENSE_URL=https://licence.example.com/api/v1
+```
+
+Include the version segment. `OkHttpLicenseTransport` appends `/verify` and nothing else,
+so moving to `/api/v2` is a configuration change rather than an SDK release.
+
+Resolution order, first non-null wins:
+
+| Source | For |
+|---|---|
+| `-PfieldtrackLicenseUrl=...` | CI, JitPack, one-off builds |
+| `FIELDTRACK_LICENSE_URL` environment variable | CI secrets |
+| `FIELDTRACK_LICENSE_URL` in `local.properties` | local development |
+| `FieldTrackLicenseUrl` manifest meta-data | per-install override, takes precedence over all of the above at runtime |
+
+Unset is a supported state and the default. With no URL the transport makes no request,
+the check returns `CarryOn`, and every start proceeds.
+
+**`local.properties` keeps the URL out of version control, not out of the artifact.** It is
+compiled into `BuildConfig` and readable in any published AAR or installed APK, the same as
+the two compiled-in public keys. That is the correct trade for an endpoint the device has to
+reach — but it means this mechanism is not a place for a credential of any kind.
+
+The Gradle property and environment variable are not conveniences. **CI and JitPack have no
+`local.properties`, so a release built without one of them ships with the revocation check
+inert and nothing in the build output says so** — it looks exactly like a successful build.
 
 ---
 

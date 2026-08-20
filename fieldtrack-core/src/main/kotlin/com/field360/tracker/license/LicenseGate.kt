@@ -13,9 +13,7 @@ internal class LicenseGate(
     fun check(explicit: String?): LicenseVerdict {
         if (LicenseEnvironment.isWaived(context)) return LicenseVerdict.Waived
 
-        val token = explicit?.takeIf { it.isNotBlank() }
-            ?: readManifestToken(context.applicationInfo.metaData)
-        return verifier.verify(token, context.packageName)
+        return verifier.verify(token(explicit), context.packageName)
     }
 
     fun failure(forVerdict: LicenseVerdict): Failure? = when (forVerdict) {
@@ -27,6 +25,18 @@ internal class LicenseGate(
             "Tracker license is for ${forVerdict.licensed}, not ${forVerdict.actual}",
         )
     }
+
+    /**
+     * The token this process is licensed with, from the host's explicit config or the
+     * manifest — the same resolution [check] uses.
+     *
+     * Exposed because the background revocation check needs the token and cannot get it
+     * from [com.field360.tracker.data.repository.ConfigStore]: `TrackerConfig.license` is
+     * deliberately dropped on serialisation, so a token resurrected from disk can never
+     * turn "I updated my licence" into a bug report.
+     */
+    fun token(explicit: String?): String? = explicit?.takeIf { it.isNotBlank() }
+        ?: readManifestToken(context.applicationInfo.metaData)
 
     private fun readManifestToken(metaData: Bundle?): String? =
         metaData?.getString(infoPlistKey)?.takeIf { it.isNotBlank() }

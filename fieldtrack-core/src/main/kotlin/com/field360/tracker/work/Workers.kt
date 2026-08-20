@@ -6,6 +6,7 @@ import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -13,6 +14,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.field360.tracker.TrackerConfig
 import com.field360.tracker.di.TrackerGraph
+import com.field360.tracker.domain.model.TrackerEvent
+import com.field360.tracker.domain.model.LicenseAction
+import com.field360.tracker.license.LicenseState
 import com.field360.tracker.service.TrackingService
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
@@ -171,5 +175,89 @@ internal class PruneWorker(
             WorkManager.getInstance(context)
                 .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
+    }
+}
+
+/**
+ * The revocation check, on a slow tick.
+ *
+ * Twice a day is not a heartbeat — it is roughly the cache TTL a paid licence returns, and
+ * anything faster is polling. The server allows 120 requests per minute per IP; being
+ * anywhere near that from a fleet of installs is a bug, not a configuration.
+ *
+ * Everything about this worker is built to be ignorable. It requires connectivity, so
+ * WorkManager simply does not run it offline — no connectivity is not a failure state.
+ * It returns `success` whatever happened, because a licence server outage is not a failed
+ * job and retrying it aggressively is the opposite of what should happen. And the check
+ * it calls fails open, so the worst case for every failure path is that nothing changes.
+ */
+internal class LicenseCheckWorker(
+    context: Context,
+    params: WorkerParameters,
+) : CoroutineWorker(context, params) {
+
+    override suspend fun doWork(): Result {
+        val deps = applicationContext.trackItGraph()
+        val token = deps.licenseGate.token(deps.configStore.cached?.license)
+            ?: return Result.success()
+
+        val (action, info) = deps.checkLicenseRevocation(token)
+        LicenseState.apply(action)
+
+        // Every authenticated answer reaches the host, `active` included — a host that
+        // only ever heard about failures would have no way to tell a healthy licence
+        // from a check that never ran. Null means nothing was learned, and says nothing.
+        info?.let { deps.events.tryEmit(TrackerEvent.LicenseChecked(it)) }
+
+        when (action) {
+            is LicenseAction.Stop -> {
+                deps.events.tryEmit(
+                    TrackerEvent.Error(action.code, action.reason ?: action.code.name),
+                )
+                // Ends the session cleanly rather than letting capture run on into a
+                // licence that no longer exists. The host hears about it through the
+                // error above, which is the same channel every other refusal uses.
+                deps.stopTracking()
+            }
+            is LicenseAction.Diagnose -> {
+                deps.events.tryEmit(
+                    TrackerEvent.Diagnostic(
+                        "licence ${action.code.name}: ${action.reason ?: "no detail"}",
+                    ),
+                )
+            }
+            LicenseAction.CarryOn -> Unit
+        }
+
+        return Result.success()
+    }
+
+    companion object {
+        const val NAME = "fieldtrack-licence-check"
+
+        fun enqueue(context: Context) {
+            val request = PeriodicWorkRequestBuilder<LicenseCheckWorker>(
+                INTERVAL_HOURS,
+                TimeUnit.HOURS,
+            )
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build(),
+                )
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_MINUTES, TimeUnit.MINUTES)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                NAME,
+                // KEEP, like the backstop: re-enqueuing on every ready() would reset the
+                // 12-hour clock, and an app that is restarted often would never check.
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
+        }
+
+        private const val INTERVAL_HOURS = 12L
+        private const val BACKOFF_MINUTES = 30L
     }
 }

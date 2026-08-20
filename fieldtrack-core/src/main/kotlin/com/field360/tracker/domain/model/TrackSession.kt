@@ -49,6 +49,35 @@ public enum class ErrorCode {
     LICENSE_MISSING,
     LICENSE_INVALID,
     LICENSE_BUNDLE_MISMATCH,
+
+    /**
+     * The backend says this licence was revoked after it was issued.
+     *
+     * Only ever raised from a `/verify` response that passed all three checks — signature,
+     * `key_id` against our own token, and the nonce echo. A response that failed any of
+     * them is discarded rather than acted on, so a proxy the device owner controls cannot
+     * manufacture this code.
+     */
+    LICENSE_REVOKED,
+
+    /** The backend says this licence has expired — typically an ended trial. */
+    LICENSE_EXPIRED,
+
+    /**
+     * The token verified offline but the backend has no record of it.
+     *
+     * **Never stops tracking.** A token that satisfies a key we compiled in ourselves and
+     * is then unknown to the ledger is our data problem, not a customer who did anything
+     * wrong.
+     */
+    LICENSE_UNKNOWN,
+
+    /** The backend has this licence under a different package name. Diagnostic only. */
+    LICENSE_PACKAGE_MISMATCH,
+
+    /** The backend has this licence under a different SDK type. Diagnostic only. */
+    LICENSE_SDK_MISMATCH,
+
     NO_ACTIVITY,
 
     /**
@@ -144,6 +173,27 @@ public sealed interface TrackerEvent {
      * arrives here *and* as an [Error] with `ErrorCode.DEVICE_INTEGRITY_BLOCKED`.
      */
     public data class IntegrityChange(val report: IntegrityReport) : TrackerEvent
+
+    /**
+     * A licence check completed and its answer was authenticated.
+     *
+     * Emitted for **every** verified answer, `active` included — this is how a host sees
+     * a successful check at all. Fires shortly after every `Tracker.ready()`, on the
+     * background worker's 12-hour tick, and on `Tracker.checkLicense()`.
+     *
+     * The one after `ready()` arrives *after* `ready()` has already returned. The startup
+     * path decides from cache and never waits on a network call, so a host must not treat
+     * a successful `ready()` as this event having happened yet.
+     *
+     * Silence is not success. Nothing is emitted when the network failed, the build has
+     * no licence configured, or a response failed verification: all three mean nothing
+     * was learned, and all three carry on tracking.
+     *
+     * `REVOKED` and `EXPIRED` arrive here *and* as an [Error] with the matching
+     * `ErrorCode`, in the same way a blocking integrity finding does. The rest arrive
+     * here only.
+     */
+    public data class LicenseChecked(val info: LicenseInfo) : TrackerEvent
     public data class Diagnostic(val message: String) : TrackerEvent
     public data class Error(val code: ErrorCode, val message: String) : TrackerEvent
 }

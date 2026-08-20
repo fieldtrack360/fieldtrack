@@ -22,3 +22,18 @@
 # guarantee and no rate limit worth relying on, and sending a fleet's traces to it is both
 # unreliable and somebody else's bill.
 #OSRM_BASE_URL=https://osrm.internal.example.com
+
+# FieldTrack licence API root, for the SDK's revocation check. Include the version
+# segment — the transport appends `/verify` and nothing else, so `/api/v2` later is a
+# configuration change rather than an SDK release.
+#
+# Unset is a working configuration and the default: with no URL, and with no response
+# public key compiled in, the check makes no request and every start carries on.
+#
+# This keeps the endpoint out of version control, not out of the artifact. It is compiled
+# into `BuildConfig.LICENSE_BASE_URL` and readable in any published AAR or installed APK.
+# That is fine for a URL the device has to reach. Never put a credential here.
+#
+# CI and JitPack have no `local.properties`. Pass `-PfieldtrackLicenseUrl=...` or set
+# `FIELDTRACK_LICENSE_URL` in the environment there; both take precedence over this file.
+#FIELDTRACK_LICENSE_URL=https://licence.example.com/api/v1

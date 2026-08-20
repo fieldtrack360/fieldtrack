@@ -30,6 +30,10 @@ work = "2.11.2"
 playServicesLocation = "21.4.0"
 playServicesMaps = "20.0.0"
 okhttp = "5.4.0"
+gson = "2.11.0"
+# Ed25519 below API 33. java.security only gained it at 33 and minSdk is 26, so the
+# licence gate needs its own implementation — see license/Ed25519.kt.
+tink = "1.13.0"
 # Lint tooling tracks AGP with a +23 major offset (AGP 9.3.0 -> lint 32.3.0).
 lint = "32.3.0"
 
@@ -75,13 +79,18 @@ androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
+androidx-work-testing = { module = "androidx.work:work-testing", version.ref = "work" }
 
 
 # --- Play Services ---
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 
-# --- Sync (optional artifact only) ---
+# --- Licensing ---
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "tink" }
+
+# --- HTTP (sync uses it compileOnly; core links it for the licence check) ---
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3-junit4", version.ref = "okhttp" }
 

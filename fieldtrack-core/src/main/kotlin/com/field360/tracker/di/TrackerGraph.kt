@@ -1,6 +1,7 @@
 package com.field360.tracker.di
 
 import android.annotation.SuppressLint
+import androidx.annotation.VisibleForTesting
 import android.content.Context
 import com.field360.tracker.Tracker
 import com.field360.tracker.TrackerConfig
@@ -49,6 +50,18 @@ import com.field360.traker.geo.motion.TurnDetector
 import com.field360.traker.geo.port.Clock
 import com.field360.traker.geo.port.PointStore
 import com.field360.traker.geo.port.TrackLogger
+import com.field360.tracker.BuildConfig
+import com.field360.tracker.data.remote.GsonVerdictAuthenticator
+import com.field360.tracker.data.remote.OkHttpLicenseApi
+import com.field360.tracker.data.repository.LicenseVerdictStoreImpl
+import com.field360.tracker.domain.repository.LicenseApi
+import com.field360.tracker.domain.repository.LicenseVerdictStore
+import com.field360.tracker.domain.repository.VerdictAuthenticator
+import com.field360.tracker.domain.usecase.CheckLicenseRevocationUseCase
+import com.field360.tracker.domain.usecase.GetCachedLicenseActionUseCase
+import com.field360.tracker.domain.usecase.GetLicenseInfoUseCase
+import com.field360.tracker.license.LicenseConfig
+import com.field360.tracker.license.LicenseGate
 import com.field360.tracker.integrity.internal.IntegrityEnvironment
 import com.field360.tracker.integrity.internal.IntegrityEvaluator
 import com.field360.tracker.integrity.internal.IntegrityFeed
@@ -106,6 +119,19 @@ import kotlinx.coroutines.flow.MutableSharedFlow
  */
 internal class TrackerGraph private constructor(
     @JvmField val context: Context,
+    /**
+     * Test-only replacements for the two licence pieces that cannot be reached any other
+     * way: the transport, so a test can count calls without a socket, and the trust
+     * anchor, which is otherwise a compile-time constant.
+     *
+     * Null in every shipped path — [installForTest] is the only caller that passes
+     * anything, `TrackerGraph` is `internal`, and neither is reachable from a host. This
+     * is not a runtime-configurable trust anchor: making the response key settable from
+     * outside the module would let anyone who could call it sign their own verdicts, which
+     * is exactly what compiling the key in prevents.
+     */
+    private val licenseApiOverride: LicenseApi? = null,
+    private val responseKeyOverride: ByteArray? = null,
 ) {
 
     // ── ports and primitives ────────────────────────────────────────────────
@@ -248,6 +274,56 @@ internal class TrackerGraph private constructor(
         IntegrityMonitor(integrityEvaluator, events, integrityFeed)
     }
 
+    // ── licensing ───────────────────────────────────────────────────────────
+
+    /** The offline gate: token, signature, package. No network, and what licenses the app. */
+    val licenseGate: LicenseGate by lazy { LicenseGate(context) }
+
+    /**
+     * The online half, wired the way every other feature here is: domain interfaces
+     * (`domain/repository/LicenseRepositories.kt`), concrete implementations from
+     * `data/`, and a use case that has never heard of either. Declared as the interface
+     * type on purpose — the graph is the only file that knows OkHttp and Gson are the
+     * answer, so swapping the transport touches one line.
+     */
+    val verdictAuthenticator: VerdictAuthenticator by lazy {
+        GsonVerdictAuthenticator(responseKeyOverride ?: LicenseConfig.responsePublicKey())
+    }
+
+    val licenseApi: LicenseApi by lazy {
+        licenseApiOverride ?: OkHttpLicenseApi(LicenseConfig.baseUrl(context), logger = logger)
+    }
+
+    val licenseVerdictStore: LicenseVerdictStore by lazy {
+        LicenseVerdictStoreImpl(context, verdictAuthenticator)
+    }
+
+    /**
+     * Revocation and expiry, which the offline gate structurally cannot know about.
+     * Built lazily like everything here, so a build with no compiled-in response key
+     * never constructs an HTTP client at all.
+     */
+    val checkLicenseRevocation: CheckLicenseRevocationUseCase by lazy {
+        CheckLicenseRevocationUseCase(
+            api = licenseApi,
+            authenticator = verdictAuthenticator,
+            store = licenseVerdictStore,
+            packageName = context.packageName,
+            sdkVersion = BuildConfig.SDK_VERSION,
+            logger = logger,
+        )
+    }
+
+    /** The no-network read `ready()` consults. Separate class, opposite obligation. */
+    val getCachedLicenseAction: GetCachedLicenseActionUseCase by lazy {
+        GetCachedLicenseActionUseCase(licenseVerdictStore)
+    }
+
+    /** The no-network read `Tracker.licenseInfo()` answers from. */
+    val getLicenseInfo: GetLicenseInfoUseCase by lazy {
+        GetLicenseInfoUseCase(licenseVerdictStore)
+    }
+
     // ── capture ─────────────────────────────────────────────────────────────
 
     val watchdog: Watchdog by lazy { Watchdog(clock, events) }
@@ -375,6 +451,10 @@ internal class TrackerGraph private constructor(
             integrityMonitor = integrityMonitor,
             stationaryFence = stationaryFence,
             permissions = permissions,
+            licenseGate = licenseGate,
+            getCachedLicenseAction = getCachedLicenseAction,
+            getLicenseInfo = getLicenseInfo,
+            checkLicenseRevocation = checkLicenseRevocation,
             context = context,
             scope = scope,
             eventSink = events,
@@ -401,6 +481,26 @@ internal class TrackerGraph private constructor(
             return synchronized(this) {
                 instance ?: TrackerGraph(context.applicationContext).also { instance = it }
             }
+        }
+
+        /**
+         * Installs a graph whose licence transport and trust anchor come from the caller,
+         * and makes it the one [get] returns.
+         *
+         * The only way to exercise `Tracker.ready()`'s licence behaviour: the transport is
+         * built from a compiled-in URL and the trust anchor from a compiled-in key, so
+         * without this a test can only ever observe an unconfigured build deciding to do
+         * nothing. Pair with [resetForTest] in an `@After`, or the graph leaks into every
+         * test that runs afterwards in the same JVM.
+         */
+        @VisibleForTesting
+        fun installForTest(
+            context: Context,
+            licenseApi: LicenseApi,
+            responseKey: ByteArray,
+        ): TrackerGraph = synchronized(this) {
+            TrackerGraph(context.applicationContext, licenseApi, responseKey)
+                .also { instance = it }
         }
 
         /** Test seam only. Drops the graph so the next [get] rebuilds it. */

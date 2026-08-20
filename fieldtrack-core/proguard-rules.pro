@@ -162,6 +162,19 @@
     public void w(java.lang.String, java.lang.String);
 }
 
+# ── licence wire fields ─────────────────────────────────────────────────────
+#
+# Gson maps by reflected field name and this AAR ships obfuscated, so the licence request
+# would go out with renamed keys and the server would answer 400 — which fails open, and
+# therefore looks exactly like a licence that is fine. `@SerializedName` carries the wire
+# names, so only the annotated fields need keeping; the class is still renamed and
+# repackaged by the rule below.
+# Matches on the annotation, not the package, so moving a DTO cannot silently
+# un-keep it — which is what the package-scoped version of this rule allowed.
+-keepclassmembers,allowobfuscation class com.field360.tracker.** {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
 # Everything not kept above is renamed AND moved here, so the package tree itself stops
 # describing the architecture (no more capture/, di/, data/db/ to read like a map).
 -repackageclasses 'tr.dev.core'

@@ -20,7 +20,15 @@ import com.field360.tracker.data.db.RawFixDao
 import com.field360.tracker.data.db.RawPointDao
 import com.field360.tracker.data.db.toDomain
 import com.field360.tracker.di.TrackerGraph
+import com.field360.tracker.domain.model.LicenseAction
+import com.field360.tracker.domain.model.LicenseInfo
+import com.field360.tracker.domain.usecase.CheckLicenseRevocationUseCase
+import com.field360.tracker.domain.usecase.GetCachedLicenseActionUseCase
+import com.field360.tracker.domain.usecase.GetLicenseInfoUseCase
 import com.field360.tracker.license.LicenseGate
+import com.field360.tracker.license.LicenseState
+import com.field360.tracker.license.LicenseVerdict
+import com.field360.tracker.work.LicenseCheckWorker
 import com.field360.tracker.domain.repository.DecisionRepository
 import com.field360.tracker.domain.repository.SessionRepository
 import com.field360.tracker.domain.repository.TrackPointRepository
@@ -68,6 +76,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * The SDK's public surface.
@@ -111,6 +121,10 @@ public class Tracker internal constructor(
     private val integrityMonitor: IntegrityMonitor,
     private val stationaryFence: StationaryFence,
     private val permissions: PermissionManager,
+    private val licenseGate: LicenseGate,
+    private val getCachedLicenseAction: GetCachedLicenseActionUseCase,
+    private val getLicenseInfo: GetLicenseInfoUseCase,
+    private val checkLicenseRevocation: CheckLicenseRevocationUseCase,
     private val context: Context,
     private val scope: CoroutineScope,
     private val eventSink: MutableSharedFlow<TrackerEvent>,
@@ -130,6 +144,9 @@ public class Tracker internal constructor(
 
     @Volatile
     private var config: TrackerConfig? = null
+
+    /** Keeps concurrent [checkLicense] calls from each making their own request. */
+    private val licenseCheckLock = Mutex()
 
     @Volatile
     private var stateSyncJob: Job? = null
@@ -211,16 +228,17 @@ public class Tracker internal constructor(
      * interrupted session if one was left open by a crash or force-stop (EC-66).
      */
     public suspend fun ready(config: TrackerConfig = TrackerConfig()): TrackerResult<TrackerState> {
-        val licenseGate = LicenseGate(context)
         when (val verdict = licenseGate.check(explicit = config.license)) {
-            com.field360.tracker.license.LicenseVerdict.Licensed,
-            com.field360.tracker.license.LicenseVerdict.Waived -> Unit
+            LicenseVerdict.Licensed,
+            LicenseVerdict.Waived -> Unit
             else -> {
                 val failure = licenseGate.failure(verdict)!!
                 eventSink.tryEmit(TrackerEvent.Error(failure.code, failure.message))
                 return TrackerResult.Error(failure.code, failure.message)
             }
         }
+
+        revocationGate(config)?.let { return it }
 
         // Evaluated on the resolved-by-the-host config rather than the persisted one: the
         // integrity policy is the host's standing decision about its own release build, so
@@ -246,6 +264,11 @@ public class Tracker internal constructor(
 
         this.config = resolved.config
         this.sensors = resolved.sensors
+
+        // Every app open gets a licence check — after `config` is set, because that is
+        // where the token comes from, and off the return path, because it must not delay
+        // one. See [launchStartupLicenseCheck].
+        launchStartupLicenseCheck()
 
         if (stateSyncJob == null) {
             stateSyncJob = scope.launch {
@@ -303,6 +326,38 @@ public class Tracker internal constructor(
      * doors. The report is published either way — a `WARN` finding still reaches the host
      * and still rides along on every point.
      */
+    /**
+     * The **gate** in `ready()` — cache and the in-process latch only. **No network
+     * happens on this path, and nothing here is ever awaited on a network call.**
+     *
+     * A fresh check does fire on every `ready()`, but not from here: it is launched
+     * unawaited by [launchStartupLicenseCheck] once config is resolved. The separation is
+     * the whole design. Whether the host is allowed to proceed is decided from an answer
+     * already on disk, so a licence server outage cannot delay a launch or refuse one; the
+     * new answer arrives moments later and acts on its own. A host that has never been
+     * online since being revoked therefore keeps working, which is the correct trade —
+     * treating an unreachable server as evidence would hand anyone with a firewall rule
+     * the ability to stop a paying customer.
+     *
+     * Staleness is ignored on purpose — see [GetCachedLicenseActionUseCase].
+     *
+     * The worker is enqueued after the check rather than before it, so a build with no
+     * licence configured never schedules anything. It remains the backstop for an app
+     * left open for days; the startup check is what makes the *first* one prompt.
+     */
+    private suspend fun revocationGate(config: TrackerConfig): TrackerResult.Error? {
+        val token = licenseGate.token(config.license) ?: return null
+
+        val action = LicenseState.current ?: getCachedLicenseAction(token)
+        LicenseCheckWorker.enqueue(context)
+
+        if (action !is LicenseAction.Stop) return null
+
+        val message = action.reason ?: "Tracker license is no longer valid"
+        eventSink.tryEmit(TrackerEvent.Error(action.code, message))
+        return TrackerResult.Error(action.code, message)
+    }
+
     private fun integrityGate(security: SecurityConfig): TrackerResult.Error? {
         val report = integrityMonitor.evaluate(security)
         if (!report.blocked) return null
@@ -331,6 +386,94 @@ public class Tracker internal constructor(
      */
     public suspend fun checkIntegrity(): IntegrityReport = withContext(Dispatchers.IO) {
         integrityMonitor.evaluate(config?.security ?: SecurityConfig())
+    }
+
+    /**
+     * What the licence server last said about this app's licence, from the on-device
+     * cache. **Never touches the network**, so it is free to call from a UI.
+     *
+     * Null when no verified answer has ever been stored — a build with no licence
+     * configured, a first run that has not reached its first check, or a cached entry
+     * that failed re-verification. Null is not "invalid": nothing that fails here stops
+     * tracking, and a host should treat it as "not known yet" rather than as a refusal.
+     *
+     * [LicenseInfo.fromCache] is always `true` here. Use [checkLicense] to force a call.
+     */
+    public suspend fun licenseInfo(): LicenseInfo? {
+        val token = licenseGate.token(config?.license) ?: return null
+        return getLicenseInfo(token)
+    }
+
+    /**
+     * The startup check: fired on every [ready], never awaited by it.
+     *
+     * `ready()` still returns from cache alone, so nothing here can add a millisecond to
+     * a host's launch or refuse one because a licence server is having a bad day. The
+     * answer lands moments later on its own: through [TrackerEvent.LicenseChecked], the
+     * revocation latch, and — for a `REVOKED` or `EXPIRED` verdict — a stop.
+     *
+     * **This is what closes the first-run gap.** `LicenseCheckWorker` is periodic on a
+     * 12-hour interval with the default flex, so its first tick can land anywhere in the
+     * first 12 hours after install; before this, a fresh install could run most of a day
+     * against a licence nobody had verified. The worker remains what keeps a
+     * long-running install honest — this is what makes the first check prompt.
+     *
+     * Cheap to do on every open, because the cache short-circuits it: an app opened forty
+     * times a day still makes one request per TTL, not forty. [licenseCheckLock] serialises
+     * the calls so that two opens in quick succession — or a host calling [checkLicense]
+     * itself at the same moment — cannot both slip past a cold cache and go out twice.
+     *
+     * Wrapped in `runCatching` for a reason worth stating: this runs unobserved on the SDK
+     * scope, so anything thrown here has no caller to catch it and would surface as a
+     * crash in the host's app. The layer underneath already fails open; this is the belt
+     * to that pair of braces.
+     */
+    private fun launchStartupLicenseCheck() {
+        scope.launch { runCatching { checkLicense() } }
+    }
+
+    /**
+     * Checks with the licence server now and returns what it said, publishing the result
+     * to [TrackerEvent.LicenseChecked].
+     *
+     * Returns null when nothing was learned: no network, no licence configured, or a
+     * response that failed verification. **Null never means the licence is bad** — every
+     * one of those paths carries on tracking, deliberately, because the device owner can
+     * produce all three on demand and must not be able to disable the SDK that way.
+     *
+     * Safe to call more often than it looks. A cached answer inside its TTL short-circuits
+     * the request, so a host calling this on every screen still produces at most one call
+     * per TTL. The SDK also runs this itself every 12 hours; a host does not need to
+     * schedule anything.
+     *
+     * A `REVOKED` or `EXPIRED` answer stops tracking as a side effect, and arrives as an
+     * [TrackerEvent.Error] as well as here.
+     */
+    public suspend fun checkLicense(): LicenseInfo? = withContext(Dispatchers.IO) {
+        val token = licenseGate.token(config?.license) ?: return@withContext null
+
+        // Serialised, not deduplicated: the second caller through still gets an answer,
+        // it just gets it from the cache the first one filled instead of a second request.
+        licenseCheckLock.withLock {
+            runCheck(token)
+        }
+    }
+
+    private suspend fun runCheck(token: String): LicenseInfo? {
+        val (action, info) = checkLicenseRevocation(token)
+        LicenseState.apply(action)
+
+        info?.let { eventSink.tryEmit(TrackerEvent.LicenseChecked(it)) }
+
+        if (action is LicenseAction.Stop) {
+            val message = action.reason ?: "Tracker license is no longer valid"
+            eventSink.tryEmit(TrackerEvent.Error(action.code, message))
+            // A no-op when nothing is running, which is the usual case on the startup
+            // path — `StopTrackingUseCase` returns immediately with no open session.
+            stopTracking()
+        }
+
+        return info
     }
 
     /** Live device-integrity state. Emits on a change of the flag set, not on every check. */

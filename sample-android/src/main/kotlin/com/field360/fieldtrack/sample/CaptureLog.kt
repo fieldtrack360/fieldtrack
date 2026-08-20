@@ -178,6 +178,16 @@ class CaptureLog(context: Context) {
                         "${it.signal}@${it.policy}(${it.confidence})"
                     }.ifEmpty { "-" }}",
             )
+            // Logged on every check, `ACTIVE` included. A capture that only recorded
+            // licence failures could not distinguish a healthy licence from a check that
+            // never ran, which is exactly the question a support file has to answer.
+            is TrackerEvent.LicenseChecked -> line(
+                now,
+                "LICENCE",
+                "status=${event.info.status} valid=${event.info.valid} " +
+                    "cached=${event.info.fromCache} ttl=${event.info.ttlSeconds}s " +
+                    "checkedAt=${event.info.checkedAt} reason=${event.info.reason ?: "-"}",
+            )
             is TrackerEvent.Diagnostic -> line(now, "DIAG", "message=${event.message}")
             is TrackerEvent.Error -> line(now, "ERROR", "code=${event.code} message=${event.message}")
         }

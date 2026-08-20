@@ -58,3 +58,19 @@
 # `fieldtrack-geo` ships the equivalent rule in its own AAR. This duplicate remains because
 # core persists geo enum names directly and must protect them even if dependency rule
 # aggregation changes. The rule is idempotent in a host R8 configuration.
+
+# ── licence wire fields ─────────────────────────────────────────────────────
+#
+# The second silent-data-bug rule, and it fails the same way the enum one does: quietly,
+# in release only.
+#
+# `VerifyRequestDto` is serialised by Gson, which maps by reflected field name. R8 renames
+# those fields, so without this the revocation request goes out as `{"a":…,"b":…}`, the
+# server answers 400, and the check fails open — which is indistinguishable from a licence
+# that is fine. `@SerializedName` carries the wire names, so keeping the annotated fields
+# is enough; the class itself may be renamed and flattened.
+# Matches on the annotation, not the package, so moving a DTO cannot silently
+# un-keep it — which is what the package-scoped version of this rule allowed.
+-keepclassmembers,allowobfuscation class com.field360.tracker.** {
+    @com.google.gson.annotations.SerializedName <fields>;
+}

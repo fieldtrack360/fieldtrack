@@ -51,7 +51,7 @@ class SampleApplication : Application() {
                     // STRICT (20 m) trades points for a line that never zigzags.
                     .accuracyProfile(AccuracyProfile.BALANCED)
                     // Raw fixes are layer 1 of the debug overlay. Off by default in the
-                    // SDK because it is a diagnostic, not production behaviour — but the
+                    // SDK because it is a diagnostic, not production behavior — but the
                     // sample exists precisely to diagnose (spec §8.4).
                     .persistRawFixes(true)
                     // Layer 3: every judged fix in point form, so a missing point can

@@ -1,9 +1,5 @@
 package com.field360.tracker.license
 
-import java.security.KeyFactory
-import java.security.Signature
-import java.security.spec.X509EncodedKeySpec
-
 internal class LicenseVerifier {
 
     private val json = kotlinx.serialization.json.Json {
@@ -36,25 +32,29 @@ internal class LicenseVerifier {
         val publicKey = productionKeys[payload.kid]
             ?: return LicenseVerdict.Invalid("Unknown license key id ${payload.kid}")
 
-        val signature = runCatching { Signature.getInstance("Ed25519") }.getOrNull()
-            ?: return LicenseVerdict.Invalid("Ed25519 is unavailable on this device")
+        // The signature is over the base64url payload segment as it appears in the token,
+        // not over the decoded JSON: re-encoding is exactly where two implementations
+        // stop agreeing on the bytes.
+        val signed = Ed25519.verify(
+            publicKey = publicKey,
+            signature = parsed.signature,
+            message = parsed.payload.toByteArray(Charsets.UTF_8),
+        )
 
-        return runCatching {
-            val keyFactory = KeyFactory.getInstance("Ed25519")
-            val key = keyFactory.generatePublic(X509EncodedKeySpec(publicKey))
-            signature.initVerify(key)
-            signature.update(parsed.payload.toByteArray(Charsets.UTF_8))
-            if (signature.verify(parsed.signature)) LicenseVerdict.Licensed
-            else LicenseVerdict.Invalid("License signature verification failed")
-        }.getOrElse { error ->
-            LicenseVerdict.Invalid(error.message ?: error::class.simpleName.orEmpty())
-        }
+        return if (signed) LicenseVerdict.Licensed
+        else LicenseVerdict.Invalid("License signature verification failed")
     }
 
     companion object {
         /**
-         * Key ids to Ed25519 public keys. The production map is intentionally empty here;
-         * fill it with the real keys from the issuing flow for release enforcement.
+         * Key ids to **32 raw bytes** of Ed25519 public key — the form
+         * [Ed25519.PUBLIC_KEY_BYTES] describes, not DER.
+         *
+         * Intentionally empty here. Until it is filled from the issuing flow every
+         * non-debuggable build fails with "Unknown license key id", because an empty map
+         * cannot answer any `kid`. That is the correct default for a gate — a licence
+         * check that passes when it has nothing to check against is not a gate — but it
+         * does mean **release enforcement does not work until this map has real keys**.
          */
         val productionKeys: Map<Int, ByteArray> = emptyMap()
     }
