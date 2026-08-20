@@ -174,24 +174,6 @@ can develop with no token at all.
 
 > New to how this works? [`how-the-local-licence-works.md`](how-the-local-licence-works.md)
 > explains the offline check in plain English, with no prior knowledge assumed.
-
-Supply it either in your manifest:
-
-```xml
-<application>
-    <meta-data
-        android:name="TrackItLicense"
-        android:value="YOUR_LICENSE_TOKEN" />
-</application>
-```
-
-> **The meta-data name is `TrackItLicense`, exactly.** An earlier revision of this page
-> said `TrackerLicense`; the SDK never read that name, so a release build following it
-> failed with `LICENSE_MISSING` and no indication why. The constant is
-> `LicenseGate.infoPlistKey`.
-
-or in config, which takes precedence:
-
 ```kotlin
 tracker.ready(
     TrackerConfig.builder()
