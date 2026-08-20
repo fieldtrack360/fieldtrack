@@ -78,15 +78,17 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    // compileOnly: the default transport uses OkHttp, but a host supplying its own
-    // SyncTransport should not inherit it. See SyncTransport's KDoc.
+    // compileOnly: the default transport uses Retrofit over OkHttp, but a host supplying
+    // its own SyncTransport should inherit neither. See SyncTransport's KDoc.
     compileOnly(libs.okhttp)
+    compileOnly(libs.retrofit)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp)
+    testImplementation(libs.retrofit)
     testImplementation(libs.okhttp.mockwebserver)
 }
 
