@@ -52,7 +52,7 @@ import com.field360.traker.geo.port.PointStore
 import com.field360.traker.geo.port.TrackLogger
 import com.field360.tracker.BuildConfig
 import com.field360.tracker.data.remote.GsonVerdictAuthenticator
-import com.field360.tracker.data.remote.OkHttpLicenseApi
+import com.field360.tracker.data.remote.RetrofitLicenseApi
 import com.field360.tracker.data.repository.LicenseVerdictStoreImpl
 import com.field360.tracker.domain.repository.LicenseApi
 import com.field360.tracker.domain.repository.LicenseVerdictStore
@@ -283,15 +283,15 @@ internal class TrackerGraph private constructor(
      * The online half, wired the way every other feature here is: domain interfaces
      * (`domain/repository/LicenseRepositories.kt`), concrete implementations from
      * `data/`, and a use case that has never heard of either. Declared as the interface
-     * type on purpose — the graph is the only file that knows OkHttp and Gson are the
-     * answer, so swapping the transport touches one line.
+     * type on purpose — the graph is the only file that knows Retrofit and Gson are
+     * the answer, so swapping the transport touches one line.
      */
     val verdictAuthenticator: VerdictAuthenticator by lazy {
         GsonVerdictAuthenticator(responseKeyOverride ?: LicenseConfig.responsePublicKey())
     }
 
     val licenseApi: LicenseApi by lazy {
-        licenseApiOverride ?: OkHttpLicenseApi(LicenseConfig.baseUrl(context), logger = logger)
+        licenseApiOverride ?: RetrofitLicenseApi(LicenseConfig.baseUrl(context), logger = logger)
     }
 
     val licenseVerdictStore: LicenseVerdictStore by lazy {

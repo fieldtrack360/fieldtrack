@@ -8,7 +8,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
-import okhttp3.Request
+import kotlinx.coroutines.runBlocking
+import retrofit2.Retrofit
 import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -34,7 +35,8 @@ import java.util.concurrent.TimeUnit
  * would put every host's production traffic on somebody else's free instance without
  * anyone deciding to. Point this at your own deployment.
  *
- * OkHttp is `compileOnly` in this module, exactly as in `fieldtrack-sync`: it is linked only
+ * Retrofit and OkHttp are both `compileOnly` in this module, exactly as in
+ * `fieldtrack-sync`: they are linked only
  * if the host already has it or adds it.
  */
 public class OsrmSnapProvider(
@@ -158,24 +160,40 @@ public class OsrmSnapProvider(
         return out
     }
 
-    private fun match(chunk: List<SnapFix>, sendTimestamps: Boolean): List<GeoPoint> {
-        val request = Request.Builder()
-            .url(urlFor(chunk, sendTimestamps))
-            .get()
-            .apply { headers.forEach { (name, value) -> addHeader(name, value) } }
+    /**
+     * Built lazily so a provider that is constructed and never used costs nothing, and so
+     * the placeholder base URL below is never a reason to fail at construction time.
+     *
+     * Retrofit insists on a base URL even when every call passes an absolute `@Url`. This
+     * one is never resolved against anything.
+     */
+    private val service: OsrmService by lazy {
+        Retrofit.Builder()
+            .baseUrl(PLACEHOLDER_BASE_URL)
+            .client(client)
             .build()
+            .create(OsrmService::class.java)
+    }
 
-        return try {
-            client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return emptyList()
-                decode(response.body.string(), chunk.map { it.point })
+    private fun match(chunk: List<SnapFix>, sendTimestamps: Boolean): List<GeoPoint> =
+        try {
+            // Blocking on purpose: `snap` is already inside `withContext(Dispatchers.IO)`
+            // and each chunk is sequential, so a suspending call here would buy nothing
+            // and would change the shape of the chunk loop for no reason.
+            runBlocking {
+                val response = service.match(urlFor(chunk, sendTimestamps), headers)
+                if (!response.isSuccessful) {
+                    emptyList()
+                } else {
+                    response.body()?.use { decode(it.string(), chunk.map { fix -> fix.point }) }
+                        ?: emptyList()
+                }
             }
         } catch (_: IOException) {
             // A dead network is an expected state for an offline-first SDK. The track
             // still renders; it just renders from raw fixes.
             emptyList()
         }
-    }
 
     internal fun urlFor(chunk: List<SnapFix>, sendTimestamps: Boolean = false): String {
         // OSRM takes lon,lat — the opposite order to every other coordinate in this SDK.
@@ -315,6 +333,9 @@ public class OsrmSnapProvider(
             .readTimeout(READ_SECONDS, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .build()
+
+        /** Ignored at runtime — every call carries an absolute `@Url`. */
+        private const val PLACEHOLDER_BASE_URL = "http://localhost/"
 
         private const val OSRM_OK = "Ok"
         private const val MIN_MATCHABLE = 2

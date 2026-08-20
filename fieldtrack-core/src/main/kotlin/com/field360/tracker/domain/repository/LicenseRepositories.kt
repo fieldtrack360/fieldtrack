@@ -1,5 +1,6 @@
 package com.field360.tracker.domain.repository
 
+import com.field360.tracker.domain.model.ApiResult
 import com.field360.tracker.domain.model.CachedVerdict
 import com.field360.tracker.domain.model.LicenseCheckRequest
 import com.field360.tracker.domain.model.SignedVerdict
@@ -21,12 +22,14 @@ import com.field360.tracker.domain.model.SignedVerdict
  * here would throw the original away, and reconstructing it is precisely where these
  * implementations quietly break — see `data/remote/CanonicalJson.kt`.
  *
- * Null covers every failure without distinguishing them, because the caller treats them
- * identically: no network, DNS failure, timeout, 5xx, 4xx, empty body, unconfigured
- * build. None of those is evidence about a licence.
+ * [ApiResult.Failure] covers every failure. The caller treats them **identically** — no
+ * network, DNS failure, timeout, 5xx, 4xx, empty body, unconfigured build — because none
+ * of them is evidence about a licence, and every one of them is something the device owner
+ * can produce on demand. The `ApiError` inside exists so a log can say which happened, not
+ * so anything can branch on it.
  */
 internal fun interface LicenseApi {
-    suspend fun verify(request: LicenseCheckRequest): String?
+    suspend fun verify(request: LicenseCheckRequest): ApiResult<String>
 }
 
 /**

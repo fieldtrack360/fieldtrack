@@ -9,6 +9,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.field360.tracker.RawFix
 import com.field360.tracker.Tracker
 import com.field360.tracker.domain.model.ErrorCode
+import com.field360.tracker.domain.model.LicenseStatus
 import com.field360.tracker.domain.model.PermissionTier
 import com.field360.tracker.domain.model.PointQuery
 import com.field360.tracker.domain.model.ProviderState
@@ -36,6 +37,30 @@ import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
+
+/**
+ * A licence or licence-API problem, shaped for a dialog.
+ *
+ * Three SDK channels feed this, and they mean different things — flattening them into one
+ * type is the sample's choice, not the SDK's:
+ *
+ * | Channel | Means |
+ * |---|---|
+ * | `TrackerEvent.Error` with a `LICENSE_*` code | the SDK refused, or stopped |
+ * | `TrackerEvent.LicenseChecked` with a non-`ACTIVE` status | the server answered, and it was not "fine" |
+ * | `TrackerEvent.Diagnostic` starting `licence check failed` | the check could not run at all |
+ *
+ * **Only the first can stop tracking, and only for two codes.** Everything else is
+ * information: a `LICENSE_UNKNOWN` means our backend has no record of a token that
+ * verified offline, and an unreachable server means nothing was learned. Both leave
+ * tracking running, which is why [stopsTracking] exists — a dialog that implied otherwise
+ * would send an integrator hunting a fault that is not there.
+ */
+data class LicenseAlert(
+    val headline: String,
+    val detail: String,
+    val stopsTracking: Boolean,
+)
 
 /**
  * One view model over the whole SDK surface.
@@ -84,6 +109,8 @@ class TrackerViewModel(
         val backgroundAttempts: Int = 0,
         val showBackgroundDialog: Boolean = false,
         val licenseStatus: String = "",
+        /** Non-null while a licence problem is worth interrupting the user for. */
+        val licenseAlert: LicenseAlert? = null,
         val logPath: String = "",
         val logSizeBytes: Long = 0,
         /** Newest first. Every session ever recorded, for the Home list. */
@@ -189,6 +216,72 @@ class TrackerViewModel(
         refreshLogStats()
     }
 
+    /**
+     * Turns a licence-related event into something worth interrupting the user for, or
+     * null for everything else.
+     *
+     * `ACTIVE` deliberately produces nothing. A dialog on every successful check would be
+     * unusable — the SDK checks on every app open — and "the licence is fine" is not news.
+     * It still reaches the log and the Home screen's status line.
+     */
+    private fun licenseAlertFor(event: TrackerEvent): LicenseAlert? = when {
+        event is TrackerEvent.Error && event.code.name.startsWith("LICENSE_") -> LicenseAlert(
+            headline = when (event.code) {
+                ErrorCode.LICENSE_REVOKED -> "This licence has been revoked."
+                ErrorCode.LICENSE_EXPIRED -> "This licence has expired."
+                ErrorCode.LICENSE_MISSING -> "No licence token was supplied."
+                ErrorCode.LICENSE_INVALID -> "The licence token failed verification."
+                ErrorCode.LICENSE_BUNDLE_MISMATCH ->
+                    "The licence is for a different application id."
+                else -> "The SDK reported a licence problem."
+            },
+            detail = "${event.code}: ${event.message}",
+            // The only two that stop anything. Everything else is a refusal to start or
+            // a diagnostic, and saying "tracking stopped" for those would be a lie.
+            stopsTracking = event.code == ErrorCode.LICENSE_REVOKED ||
+                event.code == ErrorCode.LICENSE_EXPIRED,
+        )
+
+        event is TrackerEvent.LicenseChecked && event.info.status != LicenseStatus.ACTIVE ->
+            LicenseAlert(
+                headline = when (event.info.status) {
+                    LicenseStatus.UNKNOWN_KEY, LicenseStatus.INVALID_KEY ->
+                        "The server has no record of this licence. That is a gap in our " +
+                            "ledger, not a problem with your key — tracking continues."
+                    LicenseStatus.PACKAGE_MISMATCH ->
+                        "The server disagrees about the application id."
+                    LicenseStatus.SDK_MISMATCH -> "The server does not recognise this SDK type."
+                    LicenseStatus.UNRECOGNISED ->
+                        "The server sent a status this build has never been taught. " +
+                            "Ignored on purpose, so a new status cannot stop old installs."
+                    else -> "The licence server reported: ${event.info.status}"
+                },
+                detail = buildString {
+                    append("status=").append(event.info.status)
+                    append(" valid=").append(event.info.valid)
+                    append(" cached=").append(event.info.fromCache)
+                    event.info.reason?.let { append("\nreason=").append(it) }
+                },
+                // A revoked or expired verdict arrives here *and* as an Error, and the
+                // Error branch above is the one that owns the "stopped" wording.
+                stopsTracking = false,
+            )
+
+        event is TrackerEvent.Diagnostic && event.message.startsWith(LICENCE_FAILED) ->
+            LicenseAlert(
+                headline = "The licence check could not run. Nothing was learned, and " +
+                    "tracking is unaffected.",
+                detail = event.message,
+                stopsTracking = false,
+            )
+
+        else -> null
+    }
+
+    fun dismissLicenseAlert() {
+        _state.update { it.copy(licenseAlert = null) }
+    }
+
     private fun onEvent(event: TrackerEvent) {
         // Every capture goes to the file first, before any UI-shaped summarising. The
         // in-memory `log` below is capped at LOG_LIMIT lines for the screen; the file is
@@ -231,6 +324,8 @@ class TrackerViewModel(
                 "LICENCE ${event.info.status}" +
                     if (event.info.fromCache) " (cached)" else ""
         }
+
+        licenseAlertFor(event)?.let { alert -> _state.update { it.copy(licenseAlert = alert) } }
 
         if (event is TrackerEvent.Location) onPointCollected(event.point)
         if (event is TrackerEvent.GeofenceAdded ||
@@ -664,6 +759,9 @@ class TrackerViewModel(
         decision.verdict::class.simpleName.orEmpty().uppercase().padEnd(VERDICT_WIDTH)
 
     companion object {
+        /** The prefix the SDK uses for a check that could not run. */
+        private const val LICENCE_FAILED = "licence check failed"
+
         /**
          * Constructed from the `Application` rather than by a DI framework.
          *

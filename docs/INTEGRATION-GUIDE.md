@@ -121,17 +121,26 @@ dependencies {
 }
 ```
 
-### 1.3 OkHttp is `compileOnly`
+### 1.3 Retrofit and OkHttp are `compileOnly` in the optional modules
 
-`fieldtrack-sync` and `fieldtrack-snap` declare OkHttp as `compileOnly`, so it is **not**
-pulled into your app. If you use their built-in HTTP paths, add OkHttp yourself:
+`fieldtrack-sync` and `fieldtrack-snap` declare **both** as `compileOnly`, so neither is
+pulled into your app. If you use their built-in HTTP paths, add them yourself:
 
 ```kotlin
+implementation("com.squareup.retrofit2:retrofit:3.0.0")
 implementation("com.squareup.okhttp3:okhttp:5.4.0")
 ```
 
-You can skip it entirely by supplying your own `SyncTransport` (see [§14.6](#146-custom-transport))
-or your own `RoadSnapProvider` (see [§15](#15-snap-module--road-matching)).
+Retrofit 3 requires OkHttp 5 — they are versioned together, not independently.
+
+You can skip both entirely by supplying your own `SyncTransport` (see
+[§14.6](#146-custom-transport)) or your own `RoadSnapProvider` (see
+[§15](#15-snap-module--road-matching)).
+
+**`fieldtrack-core` is different.** It links Retrofit, OkHttp, Gson and Tink as real
+dependencies, because the licence check has to work in a host that brought no HTTP client
+of its own. There is no opt-out, deliberately: a licensing layer an integrator could
+disable by omitting a dependency would not be a licensing layer.
 
 ### 1.4 What you do *not* have to add
 
@@ -168,10 +177,15 @@ Supply it either in your manifest:
 ```xml
 <application>
     <meta-data
-        android:name="TrackerLicense"
+        android:name="TrackItLicense"
         android:value="YOUR_LICENSE_TOKEN" />
 </application>
 ```
+
+> **The meta-data name is `TrackItLicense`, exactly.** An earlier revision of this page
+> said `TrackerLicense`; the SDK never read that name, so a release build following it
+> failed with `LICENSE_MISSING` and no indication why. The constant is
+> `LicenseGate.infoPlistKey`.
 
 or in config, which takes precedence:
 
@@ -183,11 +197,83 @@ tracker.ready(
 )
 ```
 
-The token is bound to your application id. `ready()` returns a `TrackerResult.Error` with
-`LICENSE_MISSING`, `LICENSE_INVALID` or `LICENSE_BUNDLE_MISMATCH` when the check fails, and
-the same failure is emitted on the event flow as `TrackerEvent.Error`.
+Keep the token out of source control. `local.properties` is gitignored and already carries
+the sample's Maps key:
 
-The `license` field is never persisted with the rest of the config.
+```properties
+# local.properties
+FIELDTRACK_LICENSE=TRACKIT-eyJ2IjoxLCJraWQiOjEs…
+```
+
+```kotlin
+// your app's build.gradle.kts
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }
+        ?.inputStream()?.use { load(it) }
+}
+buildConfigField(
+    "String", "FIELDTRACK_LICENSE",
+    "\"${localProperties.getProperty("FIELDTRACK_LICENSE", "")}\"",
+)
+```
+
+This keeps the token out of the repository, not out of the APK — it is compiled into
+`BuildConfig` and readable by anyone who unzips your build. That is expected: the token is
+bound to your application id and signed, so a copy of it is worth nothing in another app.
+It is still worth what you paid, so do not commit it.
+
+The token is bound to your application id. `ready()` returns a `TrackerResult.Error` with
+`LICENSE_MISSING`, `LICENSE_INVALID` or `LICENSE_BUNDLE_MISMATCH` when the offline check
+fails, and the same failure is emitted on the event flow as `TrackerEvent.Error`.
+
+The `license` field is never persisted with the rest of the config — it is re-read from
+config or the manifest on every `ready()`, so "I updated my licence" never turns into a
+stale token resurrected from disk.
+
+### The online check
+
+Beyond the offline gate, the SDK asks the licence server whether the token has been
+**revoked or expired** since it was issued. You do not wire anything up for this.
+
+| | |
+|---|---|
+| **When** | Shortly after every `ready()`, and every 12 hours while installed |
+| **Blocking?** | **No.** `ready()` decides from a cached verdict and returns; the call runs unawaited |
+| **Offline?** | Carries on. Fail-open by design — a server outage never stops a paying customer |
+| **You see** | `TrackerEvent.LicenseChecked`, `tracker.licenseInfo()`, `tracker.checkLicense()` |
+
+```kotlin
+tracker.events
+    .filterIsInstance<TrackerEvent.LicenseChecked>()
+    .onEach { Log.i("licence", "${it.info.status} cached=${it.info.fromCache}") }
+    .launchIn(scope)
+
+// any time, no network cost:
+when (tracker.licenseInfo()?.status) {
+    LicenseStatus.ACTIVE -> Unit
+    null -> Unit                      // not checked yet — NOT a refusal
+    else -> showLicenceBanner()
+}
+```
+
+**Silence is not success.** No event is emitted when the network failed or the response
+could not be verified — all of those carry on tracking and report nothing, because reading
+silence as approval would mean reading a server outage as a valid licence. A successful
+`ready()` likewise means "no cached verdict said stop", not "the licence was just checked".
+
+| Member | Type | Meaning |
+|---|---|---|
+| `status` | `LicenseStatus` | `ACTIVE`, `REVOKED`, `EXPIRED`, `UNKNOWN_KEY`, `INVALID_KEY`, `PACKAGE_MISMATCH`, `SDK_MISMATCH`, `UNRECOGNISED` |
+| `valid` | `Boolean` | The server's own flag. Branch on `status`, not this |
+| `packageName` | `String` | The application id the licence was issued against |
+| `checkedAt` | `String` | ISO-8601, the server's clock, verbatim |
+| `ttlSeconds` | `Long` | How long this answer may keep being trusted |
+| `reason` | `String?` | The server's explanation, when it sent one |
+| `fromCache` | `Boolean` | `true` for a stored verdict. Re-verified on read, so no less trustworthy |
+
+Only `REVOKED` and `EXPIRED` stop tracking. The rest are diagnostics — `UNKNOWN_KEY` and
+`INVALID_KEY` mean the token verified offline against a key we compiled in ourselves and
+the backend had no matching record, which is our ledger being wrong, not your licence.
 
 ---
 
@@ -725,7 +811,9 @@ sealed interface TrackerResult<out T> {
 | `STORAGE_RESET` | The store had to be reset |
 | `TRACKER_DEAD` | No fix for `deadTrackerMovingMin` / `deadTrackerStationaryMin` |
 | `INVALID_CONFIG` | `validate()` reported errors |
-| `LICENSE_MISSING` / `LICENSE_INVALID` / `LICENSE_BUNDLE_MISMATCH` | License gate |
+| `LICENSE_MISSING` / `LICENSE_INVALID` / `LICENSE_BUNDLE_MISMATCH` | Offline license gate, in `ready()` |
+| `LICENSE_REVOKED` / `LICENSE_EXPIRED` | Online check. **Stops tracking** |
+| `LICENSE_UNKNOWN` / `LICENSE_PACKAGE_MISMATCH` / `LICENSE_SDK_MISMATCH` | Online check. Diagnostic only — tracking continues |
 | `NO_ACTIVITY` | An Activity was required and none supplied |
 | `MOTION_DETECTION_DEGRADED` | `motionQuality = POOR` — motion gating is untrustworthy on this hardware |
 | `GEOFENCE_REGISTRATION_FAILED` / `GEOFENCE_REMOVAL_FAILED` / `GEOFENCE_LIMIT_REACHED` | Geofence operations |
@@ -1224,7 +1312,7 @@ is a fallback, never an override.
 | Field | Type | Default | What it does |
 |---|---|---|---|
 | `url` | `String` | — | Full endpoint. Must be `https://` (or `http://` for loopback / with `allowCleartext`) |
-| `method` | `String` | `"POST"` | HTTP method |
+| `method` | `String` | `"POST"` | HTTP method. **`POST`, `PUT` or `PATCH` only** — see below |
 | `headers` | `Map<String, String>` | empty | Sent on every request. **Never exposed back** — they carry your credential |
 | `autoSync` | `Boolean` | `true` | Upload as points arrive. With it off, you call `syncNow()` / `requestSync()` |
 | `batchSize` | `Int` | `100` | Rows per request, 1..1000. Larger = fewer requests but a bigger retry unit |
@@ -1232,6 +1320,16 @@ is a fallback, never an override.
 | `gzipRequestBody` | `Boolean` | `false` | Compress the JSON body. Off by default — there is no negotiation for request-body encoding, so a server that does not expect gzip answers 400 |
 | `allowCleartext` | `Boolean` | `false` | Permit an `http://` URL. Local development only. Loopback hosts (`localhost`, `127.0.0.1`, `::1`, `10.0.2.2`) are already exempt |
 | `timeouts` | `SyncTimeouts` | 5 s / 30 s / 20 s | Applied by the built-in transport; ignored by a custom one |
+
+> **`method` accepts `POST`, `PUT` or `PATCH`, and nothing else.** The built-in transport
+> is Retrofit, whose verb annotations are compile-time constants — there is no dynamic-verb
+> form — so the transport dispatches over a fixed set rather than passing your string
+> through. `configure()` rejects anything outside it, which at least surfaces the problem at
+> configuration time rather than on the first upload hours later.
+>
+> This is a narrowing. The previous OkHttp transport passed any verb straight to
+> `Request.Builder.method(...)`. If you need another one, supply your own `SyncTransport`
+> ([§14.6](#146-custom-transport)) — the interface has no such restriction.
 
 **Builder**: `.url()`, `.baseUrl()`, `.path()`, `.method()`, `.header(name, value)`,
 `.headers(map)`, `.autoSync()`, `.batchSize()`, `.requiresUnmeteredNetwork()`,
@@ -1253,7 +1351,7 @@ data class SyncTimeouts(
 | Member | Signature | Notes |
 |---|---|---|
 | `getInstance` | `@JvmStatic fun getInstance(context: Context): TrackerSync` | Idempotent, thread-safe |
-| `configure` | `fun configure(config: SyncConfig, transport: SyncTransport? = null)` | Throws `IllegalArgumentException` on an invalid config. Omit `transport` to use the OkHttp default |
+| `configure` | `fun configure(config: SyncConfig, transport: SyncTransport? = null)` | Throws `IllegalArgumentException` on an invalid config. Omit `transport` to use the built-in Retrofit-over-OkHttp default |
 | `endpoint` | `val endpoint: String?` | Where uploads go, or `null` if unconfigured — or if a 401 tore it down. Headers are deliberately not exposed |
 | `isConfigured` | `val isConfigured: Boolean` | Derived from `endpoint`. **Do not cache it** — a 401 clears configuration with no involvement from you |
 | `pendingCount` | `suspend fun pendingCount(): Int` | Rows waiting to upload |
@@ -1341,8 +1439,10 @@ rejected credential, and any other status to have the batch retried.
 
 ### 14.6 Custom transport
 
-Supply your own `SyncTransport` to reuse an existing authenticated client — then OkHttp is
-never linked, and you can remap the payload to whatever your backend expects.
+Supply your own `SyncTransport` to reuse an existing authenticated client — then neither
+Retrofit nor OkHttp is linked, and you can remap the payload to whatever your backend
+expects. The example below uses OkHttp because that is what most hosts already have; the
+interface has no opinion.
 
 ```kotlin
 class MyTransport(private val client: OkHttpClient) : SyncTransport {
@@ -1410,7 +1510,7 @@ guarantee. Point this at your own deployment.
 |---|---|---|
 | `baseUrl` | — | Your OSRM server |
 | `profile` | `"driving"` | OSRM profile |
-| `client` | built-in OkHttp | Supply your own |
+| `client` | built-in OkHttp | Supply your own. Retrofit runs on top of whatever you pass, so proxies, pinning and interceptors are all still yours |
 | `chunkSize` | provider default | Coordinates per `/match` request |
 | `searchRadiusM` | provider default | Search radius per coordinate |
 | `headers` | empty | Extra request headers |
@@ -1755,7 +1855,7 @@ fire and the runtime waiver already applies.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `ready()` returns `LICENSE_MISSING` | Release build with no token | Add the `TrackerLicense` manifest meta-data or `.license(...)` in config ([§2](#2-license-token)) |
+| `ready()` returns `LICENSE_MISSING` | Release build with no token | Add the `TrackItLicense` manifest meta-data — that exact spelling — or `.license(...)` in config ([§2](#2-license-token)) |
 | `start()` returns `NOT_READY` | `ready()` not called or it failed | Check the `TrackerResult` from `ready()` |
 | `start()` returns `PERMISSION_DENIED` | No location permission | Walk the ladder in [§4](#4-permissions) |
 | `start()` returns `PLAY_SERVICES_UNAVAILABLE` | No Google Play Services | Set `providerType = GPS_ONLY` |

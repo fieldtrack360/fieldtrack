@@ -30,6 +30,8 @@ work = "2.11.2"
 playServicesLocation = "21.4.0"
 playServicesMaps = "20.0.0"
 okhttp = "5.4.0"
+# Retrofit 3 requires OkHttp 5, which is what `okhttp` above already is.
+retrofit = "3.0.0"
 gson = "2.11.0"
 # Ed25519 below API 33. java.security only gained it at 33 and minSdk is 26, so the
 # licence gate needs its own implementation — see license/Ed25519.kt.
@@ -92,6 +94,8 @@ tink-android = { module = "com.google.crypto.tink:tink-android", version.ref = "
 
 # --- HTTP (sync uses it compileOnly; core links it for the licence check) ---
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "retrofit" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3-junit4", version.ref = "okhttp" }
 
 # --- Lint (custom rules; bundled into the AARs via lintPublish) ---

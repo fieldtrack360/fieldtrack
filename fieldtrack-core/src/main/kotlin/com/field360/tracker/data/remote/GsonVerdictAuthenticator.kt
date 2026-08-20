@@ -1,11 +1,9 @@
 package com.field360.tracker.data.remote
 
-import com.field360.tracker.domain.model.LicenseStatus
+import com.field360.tracker.domain.model.ApiResult
 import com.field360.tracker.domain.model.SignedVerdict
 import com.field360.tracker.domain.repository.VerdictAuthenticator
 import com.field360.tracker.license.Ed25519
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import java.security.MessageDigest
 import java.util.Base64
 
@@ -47,12 +45,12 @@ internal class GsonVerdictAuthenticator(
     ): SignedVerdict? {
         if (!isConfigured) return null
 
-        val json = runCatching { JsonParser.parseString(document).asJsonObject }.getOrNull()
+        // Reading and trusting are separate steps, and only the second one is a security
+        // decision. Everything below operates on fields that have already parsed.
+        val parsed = (LicenseResponseParser.parse(document) as? ApiResult.Success)?.value
             ?: return null
 
-        // The server signs in production. An unsigned response is an untrusted one.
-        val signature = json.string(SIGNATURE_FIELD) ?: return null
-        val signatureBytes = decodeBase64Url(signature) ?: return null
+        val signatureBytes = decodeBase64Url(parsed.signature) ?: return null
         val canonical = canonicalize(document) ?: return null
 
         // 1 — is it genuine?
@@ -64,40 +62,15 @@ internal class GsonVerdictAuthenticator(
         if (!genuine) return null
 
         // 2 — is it about OUR licence?
-        if (json.string("key_id") != sha256Hex(token.trim())) return null
+        if (parsed.keyId != sha256Hex(token.trim())) return null
 
         // 3 — is it fresh? Skipped when the caller had no nonce to send, which is only
         // the cache-read path: a nonce proves freshness on arrival and can prove nothing
         // about a value read back from disk.
-        if (sentNonce != null && json.string("nonce") != sentNonce) return null
+        if (sentNonce != null && parsed.nonce != sentNonce) return null
 
-        return runCatching {
-            SignedVerdict(
-                status = LicenseStatus.fromWire(json.string("status") ?: return null),
-                valid = json.get("valid").asBoolean,
-                keyId = json.string("key_id") ?: return null,
-                packageName = json.string("package_name") ?: return null,
-                checkedAt = json.string("checked_at") ?: return null,
-                ttlSeconds = json.get("ttl_seconds").asLong,
-                nonce = json.string("nonce"),
-                reason = json.string("reason"),
-                raw = document,
-            )
-        }.getOrNull()
+        return parsed.toVerdict()
     }
-
-    /**
-     * Null for absent, JSON-null, non-string or empty.
-     *
-     * Gson's `asString` would coerce a number into a string and throw on a missing key.
-     * Neither is wanted: a `key_id` that arrived as a number is not a `key_id` we should
-     * be comparing against, and a missing field is a failed check rather than an
-     * exception on a background thread.
-     */
-    private fun JsonObject.string(key: String): String? =
-        get(key)?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }
-            ?.asString
-            ?.takeIf { it.isNotEmpty() }
 
     private fun sha256Hex(input: String): String =
         MessageDigest.getInstance("SHA-256")

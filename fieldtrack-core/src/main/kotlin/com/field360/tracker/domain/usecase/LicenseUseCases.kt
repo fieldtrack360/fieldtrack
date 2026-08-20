@@ -1,6 +1,9 @@
 package com.field360.tracker.domain.usecase
 
 import com.field360.tracker.API_TAG
+import com.field360.tracker.domain.model.ApiError
+import com.field360.tracker.domain.model.ApiErrorCode
+import com.field360.tracker.domain.model.ApiResult
 import com.field360.tracker.domain.model.LicenseAction
 import com.field360.tracker.domain.model.LicenseCheckRequest
 import com.field360.tracker.domain.model.LicenseCheckResult
@@ -56,24 +59,39 @@ internal class CheckLicenseRevocationUseCase(
      * produces at most one request per TTL, so a host cannot turn it into a way to
      * exhaust the server's 120-requests-per-minute budget.
      */
-    suspend operator fun invoke(token: String): LicenseCheckResult {
+    suspend operator fun invoke(
+        token: String,
+        forceRefresh: Boolean = false,
+    ): LicenseCheckResult {
         if (!authenticator.isConfigured) {
             sdkLog { logger.d(API_TAG, "skipped: no response public key compiled in") }
             return LicenseCheckResult.Inconclusive
         }
 
         store.read(token)?.let { cached ->
-            if (!cached.isStale()) {
-                sdkLog {
-                    logger.d(API_TAG, "cache fresh (${cached.verdict.status}) — no request")
-                }
+            val status = cached.verdict.status
+
+            // The floor applies even to a forced refresh, and it is the only thing
+            // standing between "check on every app open" and a crash-looping app opening
+            // sixty times a minute against a server that allows 120 across every IP.
+            if (cached.ageMs() < MIN_REFRESH_INTERVAL_MS) {
+                sdkLog { logger.d(API_TAG, "checked ${cached.ageMs()}ms ago — no request") }
                 return cached.verdict.result(fromCache = true)
             }
-            sdkLog { logger.d(API_TAG, "cache stale (${cached.verdict.status}) — rechecking") }
+
+            if (!forceRefresh && !cached.isStale()) {
+                sdkLog { logger.d(API_TAG, "cache fresh ($status) — no request") }
+                return cached.verdict.result(fromCache = true)
+            }
+
+            sdkLog {
+                val why = if (forceRefresh) "forced" else "cache stale"
+                logger.d(API_TAG, "$why ($status) — rechecking")
+            }
         }
 
         val nonce = newNonce()
-        val document = api.verify(
+        val response = api.verify(
             LicenseCheckRequest(
                 accessKey = token,
                 packageName = packageName,
@@ -81,9 +99,20 @@ internal class CheckLicenseRevocationUseCase(
                 sdkVersion = sdkVersion,
                 nonce = nonce,
             ),
-        ) ?: run {
-            sdkLog { logger.d(API_TAG, "no usable response — carrying on") }
-            return LicenseCheckResult.Inconclusive
+        )
+
+        // **Every** failure lands here, and they are deliberately indistinguishable to the
+        // code that follows: a 401, a 500, a timeout and an unconfigured build all produce
+        // exactly this. The error is read for the log and nothing else — branching on it
+        // would turn a proxy the device owner controls into a way to disable the SDK.
+        val document = when (response) {
+            is ApiResult.Success -> response.value
+            is ApiResult.Failure -> {
+                sdkLog {
+                    logger.d(API_TAG, "${response.error.describe()} — carrying on")
+                }
+                return LicenseCheckResult.inconclusive(response.error)
+            }
         }
 
         // A failed check is not a verdict. Treat it as if the call never happened rather
@@ -94,7 +123,9 @@ internal class CheckLicenseRevocationUseCase(
             // these, so this is either a proxy in the way or a key rotation nobody
             // shipped. Either way it silently disables enforcement until someone looks.
             sdkLog { logger.w(API_TAG, "response failed verification — ignored, carrying on") }
-            return LicenseCheckResult.Inconclusive
+            return LicenseCheckResult.inconclusive(
+                ApiError(ApiErrorCode.MALFORMED_BODY, detail = "failed verification"),
+            )
         }
 
         store.write(token, verdict)
@@ -137,6 +168,19 @@ internal class CheckLicenseRevocationUseCase(
          */
         const val SDK_TYPE: String = "android"
         private const val NONCE_BYTES = 12
+
+        /**
+         * The shortest gap between two real requests, however hard the caller asks.
+         *
+         * A forced refresh ignores `ttl_seconds` — the server's own instruction about how
+         * long its answer may be trusted — which is a deliberate trade: revocation lands
+         * at the next app open rather than up to a day later. What it must not do is turn
+         * a restart loop, or a user flicking between apps, into a request per launch.
+         *
+         * Five minutes leaves "every app open" true for anyone using the app normally,
+         * and false only for the pathological case it exists to stop.
+         */
+        internal const val MIN_REFRESH_INTERVAL_MS: Long = 5 * 60 * 1000L
     }
 }
 

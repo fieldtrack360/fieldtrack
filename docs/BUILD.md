@@ -60,7 +60,7 @@ part that makes a leak expensive rather than merely embarrassing.
 FIELDTRACK_LICENSE_URL=https://licence.example.com/api/v1
 ```
 
-Include the version segment. `OkHttpLicenseTransport` appends `/verify` and nothing else,
+Include the version segment. `RetrofitLicenseApi` appends `/verify` and nothing else,
 so moving to `/api/v2` is a configuration change rather than an SDK release.
 
 Resolution order, first non-null wins:
@@ -375,7 +375,7 @@ dependency change:
 |---|---|---|
 | `api(project(":fieldtrack-core"))` | `compile` | `traker-all` → `fieldtrack-core` |
 | `implementation(project(":fieldtrack-core"))` | `runtime` | `fieldtrack-sync` → `fieldtrack-core` |
-| `compileOnly(libs.okhttp)` | **absent** | no host inherits an HTTP stack it did not ask for |
+| `compileOnly(libs.okhttp)`, `compileOnly(libs.retrofit)` | **absent** | no host inherits an HTTP stack it did not ask for |
 
 ### Where the configuration lives
 
@@ -593,12 +593,12 @@ it cannot see.
 
 Installing a provider in your own app is one call, documented in [API.md](API.md) §3.
 
-### OkHttp in `fieldtrack-sync` and `fieldtrack-snap` is `compileOnly`
+### Retrofit and OkHttp in `fieldtrack-sync` and `fieldtrack-snap` are `compileOnly`
 
-The default `SyncTransport` and `OsrmSnapProvider` use OkHttp, but a host supplying its
+The default `SyncTransport` and `OsrmSnapProvider` use Retrofit over OkHttp, but a host supplying its
 own `SyncTransport` or `RoadSnapProvider` should not inherit the dependency. It is
 `compileOnly` in the main source set and `testImplementation` for tests. A consumer using
-either shipped implementation must add OkHttp themselves.
+either shipped implementation must add both themselves. Retrofit 3 requires OkHttp 5, so they are versioned together.
 
 ### Known failing check
 

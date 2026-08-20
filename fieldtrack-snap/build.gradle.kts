@@ -74,12 +74,14 @@ dependencies {
     // OkHttp, but a host writing its own RoadSnapProvider should not inherit an HTTP
     // client it never asked for.
     compileOnly(libs.okhttp)
+    compileOnly(libs.retrofit)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.truth)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp)
+    testImplementation(libs.retrofit)
     testImplementation(libs.okhttp.mockwebserver)
 }
 

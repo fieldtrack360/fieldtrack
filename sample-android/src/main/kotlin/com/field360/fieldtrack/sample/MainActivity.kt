@@ -35,6 +35,7 @@ import com.field360.fieldtrack.sample.screen.BackgroundLocationDialog
 import com.field360.fieldtrack.sample.screen.DebugOverlayScreen
 import com.field360.fieldtrack.sample.screen.DecisionLogScreen
 import com.field360.fieldtrack.sample.screen.HomeScreen
+import com.field360.fieldtrack.sample.screen.LicenseAlertDialog
 import com.field360.fieldtrack.sample.screen.TrackScreen
 import java.io.File
 
@@ -153,6 +154,13 @@ private fun SampleApp(
     LifecycleResumeEffect(Unit) {
         viewModel.refreshPermissions()
         onPauseOrDispose {}
+    }
+
+    // Licence problems interrupt regardless of which tab is showing: a revoked licence
+    // stops tracking, and a check that could not run is worth knowing about wherever the
+    // user happens to be.
+    state.licenseAlert?.let { alert ->
+        LicenseAlertDialog(alert = alert, onDismiss = viewModel::dismissLicenseAlert)
     }
 
     if (state.showBackgroundDialog) {

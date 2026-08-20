@@ -26,9 +26,13 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
 
-        <!-- Optional release license token for the SDK. Blank is fine in debug builds. -->
+        <!-- Optional release license token for the SDK. Blank is fine in debug builds,
+             where the offline gate is waived. The name must be TrackItLicense exactly:
+             LicenseGate.infoPlistKey reads that and nothing else, so the earlier
+             "TrackerLicense" spelling here was silently ignored and the manifest route
+             never worked. -->
         <meta-data
-            android:name="TrackerLicense"
+            android:name="TrackItLicense"
             android:value="${TRACKER_LICENSE}" />
 
         <!-- Lets the capture log be shared to Drive/mail/adb-less laptops. Read-only,

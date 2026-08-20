@@ -120,12 +120,13 @@ dependencies {
 }
 ```
 
-### 1.3 OkHttp is `compileOnly`
+### 1.3 Retrofit and OkHttp are `compileOnly` in the optional modules
 
-`fieldtrack-sync` and `fieldtrack-snap` declare OkHttp as `compileOnly`, so it is **not**
-pulled into your app. If you use their built-in HTTP paths, add OkHttp yourself:
+`fieldtrack-sync` and `fieldtrack-snap` declare **both** as `compileOnly`, so neither is
+pulled into your app. If you use their built-in HTTP paths, add them yourself:
 
 ```kotlin
+implementation("com.squareup.retrofit2:retrofit:3.0.0")
 implementation("com.squareup.okhttp3:okhttp:5.4.0")
 ```
 
@@ -1220,7 +1221,7 @@ is a fallback, never an override.
 | Field | Type | Default | What it does |
 |---|---|---|---|
 | `url` | `String` | — | Full endpoint. Must be `https://` (or `http://` for loopback / with `allowCleartext`) |
-| `method` | `String` | `"POST"` | HTTP method |
+| `method` | `String` | `"POST"` | HTTP method. **`POST`, `PUT` or `PATCH` only** — Retrofit's verb annotations are compile-time constants |
 | `headers` | `Map<String, String>` | empty | Sent on every request. **Never exposed back** — they carry your credential |
 | `autoSync` | `Boolean` | `true` | Upload as points arrive. With it off, you call `syncNow()` / `requestSync()` |
 | `batchSize` | `Int` | `100` | Rows per request, 1..1000. Larger = fewer requests but a bigger retry unit |
@@ -1249,7 +1250,7 @@ data class SyncTimeouts(
 | Member | Signature | Notes |
 |---|---|---|
 | `getInstance` | `@JvmStatic fun getInstance(context: Context): TrackerSync` | Idempotent, thread-safe |
-| `configure` | `fun configure(config: SyncConfig, transport: SyncTransport? = null)` | Throws `IllegalArgumentException` on an invalid config. Omit `transport` to use the OkHttp default |
+| `configure` | `fun configure(config: SyncConfig, transport: SyncTransport? = null)` | Throws `IllegalArgumentException` on an invalid config. Omit `transport` to use the built-in Retrofit-over-OkHttp default |
 | `endpoint` | `val endpoint: String?` | Where uploads go, or `null` if unconfigured — or if a 401 tore it down. Headers are deliberately not exposed |
 | `isConfigured` | `val isConfigured: Boolean` | Derived from `endpoint`. **Do not cache it** — a 401 clears configuration with no involvement from you |
 | `pendingCount` | `suspend fun pendingCount(): Int` | Rows waiting to upload |
@@ -1333,7 +1334,8 @@ rejected credential, and any other status to have the batch retried.
 
 ### 14.6 Custom transport
 
-Supply your own `SyncTransport` to reuse an existing authenticated client — then OkHttp is
+Supply your own `SyncTransport` to reuse an existing authenticated client — then neither
+Retrofit nor OkHttp is linked, and OkHttp is
 never linked, and you can remap the payload to whatever your backend expects.
 
 ```kotlin
@@ -1402,7 +1404,7 @@ guarantee. Point this at your own deployment.
 |---|---|---|
 | `baseUrl` | — | Your OSRM server |
 | `profile` | `"driving"` | OSRM profile |
-| `client` | built-in OkHttp | Supply your own |
+| `client` | built-in OkHttp | Supply your own. Retrofit runs on top of whatever you pass |
 | `chunkSize` | provider default | Coordinates per `/match` request |
 | `searchRadiusM` | provider default | Search radius per coordinate |
 | `headers` | empty | Extra request headers |

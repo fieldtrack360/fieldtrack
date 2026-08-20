@@ -1,7 +1,7 @@
-# Android integration — Kotlin + OkHttp
+# Android integration — Kotlin + Retrofit
 
 A complete, copy-paste integration of the Field Track 360 licence API for
-Android, using OkHttp and Gson.
+Android, using Retrofit over OkHttp, with Gson.
 
 **This is now shipped code, not only a guide.** `fieldtrack-core` implements all
 of it, wired by hand in `di/TrackerGraph.kt` and driven by `work/Workers.kt`.
@@ -41,14 +41,14 @@ This document covers the second. Three rules govern it:
 
 The online check follows the same layering as the rest of `fieldtrack-core`:
 the domain declares what it needs, `data/` supplies it, and the use case in the
-middle has never heard of OkHttp, Gson or `Context`.
+middle has never heard of Retrofit, Gson or `Context`.
 
 | Layer | File | Holds |
 |---|---|---|
 | **domain/model** | `domain/model/License.kt` | `LicenseCheckRequest`, `SignedVerdict`, `LicenseAction`, `LicenseCheckResult`, `CachedVerdict`, and the two public types — `LicenseStatus` and `LicenseInfo` |
 | **domain/repository** | `domain/repository/LicenseRepositories.kt` | `LicenseApi`, `VerdictAuthenticator`, `LicenseVerdictStore` — three interfaces, no implementations |
 | **domain/usecase** | `domain/usecase/LicenseUseCases.kt` | `CheckLicenseRevocationUseCase`, `GetCachedLicenseActionUseCase`, `GetLicenseInfoUseCase` |
-| **data/remote** | `OkHttpLicenseApi.kt`, `GsonVerdictAuthenticator.kt`, `CanonicalJson.kt`, `LicenseApiDto.kt` | HTTP, Gson, canonicalisation, the `@SerializedName` DTO |
+| **data/remote** | `LicenseService.kt`, `RetrofitLicenseApi.kt`, `ApiCall.kt`, `GsonVerdictAuthenticator.kt`, `LicenseResponseParser.kt`, `CanonicalJson.kt`, `LicenseApiDto.kt`, `RedactingLogInterceptor.kt` | the Retrofit service, the call, the generic result wrapper, verification, parsing, canonicalisation, the `@SerializedName` DTO, wire logging |
 | **data/repository** | `data/repository/LicenseVerdictStoreImpl.kt` | the DataStore-backed cache |
 | **license/** | `Ed25519.kt`, `LicenseVerifier.kt`, `LicenseToken.kt`, `LicenseGate.kt`, `LicenseState.kt`, `LicenseConfig.kt` | the offline gate, the shared crypto, the in-process latch, configuration |
 
@@ -67,7 +67,7 @@ Two things fall out of that split, and both are the reason for it:
 **No DI framework.** `di/TrackerGraph.kt` wires it by hand with `by lazy`, the
 same as every other feature here — a host needs no Gradle plugin, no
 `@HiltAndroidApp`, and no annotation processor of its own. The graph is also the
-only file that knows OkHttp and Gson are the answer: every property is declared
+only file that knows Retrofit and Gson are the answer: every property is declared
 as its interface type, so swapping a transport is one line.
 
 ---
@@ -77,9 +77,11 @@ as its interface type, so swapping a transport is one line.
 ```kotlin
 // fieldtrack-core/build.gradle.kts
 dependencies {
-    implementation(libs.gson)          // the wire, and only the wire
-    implementation(libs.tink.android)  // Ed25519
-    implementation(libs.okhttp)        // one POST
+    implementation(libs.retrofit)                  // the call
+    implementation(libs.retrofit.converter.gson)   // the request body only
+    implementation(libs.gson)                      // the wire, and the canonical form
+    implementation(libs.tink.android)              // Ed25519
+    implementation(libs.okhttp)                    // what Retrofit runs on
 
     implementation(libs.androidx.work.runtime.ktx)      // scheduling
     implementation(libs.androidx.datastore.preferences) // cache
@@ -88,9 +90,12 @@ dependencies {
 }
 ```
 
-> **No Retrofit.** Two endpoints — one of which is a build-time tool — do not
-> earn an HTTP abstraction layer, and `fieldtrack-sync` already talks to OkHttp
-> directly. `OkHttpLicenseApi` is forty lines.
+> **Retrofit 3 requires OkHttp 5**, which is what the catalog already pins.
+> Retrofit does not replace the OkHttp client — it runs on the one handed to it,
+> so timeouts, interceptors and any host configuration still live there.
+
+> **The Gson converter is used in one direction only.** It serialises the
+> request. It must never deserialise the response — §3.1 is why.
 
 > **On Ed25519:** `java.security` only gained it at API 33, and `minSdk` is 26.
 > Before Tink arrived, `LicenseVerifier` called `Signature.getInstance("Ed25519")`
@@ -103,49 +108,131 @@ dependencies {
 
 ## 3. The transport — `domain/repository` + `data/remote`
 
+The domain declares what it needs and never learns what answers it:
+
 ```kotlin
 internal fun interface LicenseApi {
-    /** The response body verbatim, or null for anything that went wrong. */
-    suspend fun verify(request: LicenseCheckRequest): String?
+    /** The response body verbatim, wrapped. Never a parsed type — see §3.1. */
+    suspend fun verify(request: LicenseCheckRequest): ApiResult<String>
 }
+```
 
-internal class OkHttpLicenseApi(
+The Retrofit service is the whole HTTP declaration:
+
+```kotlin
+internal interface LicenseService {
+    @POST("verify")
+    suspend fun verify(@Body request: VerifyRequestDto): Response<ResponseBody>
+}
+```
+
+```kotlin
+internal class RetrofitLicenseApi(
     private val baseUrl: String,
-    private val client: OkHttpClient = defaultClient(),
+    private val logger: TrackLogger = TrackLogger.NoOp,
+    private val client: OkHttpClient = defaultClient(logger),
 ) : LicenseApi {
 
+    private val call = ApiCall(logger)
     private val gson = GsonBuilder().disableHtmlEscaping().create()
 
-    override suspend fun verify(request: LicenseCheckRequest): String? = withContext(Dispatchers.IO) {
-        // Unconfigured build. Not an error, and not worth constructing a client for.
-        if (baseUrl.isBlank()) return@withContext null
-
+    /** Null when `baseUrl` is unusable — a typo must not crash the graph at launch. */
+    private val service: LicenseService? by lazy {
         runCatching {
-            val body = gson.toJson(request).toRequestBody(JSON)
-            val http = Request.Builder()
-                // Only "/verify". The version segment lives in the configured root.
-                .url(baseUrl.trimEnd('/') + VERIFY_PATH)
-                .post(body)
+            Retrofit.Builder()
+                .baseUrl(baseUrl.trimEnd('/') + "/")   // the trailing slash is load-bearing
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
-
-            client.newCall(http).execute().use { response ->
-                if (!response.isSuccessful) null else response.body.string().ifEmpty { null }
-            }
+                .create(LicenseService::class.java)
         }.getOrNull()
     }
 
-    companion object {
-        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-            // Short. This work is never urgent, and a long timeout only keeps a
-            // wakelock alive for a call that fails open anyway. No retry either:
-            // the next scheduled check is the retry.
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .retryOnConnectionFailure(false)
-            .build()
+    override suspend fun verify(request: LicenseCheckRequest): ApiResult<String> {
+        if (baseUrl.isBlank()) return ApiResult.Failure(ApiError(ApiErrorCode.NOT_CONFIGURED))
+        val api = service ?: return ApiResult.Failure(ApiError(ApiErrorCode.NOT_CONFIGURED))
+
+        return call.execute(label = "POST $VERIFY_PATH") { api.verify(request.toDto()) }
     }
 }
 ```
+
+### 3.1 `Response<ResponseBody>`, never a typed DTO
+
+This is the most important line in the licence layer, and it reads like a missed
+refactor. The obvious Retrofit signature is:
+
+```kotlin
+// WRONG — this silently disables licence enforcement
+@POST("verify")
+suspend fun verify(@Body request: VerifyRequestDto): VerifyResponseDto
+```
+
+The server signs the response, and **the signature covers the exact JSON text
+that arrived**: every key in its original order, every number in its original
+spelling, no whitespace added or removed. A converter parses those bytes into an
+object and throws the original away. Reconstructing them is where two
+implementations stop agreeing — re-serialising `86400` as `86400.0` is enough,
+and so is a differently-escaped `<`.
+
+When that happens the signature check fails. **The check fails open**, by design,
+so nothing breaks visibly: the app keeps running, no error is reported, and the
+only symptom is that a revoked licence never stops. Nobody finds that by testing
+the happy path.
+
+So the body reaches the caller as bytes, and `LicenseResponseParser` reads them
+*after* `GsonVerdictAuthenticator` has verified them.
+`retrofitPreservesTheExactBytes` sends a body with deliberately odd spacing and
+key order and asserts it comes back byte-identical — that test is what stops this
+being tidied up later.
+
+The request direction has no such constraint. Nothing signs what we send, so
+`@Body VerifyRequestDto` goes through the Gson converter normally.
+
+`Response<...>` rather than a bare body for a second reason: a non-2xx then
+arrives as a value with its status intact. Retrofit would otherwise throw
+`HttpException`, and this call sits behind a contract that never throws.
+
+### 3.2 The trailing slash
+
+```kotlin
+.baseUrl(baseUrl.trimEnd('/') + "/")
+```
+
+Retrofit **drops the last path segment of a base URL that does not end in `/`**.
+Without it, `https://licence.example.com/api/v1` + `verify` resolves to
+`.../api/verify` — a 404, which fails open and looks exactly like a healthy
+licence. `theVersionSegmentSurvivesRetrofitsBaseUrlHandling` pins it.
+
+### 3.3 `ApiCall` — one place that decides what a failure was
+
+Every call goes through a shared executor, so the mapping from "what went wrong"
+to a reported code exists **once**. A second endpoint added later inherits the
+same taxonomy, the same redaction rules and the same never-throws guarantee,
+rather than growing its own opinion about what a 429 means.
+
+```kotlin
+internal sealed interface ApiResult<out T> {
+    data class Success<T>(val value: T, val httpStatus: Int) : ApiResult<T>
+    data class Failure(val error: ApiError) : ApiResult<Nothing>
+}
+
+internal enum class ApiErrorCode {
+    NOT_CONFIGURED, NO_NETWORK, TIMEOUT, UNAUTHORIZED, NOT_FOUND,
+    RATE_LIMITED, CLIENT_ERROR, SERVER_ERROR, EMPTY_BODY, MALFORMED_BODY, UNKNOWN,
+}
+```
+
+> **Nothing branches on `ApiErrorCode` to decide a licence.** The adversary is the
+> device owner, who controls DNS, the proxy and the trust store, so every value
+> here is something they can produce on demand — a 401 by pointing the app at a
+> server that refuses, a timeout by dropping packets. If any of them changed the
+> verdict, that would be a way to disable the SDK rather than a way to enforce a
+> licence. The use case maps the whole type to one outcome: carry on, and
+> `everyApiErrorProducesTheSameOutcome` iterates all eleven to prove it.
+>
+> What the codes *are* for: a log line that says which of a dozen
+> indistinguishable failures actually happened.
 
 ### Where `baseUrl` comes from
 
@@ -734,19 +821,19 @@ Four things this surface deliberately does **not** do, each for a reason:
 
 ---
 
-## 8.6 Logs — `Tracker/API`
+## 8.6 Logs — `Tracker/API_CALL`
 
 Debug builds log the whole path under one tag, so a single filter shows the
 request, what came back, and what was decided about it:
 
 ```
-adb logcat -s Tracker/API
+adb logcat -s Tracker/API_CALL
 ```
 
 ```
-D/Tracker/API: POST https://licence.example.com/api/v1/verify pkg=com.acme.app sdk=android/0.1.1
-D/Tracker/API: HTTP 200 in 412ms, 318 bytes
-D/Tracker/API: verdict ACTIVE valid=true ttl=86400s -> carry on
+D/Tracker/API_CALL: POST https://licence.example.com/api/v1/verify pkg=com.acme.app sdk=android/0.1.1
+D/Tracker/API_CALL: HTTP 200 in 412ms, 318 bytes
+D/Tracker/API_CALL: verdict ACTIVE valid=true ttl=86400s -> carry on
 ```
 
 The lines that explain an *absent* request matter as much as the ones around a
@@ -754,18 +841,18 @@ real one — without them a build that never calls home looks identical to one
 whose call is hanging:
 
 ```
-D/Tracker/API: skipped: no licence URL configured for this build
-D/Tracker/API: skipped: no response public key compiled in
-D/Tracker/API: cache fresh (ACTIVE) — no request
-D/Tracker/API: cache stale (ACTIVE) — rechecking
+D/Tracker/API_CALL: skipped: no licence URL configured for this build
+D/Tracker/API_CALL: skipped: no response public key compiled in
+D/Tracker/API_CALL: cache fresh (ACTIVE) — no request
+D/Tracker/API_CALL: cache stale (ACTIVE) — rechecking
 ```
 
 Two things are warnings rather than debug lines, and the split is deliberate:
 
 ```
-W/Tracker/API: HTTP 503 in 89ms
-W/Tracker/API: failed after 10004ms: SocketTimeoutException: timeout
-W/Tracker/API: response failed verification — ignored, carrying on
+W/Tracker/API_CALL: HTTP 503 in 89ms
+W/Tracker/API_CALL: failed after 10004ms: SocketTimeoutException: timeout
+W/Tracker/API_CALL: response failed verification — ignored, carrying on
 ```
 
 A 5xx or a timeout is a note about the server; the check fails open and the
@@ -798,27 +885,51 @@ shipped log.
 
 ## 9. ProGuard / R8
 
-Gson works by reflection, so R8 cannot see that the DTO fields are used. The
-release AAR is itself minified, so the rule is needed in **both** files:
-`proguard-rules.pro` for our own build, `consumer-rules.pro` for the host's.
+Two reflective libraries, two rules. The release AAR is itself minified, so both
+are needed in **both** files: `proguard-rules.pro` for our own build,
+`consumer-rules.pro` for the host's.
+
+**Gson** maps by reflected field name, so R8 cannot see the DTO fields are used:
 
 ```proguard
--keepclassmembers,allowobfuscation class com.field360.tracker.license.** {
+-keepclassmembers,allowobfuscation class com.field360.tracker.** {
     @com.google.gson.annotations.SerializedName <fields>;
 }
 ```
 
 `@SerializedName` carries the wire names, so only the annotated fields need
-keeping — the classes themselves are still renamed and repackaged.
+keeping — the classes themselves are still renamed and repackaged. The rule
+matches on the **annotation, not the package**, deliberately: an earlier
+package-scoped version stopped matching the moment the DTO moved to
+`data/remote`, and nothing said so.
 
-Tink and OkHttp ship their own consumer rules; duplicating them here would only
-mean maintaining a stale copy.
+**Retrofit** builds its calls by reading annotations off an interface's methods
+at runtime. R8 keeps the interface — it is referenced — but strips annotations
+from members it considers unused, and a service whose `@POST` is gone fails at
+`create()` with *"Method must have a valid HTTP annotation"*:
 
-> Verify the whole path **on a minified release build**, not just debug. Both
+```proguard
+-keep,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault
+```
+
+Retrofit, OkHttp and Tink all ship consumer rules covering their own classes.
+The two above are for **ours** — our DTOs, our service interfaces — which no
+library can know about.
+
+Public API types need explicit keeps too. `LicenseInfo` and `LicenseStatus` were
+added to the public surface and not to the keep list, and the symptom was
+`sample-android:minifyReleaseWithR8` failing with `Missing class` — only once the
+sample was linked against the *minified* AAR. Minifying `fieldtrack-core` alone
+never catches that.
+
+> Verify the whole path **on a minified release build**, not just debug. Three
 > failure modes look identical from the outside: R8 renaming a DTO field surfaces
-> as a `400` from the server, R8 stripping Tink surfaces as a verification
-> failure, and both fail open — which is indistinguishable from a licence that is
-> fine.
+> as a `400` from the server, R8 stripping a Retrofit annotation surfaces as an
+> exception at `create()`, R8 stripping Tink surfaces as a verification failure.
+> All three fail open — indistinguishable from a licence that is fine.
 
 ---
 
@@ -875,13 +986,17 @@ What is covered, and why each one is there:
 | `cachedActionIsReturnedWithoutAnyApiAtAll`, `anEmptyCacheCarriesOn` | the startup-path read reaching for the network, or a cold cache stopping a start |
 | `verifyIsAppendedToTheConfiguredRoot`, `aTrailingSlashOnTheRootDoesNotDoubleUp` | `/api/v1/api/v1/verify` — a 404 that fails open and looks like a healthy licence |
 | `aBlankRootMakesNoRequest` | an unconfigured build resolving a hostname |
+| **`retrofitPreservesTheExactBytes`** | **a typed Retrofit return value silently disabling enforcement** |
+| `theVersionSegmentSurvivesRetrofitsBaseUrlHandling` | Retrofit dropping `/api/v1` from a base URL with no trailing slash |
+| `anUnusableBaseUrlIsReportedRatherThanThrown` | a typo in `local.properties` crashing the graph |
+| `statusCodesMapToDistinctReportedCodes` | every failure collapsing to one useless log line |
 | `aSuccessfulCheckReportsTheLicenceToTheHost` | a success being indistinguishable from a check that never ran |
 | `aCachedAnswerIsReportedAsCached` | a cached hit reporting itself as fresh |
 | `aStopCarriesTheServersReason` | a refusal reaching the host without its reason |
 | `nothingIsReportedWhenNothingWasLearned` | silence being emitted as approval |
 | `licenceInfoReadsTheCacheAndNeverTheNetwork`, `licenceInfoIsNullBeforeTheFirstCheck` | a UI-facing query making a request, or a cold cache reading as a refusal |
 | **`theAccessKeyIsNeverLogged`** (both suites) | **a credential reaching logcat** |
-| `everyLineUsesTheApiTag` | a stray tag breaking `logcat -s Tracker/API` |
+| `everyLineUsesTheApiTag` | a stray tag breaking `logcat -s Tracker/API_CALL` |
 | `theRequestAndItsOutcomeAreBothLogged`, `theVerdictAndTheDecisionAreBothLogged` | a half-logged call that cannot be diagnosed |
 | `aCacheHitSaysWhyNoRequestWasMade`, `anUnconfiguredCheckSaysWhichPieceIsMissing` | an absent request looking like a hang |
 | `anErrorStatusIsLoggedAsAWarning`, `aFailedVerificationIsAWarningNotADebugLine` | the one line worth noticing scrolling past as debug |

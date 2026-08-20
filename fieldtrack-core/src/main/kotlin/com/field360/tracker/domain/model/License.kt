@@ -145,7 +145,20 @@ internal data class CachedVerdict(
      * not a heartbeat interval and not a deadline. Paid licences return 86400 (24h);
      * trials return less.
      */
-    fun isStale(): Boolean = nowMs() - storedAt > verdict.ttlSeconds * MILLIS_PER_SECOND
+    fun isStale(): Boolean = ageMs() > verdict.ttlSeconds * MILLIS_PER_SECOND
+
+    /**
+     * How long ago this was stored. Separate from [isStale] because a forced refresh
+     * ignores the TTL but still needs a floor — see `CheckLicenseRevocationUseCase`.
+     *
+     * **A verdict stamped in the future counts as maximally old, not as brand new.**
+     * `storedAt` is wall-clock, the device's wall clock belongs to the device owner, and
+     * the cache file is on their disk. Reading a negative age as "just stored" would mean
+     * a clock rolled forward once, or a hand-edited timestamp, freezing the last verdict
+     * in place forever: never stale, always inside the refresh floor, never re-checked.
+     * Treating it as ancient forces a fresh check, which is the safe direction.
+     */
+    fun ageMs(): Long = (nowMs() - storedAt).let { if (it < 0) Long.MAX_VALUE else it }
 
     private companion object {
         const val MILLIS_PER_SECOND = 1_000L
@@ -242,9 +255,26 @@ internal fun SignedVerdict.toInfo(fromCache: Boolean): LicenseInfo = LicenseInfo
 internal data class LicenseCheckResult(
     val action: LicenseAction,
     val info: LicenseInfo?,
+    /**
+     * Why the check produced nothing, when it produced nothing.
+     *
+     * Reported to the host as a [TrackerEvent.Diagnostic] and **never** as a
+     * [TrackerEvent.LicenseChecked] — the two say different things and conflating them is
+     * exactly the mistake this layer is built to avoid. A diagnostic says "the check did
+     * not happen"; a `LicenseChecked` says "the server answered, and here is what it said".
+     * A host that treated the first as the second would read a licence server outage as a
+     * valid licence.
+     *
+     * Null on success, and on the paths where nothing was attempted.
+     */
+    val error: ApiError? = null,
 ) {
     internal companion object {
-        /** The failure shape: carry on, and say nothing. */
-        val Inconclusive: LicenseCheckResult = LicenseCheckResult(LicenseAction.CarryOn, null)
+        /** The failure shape: carry on, and say why — but say it as a diagnostic. */
+        fun inconclusive(error: ApiError? = null): LicenseCheckResult =
+            LicenseCheckResult(LicenseAction.CarryOn, info = null, error = error)
+
+        /** Nothing was attempted and nothing went wrong: an unconfigured build. */
+        val Inconclusive: LicenseCheckResult = inconclusive()
     }
 }

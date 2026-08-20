@@ -1,5 +1,9 @@
 package com.field360.tracker.license
 
+import androidx.annotation.VisibleForTesting
+import com.field360.tracker.BuildConfig
+import java.util.Base64
+
 internal class LicenseVerifier {
 
     private val json = kotlinx.serialization.json.Json {
@@ -50,13 +54,53 @@ internal class LicenseVerifier {
          * Key ids to **32 raw bytes** of Ed25519 public key — the form
          * [Ed25519.PUBLIC_KEY_BYTES] describes, not DER.
          *
-         * Intentionally empty here. Until it is filled from the issuing flow every
-         * non-debuggable build fails with "Unknown license key id", because an empty map
-         * cannot answer any `kid`. That is the correct default for a gate — a licence
-         * check that passes when it has nothing to check against is not a gate — but it
-         * does mean **release enforcement does not work until this map has real keys**.
+         * A **map**, not one key, and that matters even with a single entry. Tokens carry
+         * the `kid` they were signed with, so rotating adds an entry rather than replacing
+         * one; a single compiled-in value would mean an SDK release at the moment a key
+         * has to change, which is the worst moment there is.
+         *
+         * Parsed from `BuildConfig.LICENSE_SIGNING_KEYS`, which the build file fills from
+         * `-PfieldtrackLicenseKeys`, `FIELDTRACK_LICENSE_KEYS`, or `local.properties`:
+         *
+         * ```properties
+         * FIELDTRACK_LICENSE_KEYS=1:Base64OfThirtyTwoRawBytes=,2:AnotherKey=
+         * ```
+         *
+         * Empty when unset, and empty means **every non-debuggable build fails with
+         * "Unknown license key id"** — no map can answer a `kid` it does not hold. That is
+         * the correct default for a gate: one that passes with nothing to check against is
+         * not a gate. It is also invisible in development, where debuggable installs are
+         * waived, so it is worth verifying on a release build before shipping one.
          */
-        val productionKeys: Map<Int, ByteArray> = emptyMap()
+        val productionKeys: Map<Int, ByteArray> by lazy {
+            parseSigningKeys(BuildConfig.LICENSE_SIGNING_KEYS)
+        }
+
+        /**
+         * `kid:base64` pairs, comma separated. Malformed entries are dropped rather than
+         * thrown on: this is read during the licence gate, and a typo in a build property
+         * should fail the gate closed — the outcome an empty map already produces — not
+         * crash a host at launch.
+         *
+         * Whitespace is trimmed because these values get pasted out of a portal, and a
+         * trailing newline in `local.properties` is otherwise a very confusing failure.
+         */
+        @VisibleForTesting
+        internal fun parseSigningKeys(raw: String): Map<Int, ByteArray> =
+            raw.split(',')
+                .mapNotNull { entry ->
+                    val parts = entry.trim().split(':', limit = 2)
+                    if (parts.size != 2) return@mapNotNull null
+
+                    val kid = parts[0].trim().toIntOrNull() ?: return@mapNotNull null
+                    val key = runCatching { Base64.getDecoder().decode(parts[1].trim()) }
+                        .getOrNull()
+                        ?.takeIf { it.size == Ed25519.PUBLIC_KEY_BYTES }
+                        ?: return@mapNotNull null
+
+                    kid to key
+                }
+                .toMap()
     }
 }
 

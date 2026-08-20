@@ -16,6 +16,7 @@ import com.field360.tracker.TrackerArtifacts
 import com.field360.tracker.domain.repository.SyncTrigger
 import com.field360.traker.geo.port.TrackLogger
 import com.field360.traker.sync.internal.NoOpTransport
+import com.field360.traker.sync.internal.SyncService
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.channels.BufferOverflow
@@ -92,7 +93,18 @@ public data class SyncConfig(
             else -> add("url scheme must be https (or http for a local server), not $scheme")
         }
 
-        if (method.isBlank()) add("method must not be blank")
+        if (method.isBlank()) {
+            add("method must not be blank")
+        } else if (method.uppercase() !in SyncService.SUPPORTED_METHODS) {
+            // Retrofit's verb annotations are compile-time constants, so the transport
+            // dispatches over a fixed set rather than passing the string through. Caught
+            // here so a bad verb fails at `configure()` rather than on the first upload,
+            // hours later, as a generic failure.
+            add(
+                "method must be one of ${SyncService.SUPPORTED_METHODS.joinToString()} " +
+                    "(was \"$method\")",
+            )
+        }
         if (batchSize !in 1..MAX_BATCH_SIZE) add("batchSize must be in 1..$MAX_BATCH_SIZE")
         if (timeouts.connectMs <= 0) add("timeouts.connectMs must be > 0")
         if (timeouts.readMs <= 0) add("timeouts.readMs must be > 0")

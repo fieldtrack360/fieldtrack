@@ -433,6 +433,13 @@ public class Tracker internal constructor(
     }
 
     /**
+     * Serialised, not deduplicated: a second caller through still gets an answer, it just
+     * gets it from the cache the first one filled rather than from a second request.
+     */
+    private suspend fun runCheck(token: String, forceRefresh: Boolean): LicenseInfo? =
+        licenseCheckLock.withLock { check(token, forceRefresh) }
+
+    /**
      * Checks with the licence server now and returns what it said, publishing the result
      * to [TrackerEvent.LicenseChecked].
      *
@@ -441,10 +448,15 @@ public class Tracker internal constructor(
      * one of those paths carries on tracking, deliberately, because the device owner can
      * produce all three on demand and must not be able to disable the SDK that way.
      *
-     * Safe to call more often than it looks. A cached answer inside its TTL short-circuits
-     * the request, so a host calling this on every screen still produces at most one call
-     * per TTL. The SDK also runs this itself every 12 hours; a host does not need to
-     * schedule anything.
+     * Forces a real request rather than returning a cached verdict — an explicit "check
+     * now" from a host should mean now. Still bounded: a five-minute floor sits under it,
+     * so calling this on every screen produces at most one request per five minutes rather
+     * than one per screen.
+     *
+     * The SDK already calls this itself on every [ready] and every 12 hours after that, so
+     * a host does not need to schedule anything. This is for a host that wants an answer
+     * at a particular moment — a "check licence" button, or a retry after showing the user
+     * a licence error. Use [licenseInfo] for a cheap read with no network at all.
      *
      * A `REVOKED` or `EXPIRED` answer stops tracking as a side effect, and arrives as an
      * [TrackerEvent.Error] as well as here.
@@ -452,15 +464,21 @@ public class Tracker internal constructor(
     public suspend fun checkLicense(): LicenseInfo? = withContext(Dispatchers.IO) {
         val token = licenseGate.token(config?.license) ?: return@withContext null
 
-        // Serialised, not deduplicated: the second caller through still gets an answer,
-        // it just gets it from the cache the first one filled instead of a second request.
-        licenseCheckLock.withLock {
-            runCheck(token)
-        }
+        runCheck(token, forceRefresh = true)
     }
 
-    private suspend fun runCheck(token: String): LicenseInfo? {
-        val (action, info) = checkLicenseRevocation(token)
+    private suspend fun check(token: String, forceRefresh: Boolean): LicenseInfo? {
+        val result = checkLicenseRevocation(token, forceRefresh)
+        val (action, info) = result
+
+        // A failed check is not a verdict, so it never becomes a LicenseChecked. It is
+        // still worth saying out loud: without this the host cannot distinguish "the
+        // licence server is unreachable" from "nothing has run yet", and both look like
+        // silence. Diagnostic is the channel that means "information, not a decision".
+        result.error?.let { error ->
+            eventSink.tryEmit(TrackerEvent.Diagnostic("licence check failed: ${error.describe()}"))
+        }
+
         LicenseState.apply(action)
 
         info?.let { eventSink.tryEmit(TrackerEvent.LicenseChecked(it)) }

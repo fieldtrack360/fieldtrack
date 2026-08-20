@@ -74,3 +74,16 @@
 -keepclassmembers,allowobfuscation class com.field360.tracker.** {
     @com.google.gson.annotations.SerializedName <fields>;
 }
+
+# ── Retrofit service interfaces ─────────────────────────────────────────────
+#
+# Retrofit builds its calls by reading the annotations off an interface's methods at
+# runtime. R8 keeps the interface (it is referenced) but strips annotations from members
+# it considers unused, and a service whose @POST is gone fails at `create()` with
+# "Method must have a valid HTTP annotation" — at the first licence check, in release
+# only. Retrofit ships consumer rules covering its own classes; the service interfaces
+# are ours.
+-keep,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-keepattributes RuntimeVisibleAnnotations,AnnotationDefault

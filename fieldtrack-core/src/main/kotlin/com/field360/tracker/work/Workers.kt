@@ -201,8 +201,18 @@ internal class LicenseCheckWorker(
         val token = deps.licenseGate.token(deps.configStore.cached?.license)
             ?: return Result.success()
 
-        val (action, info) = deps.checkLicenseRevocation(token)
+        val result = deps.checkLicenseRevocation(token)
+        val (action, info) = result
         LicenseState.apply(action)
+
+        // A failed check is not a verdict, so it never becomes a LicenseChecked. It is
+        // still worth saying out loud: without this the host cannot distinguish "the
+        // licence server is unreachable" from "nothing has run yet", and both look like
+        // silence. Diagnostic is the channel that means "information, not a decision".
+        result.error?.let { error ->
+            deps.events.tryEmit(TrackerEvent.Diagnostic("licence check failed: ${error.describe()}"))
+        }
+
 
         // Every authenticated answer reaches the host, `active` included — a host that
         // only ever heard about failures would have no way to tell a healthy licence

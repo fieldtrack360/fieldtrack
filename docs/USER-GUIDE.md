@@ -56,7 +56,9 @@ dependencies {
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-snap:0.1.1-alpha01")   // OSRM map-matching
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack-bridge:0.1.1-alpha01") // Java + JSON facades
 
-    // fieldtrack-sync and fieldtrack-snap declare OkHttp as compileOnly — supply your own:
+    // fieldtrack-sync and fieldtrack-snap declare Retrofit and OkHttp as compileOnly
+    // — supply your own. Retrofit 3 requires OkHttp 5.
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
 }
 ```
@@ -1074,8 +1076,8 @@ sync.configure(
         allowCleartext = false,                     // local dev servers only
         timeouts = SyncTimeouts(readMs = 30_000),   // no OkHttpClient needed
     ),
-    // Omit to use the OkHttp default. Supply your own to reuse an authenticated
-    // client — then OkHttp is never linked by this module.
+    // Omit to use the built-in Retrofit-over-OkHttp default. Supply your own to reuse
+    // an authenticated client — then neither is linked by this module.
     transport = null,
 )
 ```
@@ -1305,7 +1307,7 @@ them is correct behaviour, not a bug.
 
 ### `fieldtrack-snap` — OSRM map-matching
 
-See [§7](#7-plotting). Depends on `fieldtrack-geo` only; OkHttp is `compileOnly`.
+See [§7](#7-plotting). Depends on `fieldtrack-geo` only; Retrofit and OkHttp are `compileOnly`.
 
 ### `fieldtrack-maps` — Google Maps rendering
 

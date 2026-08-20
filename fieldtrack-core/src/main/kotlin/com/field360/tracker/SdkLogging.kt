@@ -6,10 +6,11 @@ internal inline fun sdkLog(block: () -> Unit) {
 }
 
 /**
- * The licence API's logcat tag. `AndroidLogger` prefixes it, so it reads as `Tracker/API`:
+ * The licence API's logcat tag. `AndroidLogger` prefixes it, so it reads as
+ * `Tracker/API_CALL`:
  *
  * ```
- * adb logcat -s Tracker/API
+ * adb logcat -s Tracker/API_CALL
  * ```
  *
  * One constant shared by the transport and the use case, so a filtered log shows the
@@ -23,4 +24,4 @@ internal inline fun sdkLog(block: () -> Unit) {
  * Release builds compile these calls out entirely (`SDK_LOGGING_ENABLED` is false), but
  * the redaction is deliberate rather than a side effect of that.
  */
-internal const val API_TAG: String = "API"
+internal const val API_TAG: String = "API_CALL"

@@ -59,6 +59,7 @@ Add the SDK dependency:
 ```kotlin
 dependencies {
     implementation("com.github.fieldtrack360.fieldtrack:fieldtrack:<latest-version>")
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
 
 }
@@ -722,7 +723,7 @@ traker.offerFix(
 
 ## 13. HTTP synchronization
 
-Add `fieldtrack-sync` and either OkHttp or a custom `SyncTransport`. The full endpoint contract —
+Add `fieldtrack-sync` and either Retrofit + OkHttp or a custom `SyncTransport`. The full endpoint contract —
 request body field by field, response status semantics, and every API in its own subsection —
 is in [USER-GUIDE.md §11](USER-GUIDE.md#11-optional-modules).
 
@@ -896,7 +897,7 @@ class AppTransport : SyncTransport {
 }
 ```
 
-`OkHttpSyncTransport.defaultClient()` creates the built-in client with 5-second connect,
+`OkHttpSyncTransport.defaultClient()` creates the OkHttp client Retrofit runs on, with 5-second connect,
 30-second read, and 20-second write timeouts; `SyncConfig.timeouts` overrides them per
 request without replacing the client.
 
@@ -1035,7 +1036,7 @@ results/flows to the application's callback, `CompletableFuture`, LiveData, or R
 | No Play Services | Use `LocationProviderType.GPS_ONLY`, `NETWORK_ONLY`, or `PASSIVE`. |
 | Poor turns | Enable adaptive cadence, turn burst, bearing-change capture, and spline plotting. |
 | Polyline far from expected location | Decode with `track.precision`; use `[lng, lat]` for GeoJSON. |
-| Road snapping warning | Verify OkHttp is installed, OSRM URL/TLS/auth, response confidence, and network access. Raw geometry remains usable. |
+| Road snapping warning | Verify Retrofit and OkHttp are installed, OSRM URL/TLS/auth, response confidence, and network access. Raw geometry remains usable. |
 | Sync always returns `Retry("sync not configured")` | Call `configure()` in the current process before `syncNow()` or `requestSync()`. |
 | Missing diagnostic data | Enable the matching persistence flag before recording the session. |
 | Live frame appears to move backward | Drop frames whose sequence is not newer, or use `LiveTrackRenderer`. |
