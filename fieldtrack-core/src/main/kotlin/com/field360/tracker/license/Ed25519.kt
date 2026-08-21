@@ -3,16 +3,11 @@ package com.field360.tracker.license
 import com.google.crypto.tink.subtle.Ed25519Verify
 
 /**
- * Ed25519 signature verification for both licence layers.
+ * Ed25519 signature verification for the online licence check.
  *
- * `java.security` only gained Ed25519 at API 33, and `minSdk` is 26. Before this existed
- * [LicenseVerifier] called `Signature.getInstance("Ed25519")` directly, so every device
- * on Android 8.0 through 12L failed the offline gate with "Ed25519 is unavailable on this
- * device" and the SDK refused to start — on roughly a third of the install base.
- *
- * Tink is the whole answer rather than half of one: the same primitive verifies the
- * licence token here and the `/verify` response in `data/remote/GsonVerdictAuthenticator.kt`, so there is one
- * crypto dependency and one code path at every API level.
+ * `java.security` only gained Ed25519 at API 33, and `minSdk` is 26. Tink covers every
+ * supported API level with one crypto dependency and one code path; it verifies the
+ * `/verify` response signature in `data/remote/GsonVerdictAuthenticator.kt`.
  *
  * Keys are **32 raw bytes**, not DER. Tink's `Ed25519Verify` takes the raw form, which is
  * also what the issuing flow and `GET /api/v1/public-key` hand out; the previous

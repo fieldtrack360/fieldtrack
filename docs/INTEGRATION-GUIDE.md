@@ -1,5 +1,9 @@
 # FieldTrack SDK — Integration Guide
 
+<p align="center">
+<a href="https://jitpack.io/#fieldtrack360/fieldtrack"><img src="https://jitpack.io/v/fieldtrack360/fieldtrack.svg" alt="JitPack version"/></a>
+</p>
+
 Background location tracking and track plotting for Android. This document is the complete
 public reference for an app integrating the SDK: install, setup, every configuration option,
 every public method, every event and callback.
@@ -11,9 +15,10 @@ every public method, every event and callback.
 | Maven group | `com.github.fieldtrack360.fieldtrack` |
 | Distribution | JitPack (`https://jitpack.io`) |
 | `minSdk` | 26 (Android 8.0) |
-| `compileSdk` / `targetSdk` | 37 |
-| JDK / Java target | 17 |
-| Kotlin | 2.4.x |
+| `compileSdk` / `targetSdk` | 36 |
+| Java bytecode | 11 — loads on any JDK 11+ toolchain |
+| Kotlin | 2.1.x |
+| Host baseline | AGP 8.x · Kotlin 2.0+ · React Native 0.81+ compatible |
 
 ---
 
@@ -128,7 +133,7 @@ pulled into your app. If you use their built-in HTTP paths, add them yourself:
 
 ```kotlin
 implementation("com.squareup.retrofit2:retrofit:3.0.0")
-implementation("com.squareup.okhttp3:okhttp:5.4.0")
+implementation("com.squareup.okhttp3:okhttp:5.1.0")
 ```
 
 Retrofit 3 requires OkHttp 5 — they are versioned together, not independently.
@@ -164,6 +169,23 @@ The default provider (`LocationProviderType.FUSED`) needs Google Play Services. 
 without it (Huawei, AOSP builds), use `LocationProviderType.GPS_ONLY`, `NETWORK_ONLY` or
 `PASSIVE` — these run on the platform `LocationManager` and need nothing from Google. See
 [§5.2](#52-geolocationconfig).
+
+### 1.6 Toolchain compatibility
+
+The published AARs are deliberately built against a conservative baseline so that
+mainstream host toolchains — including React Native 0.81+ Android hosts — can consume
+them without upgrading anything:
+
+| The AARs ship | Your project needs |
+|---|---|
+| Kotlin 2.1.x metadata | Kotlin 2.0 or newer |
+| `compileSdk` 36 | `compileSdk` 36 or newer |
+| Java 11 bytecode | Any JDK 11+ toolchain (JDK 17 recommended) |
+| AGP 8.x metadata | AGP 8.x or newer |
+
+`play-services-location` 21.3.x and (for `fieldtrack-maps`) `play-services-maps` 19.2.x
+arrive transitively; declaring a newer version in your own app wins through normal Gradle
+conflict resolution.
 
 ---
 
@@ -212,8 +234,8 @@ The token is bound to your application id. `ready()` returns a `TrackerResult.Er
 fails, and the same failure is emitted on the event flow as `TrackerEvent.Error`.
 
 The `license` field is never persisted with the rest of the config — it is re-read from
-config or the manifest on every `ready()`, so "I updated my licence" never turns into a
-stale token resurrected from disk.
+config on every `ready()`, so "I updated my licence" never turns into a stale token
+resurrected from disk.
 
 ### The online check
 
@@ -837,6 +859,7 @@ data class TrackPoint(
     val batteryPct: Int? = null,
     val isCharging: Boolean? = null,
     val extras: String? = null,
+    val integrityFlags: Int = 0,         // device-integrity bitmask at capture — see §19.4
     val acceptReason: String,            // the Reasons vocabulary
 )
 ```
@@ -1550,6 +1573,7 @@ data class RawFix(
     val accuracy: Float,
     val bearingDeg: Float,      // 0f when the provider reported no bearing
     val provider: String,
+    val integrityFlags: Int,    // device-integrity bitmask when received — see §19.4
 )
 ```
 
@@ -1840,7 +1864,7 @@ fire and the runtime waiver already applies.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `ready()` returns `LICENSE_MISSING` | Release build with no token | Add the `TrackItLicense` manifest meta-data — that exact spelling — or `.license(...)` in config ([§2](#2-license-token)) |
+| `ready()` returns `LICENSE_MISSING` | Release build with no token | Supply the token via `.license(...)` in config ([§2](#2-license-token)) |
 | `start()` returns `NOT_READY` | `ready()` not called or it failed | Check the `TrackerResult` from `ready()` |
 | `start()` returns `PERMISSION_DENIED` | No location permission | Walk the ladder in [§4](#4-permissions) |
 | `start()` returns `PLAY_SERVICES_UNAVAILABLE` | No Google Play Services | Set `providerType = GPS_ONLY` |

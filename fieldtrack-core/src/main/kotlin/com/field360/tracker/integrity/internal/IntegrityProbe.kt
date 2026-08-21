@@ -38,9 +38,9 @@ internal fun IntegrityProbe.observeSafely(config: SecurityConfig): List<Integrit
 /**
  * The one definition of "this is a development build".
  *
- * Deliberately delegates to [LicenseEnvironment.hasGetTaskAllow], the same predicate the
- * license gate waives on. Two definitions of "debug" in one SDK is how a build ends up
- * licensed-but-unguarded, or guarded-but-unlicensed.
+ * Deliberately delegates to [LicenseEnvironment.hasGetTaskAllow] so there is a single
+ * definition of "debug" in the SDK — two definitions is how a build ends up waived in one
+ * layer and guarded in another.
  *
  * A repackaged APK can set `android:debuggable="true"` and claim this waiver. Re-signing
  * to do so changes the signing certificate; binding the waiver to a certificate hash

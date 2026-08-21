@@ -61,9 +61,8 @@ internal object LicenseConfig {
      * FIELDTRACK_RESPONSE_KEY=Base64OfThirtyTwoRawBytes=
      * ```
      *
-     * This is not the key that verifies licence tokens. They are two different keys,
-     * deliberately: one authenticates what we issued, the other authenticates what the
-     * server says about it today. [LicenseVerifier.productionKeys] holds the other one.
+     * This key authenticates what the server says about the licence today — it is the
+     * only compiled-in key since the offline token gate was removed.
      *
      * **Build-time, never runtime.** Fetching it from the same server whose answers it
      * authenticates would be circular, and a device owner with a proxy would simply serve

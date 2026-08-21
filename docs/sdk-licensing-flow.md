@@ -1,5 +1,10 @@
 # Licensing flow — client app, SDK, backend
 
+> **The offline gate has been removed from the Android SDK.** Sections describing local
+> token verification (signature check, `kid` map, `FIELDTRACK_LICENSE_KEYS`, bundle
+> matching) no longer apply: the token is passed straight to the online `/verify` check,
+> which is the only enforcement. Only `revoked`/`expired` verdicts stop tracking.
+
 How a licence travels from purchase to a running app, what belongs on each side
 of the boundary, and the code for Android, iOS, Flutter and React Native.
 

@@ -27,7 +27,6 @@ import com.field360.tracker.domain.usecase.GetCachedLicenseActionUseCase
 import com.field360.tracker.domain.usecase.GetLicenseInfoUseCase
 import com.field360.tracker.license.LicenseGate
 import com.field360.tracker.license.LicenseState
-import com.field360.tracker.license.LicenseVerdict
 import com.field360.tracker.work.LicenseCheckWorker
 import com.field360.tracker.domain.repository.DecisionRepository
 import com.field360.tracker.domain.repository.SessionRepository
@@ -228,16 +227,6 @@ public class Tracker internal constructor(
      * interrupted session if one was left open by a crash or force-stop (EC-66).
      */
     public suspend fun ready(config: TrackerConfig = TrackerConfig()): TrackerResult<TrackerState> {
-        when (val verdict = licenseGate.check(explicit = config.license)) {
-            LicenseVerdict.Licensed,
-            LicenseVerdict.Waived -> Unit
-            else -> {
-                val failure = licenseGate.failure(verdict)!!
-                eventSink.tryEmit(TrackerEvent.Error(failure.code, failure.message))
-                return TrackerResult.Error(failure.code, failure.message)
-            }
-        }
-
         revocationGate(config)?.let { return it }
 
         // Evaluated on the resolved-by-the-host config rather than the persisted one: the

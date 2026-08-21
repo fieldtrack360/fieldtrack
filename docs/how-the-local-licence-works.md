@@ -1,5 +1,11 @@
 # How the local licence works
 
+> **Removed from the SDK.** The offline gate this page describes no longer exists in the
+> code: the licence token is not verified locally, and `ready()` never fails with
+> `LICENSE_MISSING` / `LICENSE_INVALID` / `LICENSE_BUNDLE_MISMATCH`. The token now feeds
+> only the online revocation check, which remains the sole enforcement (revoked/expired
+> stops tracking). This page is kept as historical reference for the token format.
+
 Plain-English explanation of the licence check that runs **inside the app, with no
 internet**. No prior knowledge assumed.
 

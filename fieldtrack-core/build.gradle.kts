@@ -39,19 +39,6 @@ fun secret(gradleProperty: String, key: String): String =
 val licenseBaseUrl: String = secret("fieldtrackLicenseUrl", "FIELDTRACK_LICENSE_URL")
 
 /**
- * The licence-token signing keys, as `kid:base64` pairs — e.g. `1:MCowBQ…,2:NDkxYT…`.
- *
- * A **map**, not one value, even with a single entry today. Tokens carry the `kid` they
- * were signed with, so rotation adds a key rather than replacing one; shipping a single
- * value now means an SDK release later, at the worst possible moment.
- *
- * Blank means `LicenseVerifier.productionKeys` is empty, and **every non-debuggable build
- * then fails the offline gate**. Invisible in development, where debuggable installs are
- * waived.
- */
-val licenseSigningKeys: String = secret("fieldtrackLicenseKeys", "FIELDTRACK_LICENSE_KEYS")
-
-/**
  * The key that verifies `/verify` **responses**, standard base64 of 32 raw bytes.
  *
  * A different key from the one above, deliberately: one authenticates what we issued, the
@@ -74,7 +61,6 @@ android {
         // hardcoded so a release cannot ship claiming to be the previous one.
         buildConfigField("String", "SDK_VERSION", "\"${libs.versions.fieldtrack.get()}\"")
         buildConfigField("String", "LICENSE_BASE_URL", "\"$licenseBaseUrl\"")
-        buildConfigField("String", "LICENSE_SIGNING_KEYS", "\"$licenseSigningKeys\"")
         buildConfigField("String", "LICENSE_RESPONSE_KEY", "\"$licenseResponseKey\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

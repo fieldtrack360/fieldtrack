@@ -3,11 +3,9 @@ package com.field360.tracker.domain.model
 /**
  * The domain model of the online licence check — no Gson, no OkHttp, no `Context`.
  *
- * The offline gate (`license/LicenseVerifier.kt`) is what licenses the app: it parses the
- * token, verifies its Ed25519 signature against a compiled-in key, and confirms it covers
- * this package, with no network involved. These types describe the one question that gate
- * structurally cannot answer, because the answer did not exist when the token was signed:
- * *has this licence been revoked or expired since it was issued?*
+ * The online check is the only licence enforcement in the SDK: the offline signature gate
+ * was removed, so a token is never verified locally. These types describe what the server
+ * says about the licence today: *has it been revoked or expired since it was issued?*
  *
  * Wire spellings live in `data/remote`. Nothing here knows the transport is HTTP or the
  * encoding is JSON, which is what lets the use case be tested without either.
