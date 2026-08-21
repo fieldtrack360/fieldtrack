@@ -2,6 +2,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
+    // AGP 8.x has no built-in Kotlin support — the Kotlin Android plugin must be explicit.
+    alias(libs.plugins.kotlin.android)
 }
 
 // Umbrella module: no code of its own. It exists so a host app can depend on

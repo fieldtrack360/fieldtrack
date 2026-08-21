@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
+    // AGP 8.x has no built-in Kotlin support — the Kotlin Android plugin must be explicit.
+    alias(libs.plugins.kotlin.android)
     // Required from Kotlin 2.0 whenever buildFeatures.compose is on.
     alias(libs.plugins.compose.compiler)
 }

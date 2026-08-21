@@ -23,7 +23,9 @@ internal object LicenseToken {
         val kid: Int,
         val v: Int,
         val licensee: String? = null,
-        val issued: Long? = null,
+        // ISO date string, e.g. "2026-08-20" — the wire format the generator and the docs
+        // define (how-the-local-licence-works.md). Support metadata only, never validated.
+        val issued: String? = null,
     ) {
         fun covers(bundleID: String): Boolean = primary == bundleID || bundleID in also
     }
