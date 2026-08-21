@@ -29,8 +29,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.toVersion(libs.versions.javaTarget.get())
-        targetCompatibility = JavaVersion.toVersion(libs.versions.javaTarget.get())
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.javaBytecode.get())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.javaBytecode.get())
     }
 
     lint {
@@ -59,7 +59,7 @@ kotlin {
 
     jvmToolchain(libs.versions.javaTarget.get().toInt())
     compilerOptions {
-        jvmTarget.set(JvmTarget.fromTarget(libs.versions.javaTarget.get()))
+        jvmTarget.set(JvmTarget.fromTarget(libs.versions.javaBytecode.get()))
         allWarningsAsErrors.set(true)
     }
 }

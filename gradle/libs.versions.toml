@@ -10,6 +10,14 @@ agp = "8.11.0"
 kotlin = "2.1.20"
 ksp = "2.1.20-2.0.1"
 javaTarget = "17"
+# Bytecode target for the published library modules. 11, not 17, deliberately: at
+# jvmTarget 17+ Kotlin writes the `PermittedSubclasses` class-file attribute for sealed
+# types, and AGP's embedded javadoc generator (old Dokka/ASM) cannot read it —
+# `javaDocReleaseGeneration` then fails with "PermittedSubclasses requires ASM9"
+# (seen on JitPack against fieldtrack-geo's sealed Verdict). Java 11 bytecode loads
+# unchanged on the Java 17 toolchain RN 0.81 hosts use; only this attribute is dropped,
+# and Kotlin's own sealed enforcement lives in its metadata, not the attribute.
+javaBytecode = "11"
 compileSdk = "36"
 minSdk = "26"
 targetSdk = "36"

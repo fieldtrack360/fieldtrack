@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 1,
-    "identityHash": "f034cd7767539199ed40b12fc5a4ae1d",
+    "version": 7,
+    "identityHash": "47487e5b6b44f25373f65980ca80523f",
     "entities": [
       {
         "tableName": "track_session",
@@ -62,7 +62,7 @@
       },
       {
         "tableName": "track_point",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uuid` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `localDate` TEXT NOT NULL, `timezone` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `altitude` REAL, `speedMps` REAL NOT NULL, `bearingDeg` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `provider` TEXT NOT NULL, `isMock` INTEGER NOT NULL, `movementStatus` TEXT NOT NULL, `detectedActivity` TEXT, `activityStartTimeMs` INTEGER NOT NULL, `odometerMeters` REAL NOT NULL, `batteryPct` INTEGER, `isCharging` INTEGER, `extras` TEXT, `acceptReason` TEXT NOT NULL, `syncState` INTEGER NOT NULL, `syncTimeMs` INTEGER NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `track_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uuid` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `localDate` TEXT NOT NULL, `timezone` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `altitude` REAL, `speedMps` REAL NOT NULL, `bearingDeg` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `provider` TEXT NOT NULL, `isMock` INTEGER NOT NULL, `movementStatus` TEXT NOT NULL, `detectedActivity` TEXT, `activityStartTimeMs` INTEGER NOT NULL, `odometerMeters` REAL NOT NULL, `batteryPct` INTEGER, `isCharging` INTEGER, `extras` TEXT, `integrityFlags` INTEGER NOT NULL, `acceptReason` TEXT NOT NULL, `syncState` INTEGER NOT NULL, `syncTimeMs` INTEGER NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `track_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -204,6 +204,12 @@
             "affinity": "TEXT"
           },
           {
+            "fieldPath": "integrityFlags",
+            "columnName": "integrityFlags",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "acceptReason",
             "columnName": "acceptReason",
             "affinity": "TEXT",
@@ -283,7 +289,7 @@
       },
       {
         "tableName": "raw_fix",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `speedMps` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `provider` TEXT NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `speedMps` REAL NOT NULL, `bearingDeg` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `provider` TEXT NOT NULL, `speedAccuracyMps` REAL, `bearingAccuracyDeg` REAL, `integrityFlags` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -334,6 +340,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "bearingDeg",
+            "columnName": "bearingDeg",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
             "fieldPath": "hasSpeed",
             "columnName": "hasSpeed",
             "affinity": "INTEGER",
@@ -349,6 +361,22 @@
             "fieldPath": "provider",
             "columnName": "provider",
             "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "speedAccuracyMps",
+            "columnName": "speedAccuracyMps",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "bearingAccuracyDeg",
+            "columnName": "bearingAccuracyDeg",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "integrityFlags",
+            "columnName": "integrityFlags",
+            "affinity": "INTEGER",
             "notNull": true
           }
         ],
@@ -372,7 +400,7 @@
       },
       {
         "tableName": "fix_decision",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `verdict` TEXT NOT NULL, `reason` TEXT NOT NULL, `filterLat` REAL NOT NULL, `filterLng` REAL NOT NULL, `sigma` REAL NOT NULL, `threshold` REAL NOT NULL, `distanceMovedM` REAL NOT NULL, `effectiveSpeedMps` REAL NOT NULL, `motionState` TEXT NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `bearingDeg` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `verdict` TEXT NOT NULL, `reason` TEXT NOT NULL, `filterLat` REAL NOT NULL, `filterLng` REAL NOT NULL, `sigma` REAL NOT NULL, `threshold` REAL NOT NULL, `distanceMovedM` REAL NOT NULL, `effectiveSpeedMps` REAL NOT NULL, `motionState` TEXT NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -413,6 +441,12 @@
           {
             "fieldPath": "accuracy",
             "columnName": "accuracy",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bearingDeg",
+            "columnName": "bearingDeg",
             "affinity": "REAL",
             "notNull": true
           },
@@ -564,7 +598,7 @@
       },
       {
         "tableName": "filter_state",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `lat` REAL NOT NULL, `lng` REAL NOT NULL, `variance` REAL NOT NULL, `elapsedNanos` INTEGER NOT NULL, `lastHwVehicularNanos` INTEGER NOT NULL, `consecutiveRejectCount` INTEGER NOT NULL, `originLat` REAL, `originLng` REAL, `departCount` INTEGER NOT NULL, `prevNetMeters` REAL NOT NULL, `movingMode` INTEGER NOT NULL, `settleCount` INTEGER NOT NULL, `recoveryLat` REAL, `recoveryLng` REAL, `lastFixElapsedNanos` INTEGER NOT NULL, `motionState` TEXT NOT NULL, `stopPendingSinceNanos` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `lat` REAL NOT NULL, `lng` REAL NOT NULL, `variance` REAL NOT NULL, `elapsedNanos` INTEGER NOT NULL, `lastHwVehicularNanos` INTEGER NOT NULL, `consecutiveRejectCount` INTEGER NOT NULL, `originLat` REAL, `originLng` REAL, `departCount` INTEGER NOT NULL, `prevNetMeters` REAL NOT NULL, `movingMode` INTEGER NOT NULL, `settleCount` INTEGER NOT NULL, `recoveryLat` REAL, `recoveryLng` REAL, `lastFixElapsedNanos` INTEGER NOT NULL, `motionState` TEXT NOT NULL, `stopPendingSinceNanos` INTEGER NOT NULL, `lastCapturedBearingDeg` REAL NOT NULL, `velocityNorthMps` REAL NOT NULL, `velocityEastMps` REAL NOT NULL, `covPosVel` REAL NOT NULL, `varianceVel` REAL NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -669,6 +703,36 @@
             "columnName": "stopPendingSinceNanos",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "lastCapturedBearingDeg",
+            "columnName": "lastCapturedBearingDeg",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocityNorthMps",
+            "columnName": "velocityNorthMps",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "velocityEastMps",
+            "columnName": "velocityEastMps",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "covPosVel",
+            "columnName": "covPosVel",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "varianceVel",
+            "columnName": "varianceVel",
+            "affinity": "REAL",
+            "notNull": true
           }
         ],
         "primaryKey": {
@@ -677,11 +741,223 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "raw_points",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `uuid` TEXT NOT NULL, `sessionId` TEXT NOT NULL, `timeMs` INTEGER NOT NULL, `elapsedRealtimeNanos` INTEGER NOT NULL, `localDate` TEXT NOT NULL, `timezone` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `accuracy` REAL NOT NULL, `altitude` REAL, `speedMps` REAL NOT NULL, `bearingDeg` REAL NOT NULL, `hasSpeed` INTEGER NOT NULL, `hasBearing` INTEGER NOT NULL, `provider` TEXT NOT NULL, `isMock` INTEGER NOT NULL, `movementStatus` TEXT NOT NULL, `detectedActivity` TEXT, `activityStartTimeMs` INTEGER NOT NULL, `odometerMeters` REAL NOT NULL, `batteryPct` INTEGER, `isCharging` INTEGER, `extras` TEXT, `integrityFlags` INTEGER NOT NULL, `verdict` TEXT NOT NULL, `reason` TEXT NOT NULL, FOREIGN KEY(`sessionId`) REFERENCES `track_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "uuid",
+            "columnName": "uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sessionId",
+            "columnName": "sessionId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timeMs",
+            "columnName": "timeMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "elapsedRealtimeNanos",
+            "columnName": "elapsedRealtimeNanos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localDate",
+            "columnName": "localDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timezone",
+            "columnName": "timezone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "accuracy",
+            "columnName": "accuracy",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "altitude",
+            "columnName": "altitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "speedMps",
+            "columnName": "speedMps",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bearingDeg",
+            "columnName": "bearingDeg",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasSpeed",
+            "columnName": "hasSpeed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hasBearing",
+            "columnName": "hasBearing",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provider",
+            "columnName": "provider",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isMock",
+            "columnName": "isMock",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "movementStatus",
+            "columnName": "movementStatus",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "detectedActivity",
+            "columnName": "detectedActivity",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "activityStartTimeMs",
+            "columnName": "activityStartTimeMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "odometerMeters",
+            "columnName": "odometerMeters",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "batteryPct",
+            "columnName": "batteryPct",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isCharging",
+            "columnName": "isCharging",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "extras",
+            "columnName": "extras",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "integrityFlags",
+            "columnName": "integrityFlags",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "verdict",
+            "columnName": "verdict",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "reason",
+            "columnName": "reason",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_raw_points_sessionId_timeMs",
+            "unique": false,
+            "columnNames": [
+              "sessionId",
+              "timeMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_raw_points_sessionId_timeMs` ON `${TABLE_NAME}` (`sessionId`, `timeMs`)"
+          },
+          {
+            "name": "index_raw_points_timeMs",
+            "unique": false,
+            "columnNames": [
+              "timeMs"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_raw_points_timeMs` ON `${TABLE_NAME}` (`timeMs`)"
+          },
+          {
+            "name": "index_raw_points_uuid",
+            "unique": true,
+            "columnNames": [
+              "uuid"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_raw_points_uuid` ON `${TABLE_NAME}` (`uuid`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "track_session",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "sessionId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f034cd7767539199ed40b12fc5a4ae1d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '47487e5b6b44f25373f65980ca80523f')"
     ]
   }
 }
